@@ -130,7 +130,7 @@ function Invitees() {
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">Invitee Management</h1>
+            <h1 className="text-4xl font-bold text-gray-900 mb-2">Invite Management</h1>
             <p className="text-gray-600 text-lg">Send invitations and manage upcoming visits</p>
           </div>
           <button 

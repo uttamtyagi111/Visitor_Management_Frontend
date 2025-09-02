@@ -85,7 +85,7 @@ function Sidebar() {
               className={`flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 group ${
                 active
                   ? 'bg-gradient-to-r from-blue-600/20 to-purple-600/20 text-blue-400 border border-blue-500/30'
-                  : 'text-gray-400 hover:text-white hover:bg-white/5'
+                  : 'text-gray-400 hover:text-black hover:bg-black'
               }`}
             >
               <Icon className={`w-5 h-5 ${active ? 'text-blue-400' : 'group-hover:text-white'}`} />

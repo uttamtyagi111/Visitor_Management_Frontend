@@ -9,7 +9,7 @@ import './index.css';
 
 function ProtectedRoute({ children }) {
   const { isAuthenticated } = useAuth();
-  return isAuthenticated ? children : <Navigate to="/login" />;
+  return isAuthenticated ? <>{children}</> : <Navigate to="/login" />;
 }
 
 function App() {
@@ -21,11 +21,14 @@ function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/password-reset" element={<PasswordReset />} />
             <Route path="/password-verify" element={<PasswordVerify />} />
-            <Route path="/dashboard/*" element={
-              <ProtectedRoute>
-                <Dashboard />
-              </ProtectedRoute>
-            } />
+            <Route
+              path="/dashboard/*"
+              element={
+                <ProtectedRoute>
+                  <Dashboard />
+                </ProtectedRoute>
+              }
+            />
             <Route path="/" element={<Navigate to="/dashboard" />} />
           </Routes>
         </div>
