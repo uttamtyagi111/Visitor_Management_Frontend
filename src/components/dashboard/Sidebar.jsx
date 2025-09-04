@@ -1,18 +1,19 @@
-import React, { useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  BarChart3, 
-  Users, 
-  UserPlus, 
-  Settings, 
-  Menu, 
+import React, { useState } from "react";
+import { Link, useLocation } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  BarChart3,
+  Users,
+  UserPlus,
+  Settings,
+  Menu,
   X,
   LogOut,
   User,
-  Shield
-} from 'lucide-react';
-import { useAuth } from '../../contexts/AuthContext';
+  Shield,
+} from "lucide-react";
+// import { TbReportSearch } from "react-icons/tb";
+import { useAuth } from "../../contexts/AuthContext";
 
 function Sidebar() {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -20,15 +21,19 @@ function Sidebar() {
   const { user, logout } = useAuth();
 
   const navigation = [
-    { name: 'Dashboard', href: '/dashboard', icon: BarChart3 },
-    { name: 'Visitors', href: '/dashboard/visitors', icon: Users },
-    { name: 'Invitees', href: '/dashboard/invitees', icon: UserPlus },
-    { name: 'Settings', href: '/dashboard/settings', icon: Settings },
+    { name: "Dashboard", href: "/dashboard", icon: BarChart3 },
+    { name: "Visitors", href: "/dashboard/visitors", icon: Users },
+    { name: "Invitees", href: "/dashboard/invitees", icon: UserPlus },
+    { name: "Reports", href: "/dashboard/reports", icon: UserPlus },
+    { name: "Settings", href: "/dashboard/settings", icon: Settings },
   ];
 
   const isActive = (href) => {
-    if (href === '/dashboard') {
-      return location.pathname === '/dashboard' || location.pathname === '/dashboard/';
+    if (href === "/dashboard") {
+      return (
+        location.pathname === "/dashboard" ||
+        location.pathname === "/dashboard/"
+      );
     }
     return location.pathname.startsWith(href);
   };
@@ -38,7 +43,7 @@ function Sidebar() {
       initial={false}
       animate={{ width: isCollapsed ? 80 : 280 }}
       transition={{ duration: 0.3, ease: "easeInOut" }}
-      className="bg-white/10 backdrop-blur-lg border-r border-white/20 flex flex-col"
+      className="bg-black/20 backdrop-blur-lg border-r border-white/20 flex flex-col "
     >
       {/* Header */}
       <div className="p-6 border-b border-white/10">
@@ -52,22 +57,31 @@ function Sidebar() {
                 transition={{ duration: 0.2 }}
                 className="flex items-center space-x-3"
               >
-                <div className="w-10 h-10 bg-gradient-to-r from-blue-600 to-purple-600 rounded-xl flex items-center justify-center">
-                  <Shield className="w-6 h-6 text-white" />
+                <div className="w-12 h-12 border-2 border-black-500 rounded-xl flex items-center justify-center overflow-hidden bg-white">
+                  <img
+                    src="https://visitorsmanagement.s3.ap-southeast-2.amazonaws.com/assests/image+2100.png"
+                    alt="Techserve Logo"
+                    className="w-10 h-10 object-contain"
+                  />
                 </div>
+
                 <div>
-                  <h1 className="text-white font-bold text-lg">VisitorPro</h1>
-                  <p className="text-gray-400 text-xs">Management System</p>
+                  <h1 className="text-black font-bold text-lg">Visitor</h1>
+                  <p className="text-black-400 text-xs">Management System</p>
                 </div>
               </motion.div>
             )}
           </AnimatePresence>
-          
+
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white transition-all duration-200"
+            className="p-2 rounded-lg bg-white/5 hover:bg-white/10 text-black-400 hover:text-white transition-all duration-200"
           >
-            {isCollapsed ? <Menu className="w-5 h-5" /> : <X className="w-5 h-5" />}
+            {isCollapsed ? (
+              <Menu className="w-5 h-5" />
+            ) : (
+              <X className="w-5 h-5" />
+            )}
           </button>
         </div>
       </div>
@@ -77,18 +91,22 @@ function Sidebar() {
         {navigation.map((item) => {
           const Icon = item.icon;
           const active = isActive(item.href);
-          
+
           return (
             <Link
               key={item.name}
               to={item.href}
               className={`flex items-center space-x-3 px-4 py-3 rounded-xl transition-all duration-200 group ${
                 active
-                  ? 'bg-gradient-to-r from-blue-600/20 to-purple-600/20 text-blue-400 border border-blue-500/30'
-                  : 'text-gray-400 hover:text-black hover:bg-black'
+                  ? "bg-gradient-to-r from-blue-600/20 to-purple-600/20 text-blue-400 border border-blue-500/30"
+                  : "text-grey-400 hover:text-black hover:bg-black"
               }`}
             >
-              <Icon className={`w-5 h-5 ${active ? 'text-blue-400' : 'group-hover:text-white'}`} />
+              <Icon
+                className={`w-5 h-5 ${
+                  active ? "text-blue-400" : "group-hover:text-white"
+                }`}
+              />
               <AnimatePresence mode="wait">
                 {!isCollapsed && (
                   <motion.span
@@ -96,7 +114,9 @@ function Sidebar() {
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: -10 }}
                     transition={{ duration: 0.2 }}
-                    className={`font-medium ${active ? 'text-blue-400' : 'group-hover:text-white'}`}
+                    className={`font-medium ${
+                      active ? "text-blue-400" : "group-hover:text-white"
+                    }`}
                   >
                     {item.name}
                   </motion.span>
@@ -108,14 +128,22 @@ function Sidebar() {
       </nav>
 
       {/* Profile & Logout */}
-      <div className="p-4 border-t border-white/10 space-y-2">
+      <div className="p-4 border-t border-black/10 space-y-2">
         {/* Profile */}
-        <div className={`flex items-center space-x-3 px-4 py-3 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-all duration-200 cursor-pointer ${isCollapsed ? 'justify-center' : ''}`}>
+        <div
+          className={`flex items-center space-x-3 px-4 py-3 rounded-xl text-black-400 hover:text-blue hover:bg-blue/5 transition-all duration-200 cursor-pointer ${
+            isCollapsed ? "justify-center" : ""
+          }`}
+        >
           <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-500 flex items-center justify-center">
             {user?.avatar ? (
-              <img src={user.avatar} alt="Profile" className="w-8 h-8 rounded-full object-cover" />
+              <img
+                src={user.avatar}
+                alt="Profile"
+                className="w-8 h-8 rounded-full object-cover"
+              />
             ) : (
-              <User className="w-4 h-4 text-white" />
+              <User className="w-4 h-4 text-black" />
             )}
           </div>
           <AnimatePresence mode="wait">
@@ -126,8 +154,8 @@ function Sidebar() {
                 exit={{ opacity: 0, x: -10 }}
                 transition={{ duration: 0.2 }}
               >
-                <p className="font-medium text-white">{user?.name}</p>
-                <p className="text-xs text-gray-400">{user?.email}</p>
+                <p className="font-medium text-black">{user?.name}</p>
+                <p className="text-xs text-black-200">{user?.email}</p>
               </motion.div>
             )}
           </AnimatePresence>
@@ -136,7 +164,9 @@ function Sidebar() {
         {/* Logout */}
         <button
           onClick={logout}
-          className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all duration-200 ${isCollapsed ? 'justify-center' : ''}`}
+          className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-all duration-200 ${
+            isCollapsed ? "justify-center" : ""
+          }`}
         >
           <LogOut className="w-5 h-5" />
           <AnimatePresence mode="wait">

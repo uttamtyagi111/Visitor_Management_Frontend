@@ -4,6 +4,7 @@ import Sidebar from './Sidebar';
 import DashboardHome from './DashboardHome';
 import Visitors from './Visitors';
 import Invitees from './Invitees';
+import Reports from './Reports';
 import Settings from './Settings';
 
 function Dashboard() {
@@ -15,6 +16,7 @@ function Dashboard() {
           <Route path="/" element={<DashboardHome />} />
           <Route path="/visitors" element={<Visitors />} />
           <Route path="/invitees" element={<Invitees />} />
+          <Route path="/reports" element={<Reports />} />
           <Route path="/settings/*" element={<Settings />} />
         </Routes>
       </main>
