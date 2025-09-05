@@ -97,7 +97,7 @@ class InviteeAPI {
     return await this.makeRequest('/invites/verify/', {
       method: 'POST',
       body: JSON.stringify({ invite_code: inviteCode }),
-      headers: {} // No auth headers for public access
+      // headers: {} // No auth headers for public access
     });
   }
 
@@ -123,22 +123,25 @@ export const inviteeHelpers = {
   // Status options that match your Django choices
   statusOptions: [
     { value: 'pending', label: 'Pending' },
+    // { value: 'sent', label: 'Sent' },
+    // { value: 'confirmed', label: 'Confirmed' },
     { value: 'approved', label: 'Approved' },
     { value: 'rejected', label: 'Rejected' },
-    { value: 'confirmed', label: 'Confirmed' },
-    { value: 'sent', label: 'Sent' },
-    { value: 'cancelled', label: 'Cancelled' },
+    { value: 'checked_in', label: 'Checked In' },
+    { value: 'checked_out', label: 'Checked Out' },
+    { value: 'expired', label: 'Expired' },
+    // { value: 'cancelled', label: 'Cancelled' },
   ],
 
   // Get status color classes
   getStatusColor: (status) => {
     const colors = {
       'pending': 'bg-yellow-100 text-yellow-800 border-yellow-200',
-      'approved': 'bg-green-100 text-green-800 border-green-200',
+      'expired': 'bg-red-100 text-red-800 border-red-200',
       'confirmed': 'bg-green-100 text-green-800 border-green-200',
-      'sent': 'bg-blue-100 text-blue-800 border-blue-200',
+      'checked_in': 'bg-blue-100 text-blue-800 border-blue-200',
       'rejected': 'bg-red-100 text-red-800 border-red-200',
-      'cancelled': 'bg-gray-100 text-gray-800 border-gray-200',
+      'checked_out': 'bg-gray-100 text-gray-800 border-gray-200',
     };
     return colors[status] || 'bg-gray-100 text-gray-800 border-gray-200';
   },
@@ -181,8 +184,8 @@ export const inviteeHelpers = {
 
   // Validate UUID format for invite codes
   validateInviteCode: (code) => {
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    return uuidRegex.test(code);
+    const shortCodeRegex = /^[a-f0-9]{6}$/i;
+    return shortCodeRegex.test(code);
   },
 
   // Check if invite is expired

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Search, 
@@ -20,50 +20,12 @@ import {
   Download,
   Check,
   ChevronRight,
-  Upload
+  Upload,
+  AlertCircle
 } from 'lucide-react';
 
-const mockInvitees = [
-  {
-    id: '1',
-    name: 'Jennifer Adams',
-    email: 'jennifer@company.com',
-    company: 'Tech Solutions',
-    purpose: 'Product Demo',
-    host: 'Sarah Johnson',
-    visitDate: '2025-01-16',
-    visitTime: '10:00 AM',
-    status: 'pending',
-    phone: '+1 (555) 111-2222',
-    notes: 'VIP client, prepare conference room A'
-  },
-  {
-    id: '2',
-    name: 'Robert Williams',
-    email: 'robert@startup.io',
-    company: 'Innovation Hub',
-    purpose: 'Partnership Meeting',
-    host: 'Mike Wilson',
-    visitDate: '2025-01-17',
-    visitTime: '02:30 PM',
-    status: 'confirmed',
-    phone: '+1 (555) 333-4444',
-    notes: 'Bringing team of 3 members'
-  },
-  {
-    id: '3',
-    name: 'Lisa Rodriguez',
-    email: 'lisa@design.co',
-    company: 'Creative Agency',
-    purpose: 'Design Review',
-    host: 'Emily Davis',
-    visitDate: '2025-01-18',
-    visitTime: '11:15 AM',
-    status: 'sent',
-    phone: '+1 (555) 555-6666',
-    notes: 'Portfolio presentation scheduled'
-  },
-];
+// Import the API service
+import inviteeAPI, { inviteeHelpers } from '../../api/invite.js';
 
 function Invitees() {
   const [searchTerm, setSearchTerm] = useState('');
@@ -73,18 +35,20 @@ function Invitees() {
   const [currentStep, setCurrentStep] = useState(1);
   const [inviteCode, setInviteCode] = useState('');
   const [capturedImage, setCapturedImage] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [invites, setInvites] = useState([]);
   const fileInputRef = useRef(null);
   
   const [inviteFormData, setInviteFormData] = useState({
-    name: '',
-    email: '',
-    company: '',
+    visitor_name: '',
+    visitor_email: '',
+    visitor_phone: '',
+    invited_by: '',
     purpose: '',
-    host: '',
-    visitDate: '',
-    visitTime: '',
-    phone: '',
-    notes: ''
+    visit_time: '',
+    expiry_time: ''
   });
 
   const steps = [
@@ -94,67 +58,219 @@ function Invitees() {
     { id: 4, title: 'Preview Pass', icon: User }
   ];
 
-  const filteredInvitees = mockInvitees.filter(invitee => {
-    const matchesSearch = invitee.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         invitee.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         invitee.company.toLowerCase().includes(searchTerm.toLowerCase());
+  // Load invites on component mount
+  useEffect(() => {
+    loadInvites();
+  }, []);
+
+  const loadInvites = async () => {
+    try {
+      setLoading(true);
+      const data = await inviteeAPI.getInvites();
+      setInvites(data);
+    } catch (error) {
+      setError(inviteeHelpers.handleApiError(error));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredInvitees = invites.filter(invite => {
+    const matchesSearch = invite.visitor_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         invite.visitor_email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         invite.purpose?.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesStatus = statusFilter === 'all' || invitee.status === statusFilter;
+    const matchesStatus = statusFilter === 'all' || invite.status === statusFilter;
     
     return matchesSearch && matchesStatus;
   });
 
-  const handleSubmitInvite = (e) => {
+  const handleSubmitInvite = async (e) => {
     e.preventDefault();
-    console.log('Sending invite:', inviteFormData);
-    setShowInviteForm(false);
-    resetForm();
+    setLoading(true);
+    setError('');
+
+    try {
+      // Validate required fields
+      if (!inviteFormData.visitor_name || !inviteFormData.visitor_email || !inviteFormData.purpose) {
+        throw new Error('Please fill in all required fields');
+      }
+
+      // Validate email format
+      if (!inviteeHelpers.validateEmail(inviteFormData.visitor_email)) {
+        throw new Error('Please enter a valid email address');
+      }
+
+      // Validate phone if provided
+      if (inviteFormData.visitor_phone && !inviteeHelpers.validatePhone(inviteFormData.visitor_phone)) {
+        throw new Error('Please enter a valid phone number');
+      }
+
+      const response = await inviteeAPI.createInvite(inviteFormData);
+      setSuccess('Invitation sent successfully!');
+      setShowInviteForm(false);
+      resetForm();
+      loadInvites(); // Reload the list
+    } catch (error) {
+      setError(inviteeHelpers.handleApiError(error));
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleInviteCodeSubmit = () => {
-    // Mock: Fetch invite details based on code
-    const mockInviteData = {
-      name: 'John Doe',
-      email: 'john@example.com',
-      company: 'Example Corp',
-      purpose: 'Business Meeting',
-      host: 'Jane Smith',
-      visitDate: '2025-01-20',
-      visitTime: '10:00',
-      phone: '+1 (555) 123-4567',
-      notes: 'Important client meeting'
-    };
-    
-    setInviteFormData(mockInviteData);
-    setCurrentStep(2);
+  const handleInviteCodeSubmit = async () => {
+    setLoading(true);
+    setError('');
+
+    try {
+      if (!inviteCode.trim()) {
+        throw new Error('Please enter an invite code');
+      }
+
+      const inviteData = await inviteeAPI.verifyInvite(inviteCode);
+      
+      // Map API response to form data
+      setInviteFormData({
+        visitor_name: inviteData.visitor_name || '',
+        visitor_email: inviteData.visitor_email || '',
+        visitor_phone: inviteData.visitor_phone || '',
+        purpose: inviteData.purpose || '',
+        invited_by: inviteData.invited_by || '',
+        visit_time: inviteData.visit_time || '',
+        expiry_time: inviteData.expiry_time || ''
+      });
+      
+      setCurrentStep(2);
+    } catch (error) {
+      setError(inviteeHelpers.handleApiError(error));
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleImageCapture = (e) => {
     const file = e.target.files[0];
     if (file) {
+      // Validate file size (5MB limit)
+      if (file.size > 5 * 1024 * 1024) {
+        setError('Image must be less than 5MB');
+        return;
+      }
+
+      // Validate file type
+      if (!file.type.startsWith('image/')) {
+        setError('Please select a valid image file');
+        return;
+      }
+
       const reader = new FileReader();
       reader.onload = (e) => {
-        setCapturedImage(e.target.result);
+        setCapturedImage({
+          file: file,
+          preview: e.target.result
+        });
+        setError('');
       };
       reader.readAsDataURL(file);
     }
   };
 
+  const handleCaptureVisitorData = async () => {
+    if (!capturedImage) {
+      setError('Please capture or upload an image first');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+
+    try {
+      // First, capture the visitor data (image upload)
+      await inviteeAPI.captureVisitorData(inviteCode, capturedImage.file);
+      
+      // Then, update the status to 'checked_in' using PATCH
+      const inviteData = invites.find(invite => invite.invite_code === inviteCode);
+      if (inviteData && inviteData.id) {
+        await inviteeAPI.updateInviteStatus(inviteData.id, 'checked_in');
+      } else {
+        throw new Error('Unable to find invite ID for status update');
+      }
+
+      setSuccess('Visitor pass created successfully!');
+      setCurrentStep(4);
+      loadInvites(); // Reload the invites to reflect the status change and flag
+    } catch (error) {
+      setError(inviteeHelpers.handleApiError(error));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePrintPass = () => {
+    const passElement = document.getElementById('visitor-pass');
+    if (passElement) {
+      const printWindow = window.open('', '_blank');
+      printWindow.document.write('<html><head><title>Visitor Pass</title>');
+      printWindow.document.write('<style>');
+      // Add necessary styles for printing
+      printWindow.document.write(`
+        body { font-family: sans-serif; }
+        .pass-container { width: 300px; padding: 20px; background: linear-gradient(to bottom right, #2563eb, #7c3aed); color: white; border-radius: 16px; }
+        .qr-container { background: white; border-radius: 8px; padding: 8px; }
+      `);
+      printWindow.document.write('</style></head><body>');
+      printWindow.document.write(passElement.outerHTML);
+      printWindow.document.write('</body></html>');
+      printWindow.document.close();
+      printWindow.print();
+    }
+  };
+
+  const handleDeleteInvite = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this invitation?')) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      await inviteeAPI.deleteInvite(id);
+      setSuccess('Invitation deleted successfully');
+      loadInvites();
+    } catch (error) {
+      setError(inviteeHelpers.handleApiError(error));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleStatusUpdate = async (id, newStatus) => {
+    try {
+      setLoading(true);
+      await inviteeAPI.updateInviteStatus(id, newStatus);
+      setSuccess('Status updated successfully');
+      loadInvites();
+    } catch (error) {
+      setError(inviteeHelpers.handleApiError(error));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const resetForm = () => {
     setInviteFormData({
-      name: '',
-      email: '',
-      company: '',
+      visitor_name: '',
+      visitor_email: '',
+      visitor_phone: '',
+      invited_by: '',
       purpose: '',
-      host: '',
-      visitDate: '',
-      visitTime: '',
-      phone: '',
-      notes: ''
+      visit_time: '',
+      expiry_time: ''
     });
     setInviteCode('');
     setCapturedImage(null);
     setCurrentStep(1);
+    setError('');
+    setSuccess('');
   };
 
   const closeModal = () => {
@@ -163,18 +279,20 @@ function Invitees() {
   };
 
   const getStatusBadge = (status) => {
-    const styles = {
-      'pending': 'bg-yellow-100 text-yellow-800 border-yellow-200',
-      'confirmed': 'bg-green-100 text-green-800 border-green-200',
-      'sent': 'bg-blue-100 text-blue-800 border-blue-200',
-      'cancelled': 'bg-red-100 text-red-800 border-red-200'
-    };
-
+    const colorClass = inviteeHelpers.getStatusColor(status);
     return (
-      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${styles[status]}`}>
+      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${colorClass}`}>
         {status.charAt(0).toUpperCase() + status.slice(1)}
       </span>
     );
+  };
+
+  // Helper function
+  const formatDateTimeLocal = (datetimeString) => {
+    if (!datetimeString) return "";
+    const date = new Date(datetimeString);
+    // Return in YYYY-MM-DDTHH:mm format
+    return date.toISOString().slice(0, 16);
   };
 
   const renderStepContent = () => {
@@ -188,22 +306,28 @@ function Invitees() {
             <h3 className="text-2xl font-bold text-gray-900 mb-4">Enter Invite Code</h3>
             <p className="text-gray-600 mb-8">Enter the invitation code to proceed with the visitor pass creation</p>
             
+            {error && (
+              <div className="mb-4 p-3 bg-red-100 border border-red-200 text-red-700 rounded-lg flex items-center space-x-2">
+                <AlertCircle className="w-4 h-4" />
+                <span className="text-sm">{error}</span>
+              </div>
+            )}
+            
             <div className="max-w-md mx-auto">
               <input
                 type="text"
                 value={inviteCode}
-                onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                onChange={(e) => setInviteCode(e.target.value)}
                 className="w-full px-6 py-4 text-center text-2xl font-mono bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 tracking-wider"
                 placeholder="ENTER-CODE"
-                maxLength={12}
               />
               
               <button
                 onClick={handleInviteCodeSubmit}
-                disabled={!inviteCode.trim()}
+                disabled={!inviteCode.trim() || loading}
                 className="w-full mt-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Verify Code
+                {loading ? 'Verifying...' : 'Verify Code'}
               </button>
             </div>
           </div>
@@ -214,32 +338,56 @@ function Invitees() {
           <div className="py-6">
             <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">Edit Visitor Details</h3>
             
+            {error && (
+              <div className="mb-4 p-3 bg-red-100 border border-red-200 text-red-700 rounded-lg flex items-center space-x-2">
+                <AlertCircle className="w-4 h-4" />
+                <span className="text-sm">{error}</span>
+              </div>
+            )}
+            
             <form className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Full Name *</label>
                   <div className="relative">
                     <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                     <input
                       type="text"
-                      value={inviteFormData.name}
-                      onChange={(e) => setInviteFormData({...inviteFormData, name: e.target.value})}
+                      value={inviteFormData.visitor_name}
+                      onChange={(e) => setInviteFormData({...inviteFormData, visitor_name: e.target.value})}
                       className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                       placeholder="Enter full name"
+                      required
                     />
                   </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Invited By *</label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      type="text"
+                      value={inviteFormData.invited_by}
+                      onChange={(e) => setInviteFormData({...inviteFormData, invited_by: e.target.value})}
+                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                      placeholder="Enter who invited the visitor"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Email Address *</label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                     <input
                       type="email"
-                      value={inviteFormData.email}
-                      onChange={(e) => setInviteFormData({...inviteFormData, email: e.target.value})}
+                      value={inviteFormData.visitor_email}
+                      onChange={(e) => setInviteFormData({...inviteFormData, visitor_email: e.target.value})}
                       className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                       placeholder="Enter email address"
+                      required
                     />
                   </div>
                 </div>
@@ -250,37 +398,10 @@ function Invitees() {
                     <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                     <input
                       type="tel"
-                      value={inviteFormData.phone}
-                      onChange={(e) => setInviteFormData({...inviteFormData, phone: e.target.value})}
+                      value={inviteFormData.visitor_phone}
+                      onChange={(e) => setInviteFormData({...inviteFormData, visitor_phone: e.target.value})}
                       className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                       placeholder="Enter phone number"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Company</label>
-                  <div className="relative">
-                    <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input
-                      type="text"
-                      value={inviteFormData.company}
-                      onChange={(e) => setInviteFormData({...inviteFormData, company: e.target.value})}
-                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                      placeholder="Enter company name"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Visit Date</label>
-                  <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input
-                      type="date"
-                      value={inviteFormData.visitDate}
-                      onChange={(e) => setInviteFormData({...inviteFormData, visitDate: e.target.value})}
-                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                     />
                   </div>
                 </div>
@@ -290,45 +411,36 @@ function Invitees() {
                   <div className="relative">
                     <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                     <input
-                      type="time"
-                      value={inviteFormData.visitTime}
-                      onChange={(e) => setInviteFormData({...inviteFormData, visitTime: e.target.value})}
+                      type="datetime-local"
+                      value={formatDateTimeLocal(inviteFormData.visit_time)}
+                      onChange={(e) => setInviteFormData({...inviteFormData, visit_time: e.target.value})}
                       className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                     />
                   </div>
                 </div>
+                <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Expiry Time</label>
+                <div className="relative">
+                  <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                  <input
+                    type="datetime-local"
+                    value={formatDateTimeLocal(inviteFormData.expiry_time) }
+                    onChange={(e) => setInviteFormData({...inviteFormData, expiry_time: e.target.value})}
+                    className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                  />
+                </div>
+              </div>
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Purpose of Visit</label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Purpose of Visit *</label>
                 <input
                   type="text"
                   value={inviteFormData.purpose}
                   onChange={(e) => setInviteFormData({...inviteFormData, purpose: e.target.value})}
                   className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                   placeholder="e.g., Business meeting, Interview, Product demo"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Host Name</label>
-                <input
-                  type="text"
-                  value={inviteFormData.host}
-                  onChange={(e) => setInviteFormData({...inviteFormData, host: e.target.value})}
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                  placeholder="Enter host name"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Additional Notes</label>
-                <textarea
-                  value={inviteFormData.notes}
-                  onChange={(e) => setInviteFormData({...inviteFormData, notes: e.target.value})}
-                  rows={3}
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                  placeholder="Any special instructions or notes..."
+                  required
                 />
               </div>
             </form>
@@ -344,11 +456,18 @@ function Invitees() {
             <h3 className="text-2xl font-bold text-gray-900 mb-4">Capture Photo</h3>
             <p className="text-gray-600 mb-8">Upload or capture a photo for the visitor pass</p>
 
+            {error && (
+              <div className="mb-4 p-3 bg-red-100 border border-red-200 text-red-700 rounded-lg flex items-center space-x-2 max-w-md mx-auto">
+                <AlertCircle className="w-4 h-4" />
+                <span className="text-sm">{error}</span>
+              </div>
+            )}
+
             <div className="max-w-md mx-auto">
               {capturedImage ? (
                 <div className="mb-6">
                   <img 
-                    src={capturedImage} 
+                    src={capturedImage.preview} 
                     alt="Captured" 
                     className="w-48 h-48 object-cover rounded-2xl mx-auto border-4 border-white shadow-lg"
                   />
@@ -377,6 +496,16 @@ function Invitees() {
                 onChange={handleImageCapture}
                 className="hidden"
               />
+
+              {capturedImage && (
+                <button
+                  onClick={handleCaptureVisitorData}
+                  disabled={loading}
+                  className="w-full mt-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loading ? 'Creating Pass...' : 'Create Pass'}
+                </button>
+              )}
             </div>
           </div>
         );
@@ -384,20 +513,27 @@ function Invitees() {
       case 4:
         return (
           <div className="py-6">
-            <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">Visitor Pass Preview</h3>
+            <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">Visitor Pass Created!</h3>
+            
+            {success && (
+              <div className="mb-6 p-3 bg-green-100 border border-green-200 text-green-700 rounded-lg flex items-center justify-center space-x-2">
+                <Check className="w-4 h-4" />
+                <span className="text-sm">{success}</span>
+              </div>
+            )}
             
             <div className="max-w-sm mx-auto">
               {/* Pass Design */}
-              <div className="bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl p-6 text-white shadow-2xl">
+              <div id="visitor-pass" className="bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl p-6 text-white shadow-2xl pass-container">
                 <div className="text-center mb-4">
                   <h4 className="text-lg font-bold">VISITOR PASS</h4>
-                  <p className="text-blue-100 text-sm">Company Name</p>
+                  <p className="text-blue-100 text-sm">Wish Geeks Techserve</p>
                 </div>
                 
                 <div className="flex items-center space-x-4 mb-4">
                   <div className="w-20 h-20 rounded-xl overflow-hidden bg-white/20">
                     {capturedImage ? (
-                      <img src={capturedImage} alt="Visitor" className="w-full h-full object-cover" />
+                      <img src={capturedImage.preview} alt="Visitor" className="w-full h-full object-cover" />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
                         <User className="w-8 h-8 text-white/60" />
@@ -405,45 +541,50 @@ function Invitees() {
                     )}
                   </div>
                   <div className="flex-1">
-                    <h5 className="font-bold text-lg">{inviteFormData.name}</h5>
-                    <p className="text-blue-100 text-sm">{inviteFormData.company}</p>
+                    <h5 className="font-bold text-lg">{inviteFormData.visitor_name}</h5>
+                    <p className="text-blue-100 text-sm">{inviteFormData.visitor_email}</p>
                   </div>
                 </div>
 
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-blue-100">Date:</span>
-                    <span>{inviteFormData.visitDate}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-blue-100">Time:</span>
-                    <span>{inviteFormData.visitTime}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-blue-100">Host:</span>
-                    <span>{inviteFormData.host}</span>
+                    <span className="text-blue-100">Visit Time:</span>
+                    <span>{inviteeHelpers.formatDateTime(inviteFormData.visit_time)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-blue-100">Purpose:</span>
                     <span className="text-right">{inviteFormData.purpose}</span>
                   </div>
+                  <div className="flex justify-between">
+                    <span className="text-blue-100">Invited By:</span>
+                    <span className="text-right">{inviteFormData.invited_by}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-blue-100">Code:</span>
+                    <span className="text-right font-mono text-xs">{inviteCode}</span>
+                  </div>
                 </div>
 
-                <div className="mt-4 pt-4 border-t border-white/20 text-center">
+                {/* <div className="mt-4 pt-4 border-t border-white/20 text-center qr-container">
                   <div className="w-16 h-16 bg-white rounded-lg mx-auto flex items-center justify-center">
                     <QrCode className="w-10 h-10 text-gray-800" />
                   </div>
                   <p className="text-xs text-blue-100 mt-2">Scan QR Code</p>
-                </div>
+                </div> */}
               </div>
 
               <div className="mt-6 space-y-3">
-                <button className="w-full py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200">
-                  Create Pass
+                <button 
+                  onClick={handlePrintPass}
+                  className="w-full py-3 bg-gradient-to-r from-green-600 to-blue-600 text-white font-medium rounded-xl hover:from-green-700 hover:to-blue-700 transition-all duration-200"
+                >
+                  Print Pass
                 </button>
-                <button className="w-full py-3 bg-gray-100 text-gray-700 font-medium rounded-xl hover:bg-gray-200 transition-colors flex items-center justify-center space-x-2">
-                  <Download className="w-4 h-4" />
-                  <span>Download Pass</span>
+                <button 
+                  onClick={closeModal}
+                  className="w-full py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200"
+                >
+                  Done
                 </button>
               </div>
             </div>
@@ -486,6 +627,41 @@ function Invitees() {
           </div>
         </div>
 
+        {/* Success/Error Messages */}
+        {success && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 p-4 bg-green-100 border border-green-200 text-green-700 rounded-lg flex items-center space-x-2"
+          >
+            <Check className="w-5 h-5" />
+            <span>{success}</span>
+            <button 
+              onClick={() => setSuccess('')}
+              className="ml-auto p-1 hover:bg-green-200 rounded"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </motion.div>
+        )}
+
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-6 p-4 bg-red-100 border border-red-200 text-red-700 rounded-lg flex items-center space-x-2"
+          >
+            <AlertCircle className="w-5 h-5" />
+            <span>{error}</span>
+            <button 
+              onClick={() => setError('')}
+              className="ml-auto p-1 hover:bg-red-200 rounded"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </motion.div>
+        )}
+
         {/* Filters */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
@@ -502,7 +678,7 @@ function Invitees() {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 bg-white/50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                  placeholder="Search invitees, companies, or emails..."
+                  placeholder="Search invitees, emails, or purpose..."
                 />
               </div>
             </div>
@@ -515,11 +691,9 @@ function Invitees() {
                 className="w-full pl-10 pr-4 py-3 bg-white/50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 appearance-none"
               >
                 <option value="all">All Status</option>
-                <option value="pending">Pending</option>
-                <option value="confirmed">Confirmed</option>
-                <option value="approved">Approved</option>
-                <option value="rejected">Rejected</option>
-                <option value="cancelled">Cancelled</option>
+                {inviteeHelpers.statusOptions.map(option => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
               </select>
             </div>
           </div>
@@ -533,7 +707,16 @@ function Invitees() {
           className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/50 overflow-hidden"
         >
           <div className="p-6 border-b border-gray-200">
-            <h3 className="text-xl font-bold text-gray-900">Invitations</h3>
+            <div className="flex items-center justify-between">
+              <h3 className="text-xl font-bold text-gray-900">Invitations</h3>
+              <button 
+                onClick={loadInvites}
+                disabled={loading}
+                className="px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50"
+              >
+                {loading ? 'Loading...' : 'Refresh'}
+              </button>
+            </div>
           </div>
 
           <div className="overflow-x-auto">
@@ -541,18 +724,20 @@ function Invitees() {
               <thead className="bg-gray-50/50">
                 <tr>
                   <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Invitee</th>
-                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Company</th>
-                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Visit Date</th>
                   <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Host</th>
+                  {/* <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Email</th> */}
+                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Invite_code</th>
+                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Purpose</th>
+                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Visit Time</th>
                   <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Status</th>
                   <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 <AnimatePresence>
-                  {filteredInvitees.map((invitee, index) => (
+                  {filteredInvitees.map((invite, index) => (
                     <motion.tr
-                      key={invitee.id}
+                      key={invite.id}
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -20 }}
@@ -561,31 +746,75 @@ function Invitees() {
                     >
                       <td className="px-6 py-4">
                         <div>
-                          <p className="font-bold text-gray-900">{invitee.name}</p>
-                          <p className="text-gray-600 text-sm">{invitee.email}</p>
+                          <p className="font-bold text-gray-900">{invite.visitor_name}</p>
+                          <p className="text-gray-600 text-sm">{invite.visitor_email}</p>
+                          {invite.visitor_phone && (
+                            <p className="text-gray-500 text-xs">{invite.visitor_phone}</p>
+                          )}
                         </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="font-medium text-gray-900">{invitee.company}</span>
                       </td>
                       <td className="px-6 py-4">
                         <div>
-                          <p className="font-medium text-gray-900">{invitee.visitDate}</p>
-                          <p className="text-gray-600 text-sm">{invitee.visitTime}</p>
+                          <p className="font-medium text-gray-900">{invite.invited_by}</p>
+                          {invite.created_at && (
+                            <p className="text-gray-600 text-sm">
+                              {inviteeHelpers.formatDateTime(invite.created_at)}
+                            </p>
+                          )}
+                          
+                        </div>
+                      </td>
+                      {/* <td className="px-6 py-4">
+                        <p className="font-medium text-gray-900">{invite.visitor_email}</p>
+                      </td> */}
+                      <td className="px-6 py-4">
+                        <div className="flex items-center space-x-2">
+                          <p className="font-medium text-gray-900">{invite.invite_code || 'N/A'}</p>
+                          {invite.status === 'checked_in' && (
+                            <div className="group relative">
+                              <Check className="w-4 h-4 text-green-600" />
+                              <span className="absolute left-0 bottom-full mb-2 hidden group-hover:block bg-gray-800 text-white text-xs rounded py-1 px-2">
+                                Pass Issued / Checked In
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="font-medium text-gray-900">{invitee.host}</span>
+                        <span className="font-medium text-gray-900">{invite.purpose}</span>
                       </td>
                       <td className="px-6 py-4">
-                        {getStatusBadge(invitee.status)}
+                        <p className="font-medium text-gray-900">
+                          {inviteeHelpers.formatDateTime(invite.visit_time)}
+                        </p>
+                        {invite.expiry_time && (
+                            <p className="text-gray-600 text-sm">
+                              Expires: {inviteeHelpers.formatDateTime(invite.expiry_time)}
+                            </p>
+                          )}
+                      </td>
+                      <td className="px-6 py-4">
+                        {getStatusBadge(invite.status)}
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center space-x-2">
-                          <button className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors">
-                            <Edit className="w-4 h-4" />
-                          </button>
-                          <button className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                          <select
+                            value={invite.status}
+                            onChange={(e) => handleStatusUpdate(invite.id, e.target.value)}
+                            className="px-2 py-1 text-sm border border-gray-200 rounded bg-white"
+                            disabled={loading}
+                          >
+                            {inviteeHelpers.statusOptions.map(option => (
+                              <option key={option.value} value={option.value}>
+                                {option.label}
+                              </option>
+                            ))}
+                          </select>
+                          <button 
+                            onClick={() => handleDeleteInvite(invite.id)}
+                            className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                            disabled={loading}
+                          >
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
@@ -597,12 +826,19 @@ function Invitees() {
             </table>
           </div>
 
-          {filteredInvitees.length === 0 && (
+          {filteredInvitees.length === 0 && !loading && (
             <div className="text-center py-12">
               <div className="text-gray-400 mb-4">
                 <Users className="w-12 h-12 mx-auto" />
               </div>
               <p className="text-gray-600">No invitees found matching your criteria</p>
+            </div>
+          )}
+
+          {loading && invites.length === 0 && (
+            <div className="text-center py-12">
+              <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-4"></div>
+              <p className="text-gray-600">Loading invitations...</p>
             </div>
           )}
         </motion.div>
@@ -633,16 +869,23 @@ function Invitees() {
                 </button>
               </div>
 
+              {error && (
+                <div className="mb-4 p-3 bg-red-100 border border-red-200 text-red-700 rounded-lg flex items-center space-x-2">
+                  <AlertCircle className="w-4 h-4" />
+                  <span className="text-sm">{error}</span>
+                </div>
+              )}
+
               <form onSubmit={handleSubmitInvite} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Full Name *</label>
                     <div className="relative">
                       <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                       <input
                         type="text"
-                        value={inviteFormData.name}
-                        onChange={(e) => setInviteFormData({...inviteFormData, name: e.target.value})}
+                        value={inviteFormData.visitor_name}
+                        onChange={(e) => setInviteFormData({...inviteFormData, visitor_name: e.target.value})}
                         className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                         placeholder="Enter full name"
                         required
@@ -651,15 +894,29 @@ function Invitees() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Email Address</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Email Address *</label>
                     <div className="relative">
                       <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                       <input
                         type="email"
-                        value={inviteFormData.email}
-                        onChange={(e) => setInviteFormData({...inviteFormData, email: e.target.value})}
+                        value={inviteFormData.visitor_email}
+                        onChange={(e) => setInviteFormData({...inviteFormData, visitor_email: e.target.value})}
                         className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                         placeholder="Enter email address"
+                        required
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Invited By *</label>
+                    <div className="relative">
+                      <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <input
+                        type="text"
+                        value={inviteFormData.invited_by}
+                        onChange={(e) => setInviteFormData({...inviteFormData, invited_by: e.target.value})}
+                        className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                        placeholder="Enter who invited the visitor"
                         required
                       />
                     </div>
@@ -671,39 +928,10 @@ function Invitees() {
                       <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                       <input
                         type="tel"
-                        value={inviteFormData.phone}
-                        onChange={(e) => setInviteFormData({...inviteFormData, phone: e.target.value})}
+                        value={inviteFormData.visitor_phone}
+                        onChange={(e) => setInviteFormData({...inviteFormData, visitor_phone: e.target.value})}
                         className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                         placeholder="Enter phone number"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Company</label>
-                    <div className="relative">
-                      <Building className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                      <input
-                        type="text"
-                        value={inviteFormData.company}
-                        onChange={(e) => setInviteFormData({...inviteFormData, company: e.target.value})}
-                        className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                        placeholder="Enter company name"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Visit Date</label>
-                    <div className="relative">
-                      <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                      <input
-                        type="date"
-                        value={inviteFormData.visitDate}
-                        onChange={(e) => setInviteFormData({...inviteFormData, visitDate: e.target.value})}
-                        className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                        required
                       />
                     </div>
                   </div>
@@ -713,18 +941,29 @@ function Invitees() {
                     <div className="relative">
                       <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                       <input
-                        type="time"
-                        value={inviteFormData.visitTime}
-                        onChange={(e) => setInviteFormData({...inviteFormData, visitTime: e.target.value})}
+                        type="datetime-local"
+                        value={inviteFormData.visit_time}
+                        onChange={(e) => setInviteFormData({...inviteFormData, visit_time: e.target.value})}
                         className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                        required
                       />
                     </div>
                   </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Expiry Time</label>
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                    <input
+                      type="datetime-local"
+                      value={inviteFormData.expiry_time}
+                      onChange={(e) => setInviteFormData({...inviteFormData, expiry_time: e.target.value})}
+                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                    />
+                  </div>
+                </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Purpose of Visit</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Purpose of Visit *</label>
                   <input
                     type="text"
                     value={inviteFormData.purpose}
@@ -732,29 +971,6 @@ function Invitees() {
                     className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                     placeholder="e.g., Business meeting, Interview, Product demo"
                     required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Host Name</label>
-                  <input
-                    type="text"
-                    value={inviteFormData.host}
-                    onChange={(e) => setInviteFormData({...inviteFormData, host: e.target.value})}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                    placeholder="Enter host name"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Additional Notes</label>
-                  <textarea
-                    value={inviteFormData.notes}
-                    onChange={(e) => setInviteFormData({...inviteFormData, notes: e.target.value})}
-                    rows={3}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                    placeholder="Any special instructions or notes..."
                   />
                 </div>
 
@@ -768,10 +984,11 @@ function Invitees() {
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 flex items-center justify-center space-x-2 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 font-medium"
+                    disabled={loading}
+                    className="flex-1 flex items-center justify-center space-x-2 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Send className="w-4 h-4" />
-                    <span>Send Invitation</span>
+                    <span>{loading ? 'Sending...' : 'Send Invitation'}</span>
                   </button>
                 </div>
               </form>
@@ -852,7 +1069,7 @@ function Invitees() {
               </div>
 
               {/* Navigation Buttons */}
-              {currentStep > 1 && currentStep < 4 && (
+              {currentStep > 1 && currentStep < 3 && (
                 <div className="flex space-x-4 pt-6 border-t border-gray-200">
                   <button
                     onClick={() => setCurrentStep(currentStep - 1)}
@@ -862,7 +1079,7 @@ function Invitees() {
                   </button>
                   <button
                     onClick={() => setCurrentStep(currentStep + 1)}
-                    disabled={currentStep === 3 && !capturedImage}
+                    disabled={(currentStep === 3 && !capturedImage) || loading}
                     className="flex-1 flex items-center justify-center space-x-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <span>Next</span>
