@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Filter, Calendar, Clock, CheckCircle, XCircle, MoreVertical, Plus, Download, RefreshCw, Users, Edit2, Save, X } from 'lucide-react';
+import { Search, Filter, Calendar, Clock, CheckCircle, XCircle, MoreVertical, Plus, Download, RefreshCw, Users, Edit2, Save, X, ChevronLeft, ChevronRight } from 'lucide-react';
 
 import { visitorAPI } from '../../api/visitor'; // Import your actual API
 
@@ -18,98 +18,149 @@ function Visitors() {
   const [isEditing, setIsEditing] = useState(false);
   const [editingVisitor, setEditingVisitor] = useState(null);
   const [editForm, setEditForm] = useState({});
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(10);
+  const [totalItems, setTotalItems] = useState(0);
 
-  // Fetch visitors on component mount and when filters change
-  useEffect(() => {
-    fetchVisitors();
-  }, [statusFilter, dateFilter]);
+  // Debounce utility function
+  function debounce(func, wait) {
+    let timeout;
+    return function executedFunction(...args) {
+      const later = () => {
+        clearTimeout(timeout);
+        func(...args);
+      };
+      clearTimeout(timeout);
+      timeout = setTimeout(later, wait);
+    };
+  }
 
-  // Debounce search to avoid too many API calls
-  useEffect(() => {
-    const debounceTimer = setTimeout(() => {
-      if (searchTerm) {
-        handleSearch();
-      } else {
-        fetchVisitors();
-      }
-    }, 500);
+  // Memoized date calculations for better performance
+  const dateFilters = useMemo(() => {
+    const today = new Date();
+    const filters = {};
+    
+    switch (dateFilter) {
+      case 'today':
+        filters.created_at_after = today.toISOString().split('T')[0];
+        filters.created_at_before = today.toISOString().split('T')[0];
+        break;
+      case 'yesterday':
+        const yesterday = new Date(today);
+        yesterday.setDate(yesterday.getDate() - 1);
+        filters.created_at_after = yesterday.toISOString().split('T')[0];
+        filters.created_at_before = yesterday.toISOString().split('T')[0];
+        break;
+      case 'week':
+        const weekAgo = new Date(today);
+        weekAgo.setDate(weekAgo.getDate() - 7);
+        filters.created_at_after = weekAgo.toISOString().split('T')[0];
+        break;
+      case 'month':
+        const monthAgo = new Date(today);
+        monthAgo.setMonth(monthAgo.getMonth() - 1);
+        filters.created_at_after = monthAgo.toISOString().split('T')[0];
+        break;
+      default:
+        break;
+    }
+    return filters;
+  }, [dateFilter]);
 
-    return () => clearTimeout(debounceTimer);
-  }, [searchTerm]);
-
-  const fetchVisitors = async () => {
+  const fetchVisitors = useCallback(async (page = 1) => {
     try {
       setLoading(true);
       setError(null);
       
-      let filters = {};
+      const filters = { 
+        ...dateFilters,
+        page,
+        page_size: itemsPerPage,
+        ordering: '-created_at' // Most recent first
+      };
       
       // Apply status filter
       if (statusFilter !== 'all') {
         filters.status = statusFilter;
       }
-      
-      // Apply date filter
-      const today = new Date();
-      const yesterday = new Date(today);
-      yesterday.setDate(yesterday.getDate() - 1);
-      
-      switch (dateFilter) {
-        case 'today':
-          filters.created_at_after = today.toISOString().split('T')[0];
-          filters.created_at_before = today.toISOString().split('T')[0];
-          break;
-        case 'yesterday':
-          filters.created_at_after = yesterday.toISOString().split('T')[0];
-          filters.created_at_before = yesterday.toISOString().split('T')[0];
-          break;
-        case 'week':
-          const weekAgo = new Date(today);
-          weekAgo.setDate(weekAgo.getDate() - 7);
-          filters.created_at_after = weekAgo.toISOString().split('T')[0];
-          break;
-        case 'month':
-          const monthAgo = new Date(today);
-          monthAgo.setMonth(monthAgo.getMonth() - 1);
-          filters.created_at_after = monthAgo.toISOString().split('T')[0];
-          break;
-      }
 
       const data = await visitorAPI.getVisitorsWithFilters(filters);
-      setVisitors(Array.isArray(data) ? data : data.results || []);
+      const results = Array.isArray(data) ? data : data.results || data || [];
+      
+      setVisitors(results);
+      setTotalItems(data.count || results.length);
+      setCurrentPage(page);
     } catch (err) {
       console.error('Error fetching visitors:', err);
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  };
+  }, [statusFilter, dateFilters, itemsPerPage]);
 
-  const handleSearch = async () => {
+  // Handle page changes
+  const handlePageChange = useCallback((page) => {
+    fetchVisitors(page);
+  }, [fetchVisitors]);
+
+  // Optimized debounce search with useCallback
+  const debouncedSearch = useCallback(
+    debounce((term) => {
+      if (term.trim()) {
+        handleSearch(term);
+      } else {
+        fetchVisitors();
+      }
+    }, 300),
+    [statusFilter, dateFilter]
+  );
+
+  // Fetch visitors on component mount and when filters change
+  useEffect(() => {
+    setCurrentPage(1); // Reset to first page when filters change
+    fetchVisitors(1);
+  }, [statusFilter, dateFilter]);
+
+  useEffect(() => {
+    debouncedSearch(searchTerm);
+  }, [searchTerm, debouncedSearch]);
+
+  const handleSearch = useCallback(async (term = searchTerm) => {
     try {
       setLoading(true);
       setError(null);
       
-      const data = await visitorAPI.searchVisitors(searchTerm);
-      setVisitors(Array.isArray(data) ? data : data.results || []);
+      // Combine search with current filters for better results
+      const filters = { ...dateFilters };
+      if (statusFilter !== 'all') {
+        filters.status = statusFilter;
+      }
+      if (term.trim()) {
+        filters.search = term.trim();
+      }
+      
+      const data = await visitorAPI.getVisitorsWithFilters(filters);
+      setVisitors(Array.isArray(data) ? data : data.results || data || []);
     } catch (err) {
       console.error('Error searching visitors:', err);
       setError(err.message);
     } finally {
       setLoading(false);
     }
-  };
+  }, [searchTerm, statusFilter, dateFilters]);
 
-  const handleStatusUpdate = async (visitorId, newStatus) => {
+  const handleStatusUpdate = useCallback(async (visitorId, newStatus) => {
     try {
       setUpdating(true);
       await visitorAPI.updateVisitorStatus(visitorId, newStatus);
       
-      // Update the visitor in the local state
+      // Optimistic update for better UX
       setVisitors(prevVisitors => 
         prevVisitors.map(visitor => 
           visitor.id === visitorId 
-            ? { ...visitor, status: newStatus }
+            ? { ...visitor, status: newStatus, updated_at: new Date().toISOString() }
             : visitor
         )
       );
@@ -121,10 +172,12 @@ function Visitors() {
     } catch (err) {
       console.error('Error updating visitor status:', err);
       setError(err.message);
+      // Revert optimistic update on error
+      fetchVisitors();
     } finally {
       setUpdating(false);
     }
-  };
+  }, [selectedVisitor, fetchVisitors]);
 
   // Edit functionality
   const handleEditVisitor = (visitor) => {
@@ -191,17 +244,31 @@ function Visitors() {
     fetchVisitors();
   };
 
-  const filteredVisitors = visitors.filter(visitor => {
-    if (!searchTerm) return true;
+  // For client-side filtering when search is active
+  const filteredVisitors = useMemo(() => {
+    return visitors; // Server-side filtering is now handled in API calls
+  }, [visitors]);
+
+  // Memoized visitor statistics
+  const visitorStats = useMemo(() => {
+    const stats = {
+      total: filteredVisitors.length,
+      checked_in: 0,
+      checked_out: 0,
+      pending: 0,
+      approved: 0,
+      rejected: 0
+    };
     
-    const searchLower = searchTerm.toLowerCase();
-    return (
-      visitor.name?.toLowerCase().includes(searchLower) ||
-      visitor.email?.toLowerCase().includes(searchLower) ||
-      visitor.company?.toLowerCase().includes(searchLower) ||
-      visitor.purpose?.toLowerCase().includes(searchLower)
-    );
-  });
+    filteredVisitors.forEach(visitor => {
+      const status = visitor.status || 'pending';
+      if (stats.hasOwnProperty(status)) {
+        stats[status]++;
+      }
+    });
+    
+    return stats;
+  }, [filteredVisitors]);
 
   const getStatusBadge = (status) => {
     const styles = {
@@ -248,10 +315,10 @@ function Visitors() {
         transition={{ duration: 0.6 }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">Visitor Management</h1>
-            <p className="text-gray-600 text-lg">Track and manage all visitor activities</p>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Visitor Management</h1>
+            <p className="text-gray-600 text-base">Track and manage all visitor activities</p>
             {error && (
               <div className="mt-2 p-3 bg-red-100 border border-red-300 rounded-lg text-red-700">
                 {error}
@@ -271,10 +338,10 @@ function Visitors() {
               <Download className="w-4 h-4" />
               <span>Export</span>
             </button>
-            <button className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 shadow-lg hover:shadow-xl transition-all duration-200">
+            {/* <button className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 shadow-lg hover:shadow-xl transition-all duration-200">
               <Plus className="w-4 h-4" />
               <span>Add Visitor</span>
-            </button>
+            </button> */}
           </div>
         </div>
 
@@ -283,7 +350,7 @@ function Visitors() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, duration: 0.5 }}
-          className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 shadow-xl border border-white/50 mb-8"
+          className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 shadow-xl border border-white/50 mb-4"
         >
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {/* Search */}
@@ -342,18 +409,19 @@ function Visitors() {
           transition={{ delay: 0.5, duration: 0.6 }}
           className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/50 overflow-hidden"
         >
-          <div className="p-6 border-b border-gray-200">
-            <div className="flex items-center justify-between">
+          {/* <div className="p-6 border-b border-gray-200"> */}
+            {/* <div className="flex items-center justify-between">
               <h3 className="text-xl font-bold text-gray-900">Visitors List</h3>
               <div className="flex items-center space-x-2 text-sm text-gray-600">
                 <RefreshCw className="w-4 h-4" />
                 <span>{filteredVisitors.length} visitors</span>
               </div>
-            </div>
-          </div>
+            </div> */}
+          {/* </div> */}
 
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          {/* Desktop and Tablet Table View */}
+          <div className="hidden md:block overflow-auto max-h-[600px]">
+            <table className="w-full table-auto">
               <thead className="bg-gray-50/50">
                 <tr>
                   <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Visitor</th>
@@ -373,40 +441,69 @@ function Visitors() {
                       initial={{ opacity: 0, y: 20 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, y: -20 }}
-                      transition={{ delay: index * 0.05, duration: 0.3 }}
-                      className="hover:bg-white/50 transition-colors duration-200"
+                      transition={{ duration: 0.2, delay: index * 0.05 }}
+                      className="hover:bg-gray-50/50 transition-colors duration-200"
                     >
-                      <td className="px-6 py-4">
-                        <div className="flex items-center space-x-3">
-                          <img 
-                            src={visitor.image || visitor.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(visitor.name)}&background=random`} 
-                            alt={visitor.name}
-                            className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-md"
-                            onError={(e) => {
-                              e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(visitor.name)}&background=random`;
-                            }}
-                          />
-                          <div>
-                            <p className="font-bold text-gray-900">{visitor.name}</p>
-                            <p className="text-gray-600 text-sm">{visitor.email}</p>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="flex items-center space-x-4">
+                          <div className="flex-shrink-0 w-12 h-12 relative">
+                            {visitor.image ? (
+                              <img
+                                src={visitor.image}
+                                alt={`${visitor.firstName} ${visitor.lastName}`}
+                                className="w-12 h-12 rounded-full object-cover border-2 border-gray-200"
+                                onError={(e) => {
+                                  console.log('Image failed to load:', visitor.image);
+                                  e.target.style.display = 'none';
+                                  const fallback = e.target.parentElement.querySelector('.fallback-avatar');
+                                  if (fallback) fallback.style.display = 'flex';
+                                }}
+                                onLoad={(e) => {
+                                  console.log('Image loaded successfully:', visitor.image);
+                                  const fallback = e.target.parentElement.querySelector('.fallback-avatar');
+                                  if (fallback) fallback.style.display = 'none';
+                                }}
+                              />
+                            ) : null}
+                            <div 
+                              className={`fallback-avatar w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg absolute top-0 left-0 ${visitor.image ? 'hidden' : 'flex'}`}
+                            >
+                              {visitor.firstName?.[0]?.toUpperCase()}{visitor.lastName?.[0]?.toUpperCase()}
+                            </div>
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm font-bold text-gray-900 truncate">
+                              {visitor.firstName} {visitor.lastName}
+                            </div>
+                            <div className="text-sm text-gray-600 truncate">
+                              {visitor.email}
+                            </div>
+                            <div className="text-sm text-gray-500 truncate">
+                              {visitor.phone}
+                            </div>
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4">
-                        <span className="font-medium text-gray-900">{visitor.company || 'N/A'}</span>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{visitor.company || 'N/A'}</div>
                       </td>
-                      <td className="px-6 py-4">
-                        <span className="text-gray-700">{visitor.purpose || 'N/A'}</span>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{visitor.purpose || 'N/A'}</div>
                       </td>
-                      <td className="px-6 py-4">
-                        <span className="font-medium text-gray-900">{visitor.host || 'N/A'}</span>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">{visitor.hostName || 'N/A'}</div>
                       </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center space-x-1">
-                          <Clock className="w-4 h-4 text-gray-400" />
-                          <span className="text-gray-700">
-                            {visitor.check_in 
-                              ? new Date(visitor.check_in).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          <span className="block">
+                            {visitor.checkInTime 
+                              ? new Date(visitor.checkInTime).toLocaleDateString()
+                              : 'Not checked in'
+                            }
+                          </span>
+                          <span className="text-xs text-gray-500">
+                            {visitor.checkInTime 
+                              ? new Date(visitor.checkInTime).toLocaleTimeString()
                               : 'Not checked in'
                             }
                           </span>
@@ -435,13 +532,13 @@ function Visitors() {
                               Check Out
                             </button>
                           )}
-                          <button
+                          {/* <button
                             onClick={() => handleEditVisitor(visitor)}
                             className="p-2 hover:bg-blue-100 rounded-lg transition-colors duration-200"
                             title="Edit Visitor"
                           >
                             <Edit2 className="w-4 h-4 text-blue-600" />
-                          </button>
+                          </button> */}
                           <button 
                             onClick={() => setSelectedVisitor(visitor)}
                             className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200"
@@ -457,12 +554,185 @@ function Visitors() {
             </table>
           </div>
 
+          {/* Mobile Card View */}
+          <div className="md:hidden space-y-4">
+            <AnimatePresence>
+              {filteredVisitors.map((visitor, index) => (
+                <motion.div
+                  key={visitor.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.2, delay: index * 0.05 }}
+                  className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
+                >
+                  <div className="flex items-start space-x-4">
+                    <div className="flex-shrink-0 w-16 h-16 relative">
+                      {visitor.imageUrl ? (
+                        <img
+                          src={visitor.imageUrl}
+                          alt={`${visitor.firstName} ${visitor.lastName}`}
+                          className="w-16 h-16 rounded-full object-cover border-2 border-gray-200"
+                          onError={(e) => {
+                            console.log('Image failed to load:', visitor.imageUrl);
+                            e.target.style.display = 'none';
+                            const fallback = e.target.parentElement.querySelector('.fallback-avatar');
+                            if (fallback) fallback.style.display = 'flex';
+                          }}
+                          onLoad={(e) => {
+                            console.log('Image loaded successfully:', visitor.imageUrl);
+                            const fallback = e.target.parentElement.querySelector('.fallback-avatar');
+                            if (fallback) fallback.style.display = 'none';
+                          }}
+                        />
+                      ) : null}
+                      <div 
+                        className={`fallback-avatar w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-xl absolute top-0 left-0 ${visitor.image ? 'hidden' : 'flex'}`}
+                      >
+                        {visitor.firstName?.[0]?.toUpperCase()}{visitor.lastName?.[0]?.toUpperCase()}
+                      </div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between">
+                        <div className="min-w-0 flex-1">
+                          <h3 className="text-lg font-bold text-gray-900 truncate">
+                            {visitor.firstName} {visitor.lastName}
+                          </h3>
+                          <p className="text-sm text-gray-600 truncate">{visitor.email}</p>
+                          <p className="text-sm text-gray-500 truncate">{visitor.phone}</p>
+                        </div>
+                        <div className="ml-2 flex-shrink-0">
+                          {getStatusBadge(visitor.status)}
+                        </div>
+                      </div>
+                      
+                      <div className="mt-3 grid grid-cols-1 gap-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Company:</span>
+                          <span className="text-gray-900 font-medium">{visitor.company || 'N/A'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Purpose:</span>
+                          <span className="text-gray-900 font-medium">{visitor.purpose || 'N/A'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Host:</span>
+                          <span className="text-gray-900 font-medium">{visitor.hostName || 'N/A'}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Check In:</span>
+                          <span className="text-gray-900 font-medium">
+                            {visitor.checkInTime 
+                              ? `${new Date(visitor.checkInTime).toLocaleDateString()} ${new Date(visitor.checkInTime).toLocaleTimeString()}`
+                              : 'Not checked in'
+                            }
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div className="mt-4 flex items-center justify-end space-x-2">
+                        {visitor.status === 'scheduled' && (
+                          <button
+                            onClick={() => handleStatusUpdate(visitor.id, 'checked_in')}
+                            disabled={updating}
+                            className="px-3 py-1 bg-green-100 text-green-800 rounded-lg hover:bg-green-200 transition-colors duration-200 text-sm disabled:opacity-50"
+                          >
+                            Check In
+                          </button>
+                        )}
+                        {visitor.status === 'checked_in' && (
+                          <button
+                            onClick={() => handleStatusUpdate(visitor.id, 'checked_out')}
+                            disabled={updating}
+                            className="px-3 py-1 bg-gray-100 text-gray-800 rounded-lg hover:bg-gray-200 transition-colors duration-200 text-sm disabled:opacity-50"
+                          >
+                            Check Out
+                          </button>
+                        )}
+                        <button 
+                          onClick={() => setSelectedVisitor(visitor)}
+                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200"
+                        >
+                          <MoreVertical className="w-4 h-4 text-gray-400" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+
           {filteredVisitors.length === 0 && !loading && (
             <div className="text-center py-12">
               <div className="text-gray-400 mb-4">
                 <Users className="w-12 h-12 mx-auto" />
               </div>
               <p className="text-gray-600">No visitors found matching your criteria</p>
+            </div>
+          )}
+
+          {/* Pagination Controls */}
+          {totalItems > itemsPerPage && (
+            <div className="px-6 py-4 border-t border-gray-200 bg-gray-50/50">
+              <div className="flex items-center justify-between">
+                <div className="text-sm text-gray-600">
+                  Showing {Math.min((currentPage - 1) * itemsPerPage + 1, totalItems)} to{' '}
+                  {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} visitors
+                </div>
+                <div className="flex items-center space-x-2">
+                  <button
+                    onClick={() => handlePageChange(currentPage - 1)}
+                    disabled={currentPage === 1 || loading}
+                    className="flex items-center space-x-1 px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                    <span>Previous</span>
+                  </button>
+                  
+                  {/* Page Numbers */}
+                  <div className="flex items-center space-x-1">
+                    {Array.from({ length: Math.min(5, Math.ceil(totalItems / itemsPerPage)) }, (_, i) => {
+                      const totalPages = Math.ceil(totalItems / itemsPerPage);
+                      let pageNumber;
+                      
+                      if (totalPages <= 5) {
+                        pageNumber = i + 1;
+                      } else if (currentPage <= 3) {
+                        pageNumber = i + 1;
+                      } else if (currentPage >= totalPages - 2) {
+                        pageNumber = totalPages - 4 + i;
+                      } else {
+                        pageNumber = currentPage - 2 + i;
+                      }
+                      
+                      return (
+                        <button
+                          key={pageNumber}
+                          onClick={() => handlePageChange(pageNumber)}
+                          disabled={loading}
+                          className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                            currentPage === pageNumber
+                              ? 'bg-blue-600 text-white'
+                              : 'text-gray-500 bg-white border border-gray-300 hover:bg-gray-50 hover:text-gray-700'
+                          } disabled:opacity-50 disabled:cursor-not-allowed`}
+                        >
+                          {pageNumber}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  
+                  <button
+                    onClick={() => handlePageChange(currentPage + 1)}
+                    disabled={currentPage >= Math.ceil(totalItems / itemsPerPage) || loading}
+                    className="flex items-center space-x-1 px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                  >
+                    <span>Next</span>
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
             </div>
           )}
         </motion.div>

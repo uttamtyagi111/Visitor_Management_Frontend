@@ -604,10 +604,10 @@ function Invitees() {
         transition={{ duration: 0.6 }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">Invite Management</h1>
-            <p className="text-gray-600 text-lg">Send invitations and manage upcoming visits</p>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Invite Management</h1>
+            <p className="text-gray-600 text-base">Send invitations and manage upcoming visits</p>
           </div>
           <div className="flex items-center space-x-4">
             <button 
@@ -667,7 +667,7 @@ function Invitees() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, duration: 0.5 }}
-          className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 shadow-xl border border-white/50 mb-8"
+          className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 shadow-xl border border-white/50 mb-4"
         >
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="md:col-span-2">
@@ -706,7 +706,7 @@ function Invitees() {
           transition={{ delay: 0.5, duration: 0.6 }}
           className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/50 overflow-hidden"
         >
-          <div className="p-6 border-b border-gray-200">
+          {/* <div className="p-6 border-b border-gray-200">
             <div className="flex items-center justify-between">
               <h3 className="text-xl font-bold text-gray-900">Invitations</h3>
               <button 
@@ -717,10 +717,11 @@ function Invitees() {
                 {loading ? 'Loading...' : 'Refresh'}
               </button>
             </div>
-          </div>
+          </div> */}
 
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          {/* Desktop and Tablet Table View */}
+          <div className="hidden md:block overflow-auto max-h-[600px]">
+            <table className="w-full table-auto">
               <thead className="bg-gray-50/50">
                 <tr>
                   <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Invitee</th>
@@ -824,6 +825,99 @@ function Invitees() {
                 </AnimatePresence>
               </tbody>
             </table>
+          </div>
+
+          {/* Mobile Card View */}
+          <div className="md:hidden space-y-4">
+            <AnimatePresence>
+              {filteredInvitees.map((invite, index) => (
+                <motion.div
+                  key={invite.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -20 }}
+                  transition={{ duration: 0.2, delay: index * 0.05 }}
+                  className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex-1">
+                      <h3 className="text-lg font-bold text-gray-900">{invite.visitor_name}</h3>
+                      <p className="text-sm text-gray-600">{invite.visitor_email}</p>
+                      {invite.visitor_phone && (
+                        <p className="text-sm text-gray-500">{invite.visitor_phone}</p>
+                      )}
+                    </div>
+                    <div className="ml-2 flex-shrink-0">
+                      {getStatusBadge(invite.status)}
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 gap-2 text-sm mb-4">
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Host:</span>
+                      <span className="text-gray-900 font-medium">{invite.invited_by}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Invite Code:</span>
+                      <div className="flex items-center space-x-2">
+                        <span className="text-gray-900 font-medium font-mono text-xs">{invite.invite_code || 'N/A'}</span>
+                        {invite.status === 'checked_in' && (
+                          <Check className="w-4 h-4 text-green-600" />
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Purpose:</span>
+                      <span className="text-gray-900 font-medium text-right">{invite.purpose}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Visit Time:</span>
+                      <span className="text-gray-900 font-medium text-right">
+                        {inviteeHelpers.formatDateTime(invite.visit_time)}
+                      </span>
+                    </div>
+                    {invite.expiry_time && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Expires:</span>
+                        <span className="text-gray-900 font-medium text-right">
+                          {inviteeHelpers.formatDateTime(invite.expiry_time)}
+                        </span>
+                      </div>
+                    )}
+                    {invite.created_at && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Created:</span>
+                        <span className="text-gray-900 font-medium text-right">
+                          {inviteeHelpers.formatDateTime(invite.created_at)}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="flex items-center justify-between space-x-2">
+                    <select
+                      value={invite.status}
+                      onChange={(e) => handleStatusUpdate(invite.id, e.target.value)}
+                      className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white"
+                      disabled={loading}
+                    >
+                      {inviteeHelpers.statusOptions.map(option => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </select>
+                    <button 
+                      onClick={() => handleDeleteInvite(invite.id)}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      disabled={loading}
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
           </div>
 
           {filteredInvitees.length === 0 && !loading && (

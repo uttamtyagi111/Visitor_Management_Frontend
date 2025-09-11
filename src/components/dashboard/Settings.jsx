@@ -29,9 +29,9 @@ function Settings() {
         transition={{ duration: 0.6 }}
       >
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Settings</h1>
-          <p className="text-gray-600 text-lg">Configure your visitor management system</p>
+        <div className="mb-4">
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Settings</h1>
+          <p className="text-gray-600 text-base">Configure your visitor management system</p>
         </div>
 
         {/* Tab Navigation */}

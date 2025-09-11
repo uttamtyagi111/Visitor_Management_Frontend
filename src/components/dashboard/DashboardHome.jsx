@@ -81,13 +81,13 @@ function DashboardHome() {
         transition={{ duration: 0.6 }}
       >
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold text-gray-900 mb-2">Dashboard Overview</h1>
-          <p className="text-gray-600 text-lg">Monitor your visitor management analytics and real-time insights</p>
+        <div className="mb-4">
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Dashboard Overview</h1>
+          <p className="text-gray-600 text-base">Monitor your visitor management analytics and real-time insights</p>
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-4">
           {stats.map((stat, index) => {
             const Icon = stat.icon;
             return (
@@ -110,15 +110,15 @@ function DashboardHome() {
                     {stat.change}
                   </span>
                 </div>
-                <h3 className="text-3xl font-bold text-gray-900 mb-1">{stat.value}</h3>
-                <p className="text-gray-600 font-medium">{stat.title}</p>
+                <h3 className="text-1xl font-bold text-gray-900 mb-1">{stat.value}</h3>
+                <p className="text-gray-500 font-medium">{stat.title}</p>
               </motion.div>
             );
           })}
         </div>
 
         {/* Charts Grid */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 mb-8">
+        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 mb-4">
           {/* Visitor Trends */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
@@ -126,7 +126,7 @@ function DashboardHome() {
             transition={{ delay: 0.5, duration: 0.6 }}
             className="xl:col-span-2 bg-white/70 backdrop-blur-sm rounded-2xl p-6 shadow-xl border border-white/50"
           >
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-4">
               <h3 className="text-2xl font-bold text-gray-900">Visitor Trends</h3>
               <div className="flex items-center space-x-2 text-sm text-gray-600 bg-gray-100 px-3 py-2 rounded-lg">
                 <TrendingUp className="w-4 h-4" />
@@ -159,7 +159,7 @@ function DashboardHome() {
             transition={{ delay: 0.6, duration: 0.6 }}
             className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 shadow-xl border border-white/50"
           >
-            <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center justify-between mb-4">
               <h3 className="text-xl font-bold text-gray-900">Today's Status</h3>
               <Activity className="w-5 h-5 text-gray-600" />
             </div>

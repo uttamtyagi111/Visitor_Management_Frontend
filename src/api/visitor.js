@@ -1,31 +1,30 @@
-import { API_BASE_URL } from './config';
+import { API_BASE_URL } from "./config";
 
-// Helper function for making API requests (matches your authAPI pattern)
+// Helper function for making API requests
 const apiRequest = async (url, options = {}) => {
   const config = {
     headers: {
-      'Content-Type': 'application/json',
       ...options.headers,
     },
     ...options,
   };
 
-  // Add auth token if available (matches your authAPI)
-  const token = localStorage.getItem('access_token');
+  // Add auth token if available
+  const token = localStorage.getItem("access_token");
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
   }
 
-  // Remove Content-Type for FormData requests
-  if (options.body instanceof FormData) {
-    delete config.headers['Content-Type'];
+  // Handle JSON body (don't set Content-Type for FormData)
+  if (options.body && !(options.body instanceof FormData)) {
+    config.headers["Content-Type"] = "application/json";
   }
 
   try {
     const response = await fetch(url, config);
     
-    // Handle token refresh on 401 (matches your auth interceptor concept)
-    if (response.status === 401) {
+    // Handle token refresh on 401
+    if (response.status === 401 && token) {
       const refreshToken = localStorage.getItem('refresh_token');
       if (refreshToken) {
         try {
@@ -44,17 +43,15 @@ const apiRequest = async (url, options = {}) => {
             return fetch(url, config);
           }
         } catch (refreshError) {
-          // Refresh failed, clear tokens
           localStorage.removeItem('access_token');
           localStorage.removeItem('refresh_token');
           localStorage.removeItem('user');
           throw new Error('Session expired. Please log in again.');
         }
       }
-      throw new Error('Authentication required. Please log in.');
     }
 
-    // Only parse JSON if response has content
+    // Parse response
     let data = null;
     const text = await response.text();
     if (text) {
@@ -66,17 +63,17 @@ const apiRequest = async (url, options = {}) => {
     }
 
     if (!response.ok) {
-      throw new Error(data.error || data.detail || 'Request failed');
+      throw new Error(data?.error || data?.detail || `Request failed with status ${response.status}`);
     }
 
-    return { data, response };
+    return data;
   } catch (error) {
     throw error;
   }
 };
 
 export const visitorAPI = {
-  // Get all visitors with filters (basic endpoint)
+  // Get all visitors with filters
   getVisitors: async (filters = {}) => {
     const queryParams = new URLSearchParams();
     Object.entries(filters).forEach(([key, value]) => {
@@ -86,81 +83,56 @@ export const visitorAPI = {
     });
     
     const url = `${API_BASE_URL}/visitors/${queryParams.toString() ? `?${queryParams}` : ''}`;
-    const { data } = await apiRequest(url, { method: 'GET' });
-    return data;
+    return apiRequest(url, { method: 'GET' });
   },
 
-  // Get visitors with advanced filters (uses the search endpoint)
+  // Get visitors with advanced filters
   getVisitorsWithFilters: async (filters = {}) => {
     const queryParams = new URLSearchParams();
     
-    // Handle date filters - convert to the format expected by Django
-    if (filters.created_at_after && filters.created_at_before) {
-      if (filters.created_at_after === filters.created_at_before) {
-        // Same day filter
-        queryParams.append('created_at_after', filters.created_at_after);
-        queryParams.append('created_at_before', filters.created_at_before);
-      } else {
-        queryParams.append('created_at_after', filters.created_at_after);
-        queryParams.append('created_at_before', filters.created_at_before);
-      }
-    } else if (filters.created_at_after) {
-      queryParams.append('created_at_after', filters.created_at_after);
-    } else if (filters.created_at_before) {
-      queryParams.append('created_at_before', filters.created_at_before);
-    }
-
-    // Handle other filters
+    // Handle date filters
     Object.entries(filters).forEach(([key, value]) => {
-      if (value !== undefined && value !== null && value !== '' && 
-          !key.startsWith('created_at_')) {
+      if (value !== undefined && value !== null && value !== '') {
         queryParams.append(key, value);
       }
     });
     
-    const url = `${API_BASE_URL}/visitors/search/${queryParams.toString() ? `?${queryParams}` : ''}`;
-    const { data } = await apiRequest(url, { method: 'GET' });
-    return data;
+    const url = `${API_BASE_URL}/visitors/${queryParams.toString() ? `?${queryParams}` : ''}`;
+    return apiRequest(url, { method: 'GET' });
   },
 
-  // Create new visitor
+  // Create new visitor (public endpoint for QR registration)
   createVisitor: async (visitorData, imageFile = null) => {
-    let body;
-    let isFormData = false;
+    const body = new FormData();
     
+    Object.entries(visitorData).forEach(([key, value]) => {
+      if (value !== null && value !== undefined && value !== '') {
+        body.append(key, value);
+      }
+    });
+    
+    // Add image if provided
     if (imageFile) {
-      body = new FormData();
-      Object.entries(visitorData).forEach(([key, value]) => {
-        if (value !== null && value !== undefined) {
-          body.append(key, value);
-        }
-      });
       body.append('image', imageFile);
-      isFormData = true;
-    } else {
-      body = JSON.stringify(visitorData);
     }
 
-    const { data } = await apiRequest(`${API_BASE_URL}/visitors/`, {
+    return apiRequest(`${API_BASE_URL}/visitor/`, {
       method: 'POST',
-      body: body,
-      headers: isFormData ? {} : undefined,
+      body,
     });
-    return data;
   },
 
   // Get single visitor
   getVisitor: async (visitorId) => {
-    const { data } = await apiRequest(`${API_BASE_URL}/visitors/${visitorId}/`, {
+    return apiRequest(`${API_BASE_URL}/visitors/${visitorId}/`, {
       method: 'GET',
     });
-    return data;
   },
 
   // Update visitor
   updateVisitor: async (visitorId, visitorData, imageFile = null) => {
     let body;
-    let isFormData = false;
+    let headers = {};
     
     if (imageFile) {
       body = new FormData();
@@ -170,7 +142,6 @@ export const visitorAPI = {
         }
       });
       body.append('image', imageFile);
-      isFormData = true;
     } else {
       // Filter out empty values for cleaner updates
       const filteredData = Object.entries(visitorData).reduce((acc, [key, value]) => {
@@ -180,23 +151,22 @@ export const visitorAPI = {
         return acc;
       }, {});
       body = JSON.stringify(filteredData);
+      headers['Content-Type'] = 'application/json';
     }
 
-    const { data } = await apiRequest(`${API_BASE_URL}/visitors/${visitorId}/`, {
-      method: 'PATCH', // Use PATCH for partial updates instead of PUT
-      body: body,
-      headers: isFormData ? {} : undefined,
+    return apiRequest(`${API_BASE_URL}/visitors/${visitorId}/`, {
+      method: 'PATCH',
+      body,
+      headers,
     });
-    return data;
   },
 
   // Update visitor status
   updateVisitorStatus: async (visitorId, status) => {
-    const { data } = await apiRequest(`${API_BASE_URL}/visitors/${visitorId}/status/`, {
+    return apiRequest(`${API_BASE_URL}/visitors/${visitorId}/`, {
       method: 'PATCH',
       body: JSON.stringify({ status }),
     });
-    return data;
   },
 
   // Delete visitor
@@ -207,12 +177,9 @@ export const visitorAPI = {
     return true;
   },
 
-  // Get visitor timeline
-  getVisitorTimeline: async (visitorId) => {
-    const { data } = await apiRequest(`${API_BASE_URL}/visitors/${visitorId}/timeline/`, {
-      method: 'GET',
-    });
-    return data;
+  // Search visitors
+  searchVisitors: async (searchTerm) => {
+    return visitorAPI.getVisitorsWithFilters({ search: searchTerm });
   },
 
   // Convenience methods for status updates
@@ -230,11 +197,6 @@ export const visitorAPI = {
 
   rejectVisitor: async (visitorId) => {
     return visitorAPI.updateVisitorStatus(visitorId, 'rejected');
-  },
-
-  // Search visitors (uses the search endpoint)
-  searchVisitors: async (searchTerm) => {
-    return visitorAPI.getVisitorsWithFilters({ search: searchTerm });
   },
 
   // Get today's visitors

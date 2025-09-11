@@ -1,95 +1,69 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Filter, Calendar, Clock, CheckCircle, XCircle, MoreVertical, Plus, Download, RefreshCw } from 'lucide-react';
+import { Search, Filter, Calendar, Clock, CheckCircle, XCircle, MoreVertical, Download, RefreshCw, Users, Hash } from 'lucide-react';
+import { getReports, exportReports, formatDateTime, getReportStatus } from '../../api/reports';
 
-const mockVisitors = [
-  {
-    id: '1',
-    name: 'John Smith',
-    email: 'john@techcorp.com',
-    company: 'Tech Corp',
-    purpose: 'Business Meeting',
-    host: 'Sarah Johnson',
-    checkIn: '09:30 AM',
-    checkOut: null,
-    status: 'checked-in',
-    date: '2025-01-15',
-    phone: '+1 (555) 123-4567',
-    avatar: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop'
-  },
-  {
-    id: '2',
-    name: 'Maria Garcia',
-    email: 'maria@designstudio.com',
-    company: 'Design Studio',
-    purpose: 'Project Review',
-    host: 'Mike Wilson',
-    checkIn: '10:15 AM',
-    checkOut: '11:45 AM',
-    status: 'checked-out',
-    date: '2025-01-15',
-    phone: '+1 (555) 987-6543',
-    avatar: 'https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop'
-  },
-  {
-    id: '3',
-    name: 'David Chen',
-    email: 'david@innovation.io',
-    company: 'Innovation Labs',
-    purpose: 'Partnership Discussion',
-    host: 'Emily Davis',
-    checkIn: '02:00 PM',
-    checkOut: null,
-    status: 'scheduled',
-    date: '2025-01-15',
-    phone: '+1 (555) 456-7890',
-    avatar: 'https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop'
-  },
-  {
-    id: '4',
-    name: 'Sophie Turner',
-    email: 'sophie@consulting.com',
-    company: 'Strategic Solutions',
-    purpose: 'Consultation',
-    host: 'Alex Brown',
-    checkIn: '11:30 AM',
-    checkOut: null,
-    status: 'checked-in',
-    date: '2025-01-15',
-    phone: '+1 (555) 234-5678',
-    avatar: 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop'
-  },
-  {
-    id: '5',
-    name: 'Michael Johnson',
-    email: 'michael@startupco.com',
-    company: 'StartupCo',
-    purpose: 'Investment Meeting',
-    host: 'Lisa Wang',
-    checkIn: '03:30 PM',
-    checkOut: '04:15 PM',
-    status: 'checked-out',
-    date: '2025-01-14',
-    phone: '+1 (555) 345-6789',
-    avatar: 'https://images.pexels.com/photos/1043471/pexels-photo-1043471.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop'
-  },
-];
-
-function Visitors() {
+function Reports() {
+  const [reports, setReports] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [dateFilter, setDateFilter] = useState('today');
-  const [selectedVisitor, setSelectedVisitor] = useState(null);
+  const [selectedReport, setSelectedReport] = useState(null);
 
-  const filteredVisitors = mockVisitors.filter(visitor => {
-    const matchesSearch = visitor.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         visitor.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         visitor.company.toLowerCase().includes(searchTerm.toLowerCase());
+  // Fetch reports on component mount
+  useEffect(() => {
+    fetchReports();
+  }, []);
+
+  const fetchReports = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await getReports();
+      setReports(data.results || data);
+    } catch (err) {
+      setError('Failed to fetch reports');
+      console.error('Error fetching reports:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const filteredReports = reports.filter(report => {
+    const matchesSearch = report.visitor_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         report.remarks?.toLowerCase().includes(searchTerm.toLowerCase());
     
-    const matchesStatus = statusFilter === 'all' || visitor.status === statusFilter;
+    const reportStatus = getReportStatus(report.check_in, report.check_out);
+    const matchesStatus = statusFilter === 'all' || reportStatus === statusFilter;
     
     return matchesSearch && matchesStatus;
   });
+
+  const handleExport = async () => {
+    try {
+      const filters = {
+        search: searchTerm,
+        status: statusFilter !== 'all' ? statusFilter : null,
+        date_filter: dateFilter !== 'today' ? dateFilter : null
+      };
+      
+      const blob = await exportReports('csv', filters);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = `reports_${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Error exporting reports:', error);
+      alert('Failed to export reports. Please try again.');
+    }
+  };
 
   const getStatusBadge = (status) => {
     const styles = {
@@ -120,20 +94,23 @@ function Visitors() {
         transition={{ duration: 0.6 }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between mb-8">
+        <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-4xl font-bold text-gray-900 mb-2">Report Management</h1>
-            <p className="text-gray-600 text-lg">Track and manage all Reports</p>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Report Management</h1>
+            <p className="text-gray-600 text-base">Track and manage all Reports</p>
           </div>
+          <div className="flex items-center space-x-2 text-sm text-gray-600">
+                <span>{filteredReports.length} reports</span>
+                <RefreshCw className="w-4 h-4 cursor-pointer hover:text-blue-600" onClick={fetchReports} />
+              </div>
           <div className="flex space-x-3">
-            <button className="flex items-center space-x-2 px-4 py-2 bg-white/70 border border-gray-200 rounded-xl hover:bg-white hover:shadow-lg transition-all duration-200">
+            <button 
+              onClick={handleExport}
+              className="flex items-center space-x-2 px-4 py-2 bg-white/70 border border-gray-200 rounded-xl hover:bg-white hover:shadow-lg transition-all duration-200"
+            >
               <Download className="w-4 h-4" />
               <span>Export</span>
             </button>
-            {/* <button className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 shadow-lg hover:shadow-xl transition-all duration-200">
-              {/* <Plus className="w-4 h-4" /> */}
-              {/* <span>Add Visitor</span> */}
-            {/* </button> */} 
           </div>
         </div>
 
@@ -142,7 +119,7 @@ function Visitors() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, duration: 0.5 }}
-          className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 shadow-xl border border-white/50 mb-8"
+          className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 shadow-xl border border-white/50 mb-4"
         >
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             {/* Search */}
@@ -154,7 +131,7 @@ function Visitors() {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 bg-white/50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                  placeholder="Search visitors, companies, or emails..."
+                  placeholder="Search visitor names or remarks..."
                 />
               </div>
             </div>
@@ -191,113 +168,240 @@ function Visitors() {
           </div>
         </motion.div>
 
-        {/* Visitors Table */}
+        {/* Reports Table */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5, duration: 0.6 }}
           className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/50 overflow-hidden"
         >
-          <div className="p-6 border-b border-gray-200">
+          {/* <div className="p-6 border-b border-gray-200">
             <div className="flex items-center justify-between">
-              <h3 className="text-xl font-bold text-gray-900">Visitors List</h3>
+              <h3 className="text-xl font-bold text-gray-900">Reports List</h3>
               <div className="flex items-center space-x-2 text-sm text-gray-600">
-                <RefreshCw className="w-4 h-4" />
-                <span>{filteredVisitors.length} visitors</span>
+                <RefreshCw className="w-4 h-4 cursor-pointer hover:text-blue-600" onClick={fetchReports} />
+                <span>{filteredReports.length} reports</span>
               </div>
             </div>
-          </div>
+          </div> */}
 
-          <div className="overflow-x-auto">
-            <table className="w-full">
+          {/* Desktop and Tablet Table View */}
+          <div className="hidden md:block overflow-auto max-h-[600px]">
+            <table className="w-full table-auto">
               <thead className="bg-gray-50/50">
                 <tr>
                   <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Visitor</th>
-                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Company</th>
-                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Purpose</th>
-                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Host</th>
                   <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Check In</th>
+                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Check Out</th>
+                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Visit Count</th>
                   <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Status</th>
+                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Remarks</th>
                   <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                <AnimatePresence>
-                  {filteredVisitors.map((visitor, index) => (
-                    <motion.tr
-                      key={visitor.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, y: -20 }}
-                      transition={{ delay: index * 0.05, duration: 0.3 }}
-                      className="hover:bg-white/50 transition-colors duration-200"
-                    >
-                      <td className="px-6 py-4">
-                        <div className="flex items-center space-x-3">
-                          <img 
-                            src={visitor.avatar} 
-                            alt={visitor.name}
-                            className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-md"
-                          />
-                          <div>
-                            <p className="font-bold text-gray-900">{visitor.name}</p>
-                            <p className="text-gray-600 text-sm">{visitor.email}</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="font-medium text-gray-900">{visitor.company}</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="text-gray-700">{visitor.purpose}</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <span className="font-medium text-gray-900">{visitor.host}</span>
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex items-center space-x-1">
-                          <Clock className="w-4 h-4 text-gray-400" />
-                          <span className="text-gray-700">{visitor.checkIn}</span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4">
-                        {getStatusBadge(visitor.status)}
-                      </td>
-                      <td className="px-6 py-4">
+                {loading ? (
+                  <tr>
+                    <td colSpan="7" className="px-6 py-12 text-center">
+                      <div className="flex items-center justify-center space-x-2">
+                        <RefreshCw className="w-5 h-5 animate-spin text-blue-600" />
+                        <span className="text-gray-600">Loading reports...</span>
+                      </div>
+                    </td>
+                  </tr>
+                ) : error ? (
+                  <tr>
+                    <td colSpan="7" className="px-6 py-12 text-center">
+                      <div className="text-red-600">
+                        <p className="font-medium">{error}</p>
                         <button 
-                          onClick={() => setSelectedVisitor(visitor)}
-                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200"
+                          onClick={fetchReports}
+                          className="mt-2 px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
                         >
-                          <MoreVertical className="w-4 h-4 text-gray-400" />
+                          Try Again
                         </button>
-                      </td>
-                    </motion.tr>
-                  ))}
-                </AnimatePresence>
+                      </div>
+                    </td>
+                  </tr>
+                ) : (
+                  <AnimatePresence>
+                    {filteredReports.map((report, index) => {
+                      const status = getReportStatus(report.check_in, report.check_out);
+                      return (
+                        <motion.tr
+                          key={report.id}
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -20 }}
+                          transition={{ delay: index * 0.05, duration: 0.3 }}
+                          className="hover:bg-white/50 transition-colors duration-200"
+                        >
+                          <td className="px-6 py-4">
+                            <div className="flex items-center space-x-3">
+                              <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-md">
+                                {report.visitor_name ? report.visitor_name.charAt(0).toUpperCase() : 'V'}
+                              </div>
+                              <div>
+                                <p className="font-bold text-gray-900">{report.visitor_name || 'Unknown Visitor'}</p>
+                                <p className="text-gray-600 text-sm">ID: {report.id}</p>
+                              </div>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center space-x-1">
+                              <Clock className="w-4 h-4 text-gray-400" />
+                              <span className="text-gray-700">{formatDateTime(report.check_in)}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center space-x-1">
+                              <Clock className="w-4 h-4 text-gray-400" />
+                              <span className="text-gray-700">{formatDateTime(report.check_out)}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="flex items-center space-x-1">
+                              <Hash className="w-4 h-4 text-blue-500" />
+                              <span className="font-bold text-blue-600">{report.visit_count}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4">
+                            {getStatusBadge(status)}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span className="text-gray-700 text-sm">
+                              {report.remarks ? (
+                                report.remarks.length > 50 
+                                  ? `${report.remarks.substring(0, 50)}...` 
+                                  : report.remarks
+                              ) : 'No remarks'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4">
+                            <button 
+                              onClick={() => setSelectedReport(report)}
+                              className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200"
+                            >
+                              <MoreVertical className="w-4 h-4 text-gray-400" />
+                            </button>
+                          </td>
+                        </motion.tr>
+                      );
+                    })}
+                  </AnimatePresence>
+                )}
               </tbody>
             </table>
           </div>
 
-          {filteredVisitors.length === 0 && (
+          {/* Mobile Card View */}
+          <div className="md:hidden space-y-4">
+            {loading ? (
+              <div className="text-center py-12">
+                <div className="flex items-center justify-center space-x-2">
+                  <RefreshCw className="w-5 h-5 animate-spin text-blue-600" />
+                  <span className="text-gray-600">Loading reports...</span>
+                </div>
+              </div>
+            ) : error ? (
+              <div className="text-center py-12">
+                <div className="text-red-600">
+                  <p className="font-medium">{error}</p>
+                  <button 
+                    onClick={fetchReports}
+                    className="mt-2 px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors"
+                  >
+                    Try Again
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <AnimatePresence>
+                {filteredReports.map((report, index) => {
+                  const status = getReportStatus(report.check_in, report.check_out);
+                  return (
+                    <motion.div
+                      key={report.id}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -20 }}
+                      transition={{ duration: 0.2, delay: index * 0.05 }}
+                      className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
+                    >
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center space-x-3">
+                          <div className="w-12 h-12 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-md">
+                            {report.visitor_name ? report.visitor_name.charAt(0).toUpperCase() : 'V'}
+                          </div>
+                          <div className="flex-1">
+                            <h3 className="text-lg font-bold text-gray-900">{report.visitor_name || 'Unknown Visitor'}</h3>
+                            <p className="text-sm text-gray-600">ID: {report.id}</p>
+                          </div>
+                        </div>
+                        <div className="ml-2 flex-shrink-0">
+                          {getStatusBadge(status)}
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 gap-2 text-sm mb-4">
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Check In:</span>
+                          <span className="text-gray-900 font-medium">{formatDateTime(report.check_in)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Check Out:</span>
+                          <span className="text-gray-900 font-medium">{formatDateTime(report.check_out)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Visit Count:</span>
+                          <div className="flex items-center space-x-1">
+                            <Hash className="w-4 h-4 text-blue-500" />
+                            <span className="text-blue-600 font-bold">{report.visit_count}</span>
+                          </div>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">Remarks:</span>
+                          <span className="text-gray-900 font-medium text-right max-w-48 truncate">
+                            {report.remarks || 'No remarks'}
+                          </span>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center justify-end">
+                        <button 
+                          onClick={() => setSelectedReport(report)}
+                          className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200"
+                        >
+                          <MoreVertical className="w-4 h-4 text-gray-400" />
+                        </button>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </AnimatePresence>
+            )}
+          </div>
+
+          {!loading && !error && filteredReports.length === 0 && (
             <div className="text-center py-12">
               <div className="text-gray-400 mb-4">
                 <Users className="w-12 h-12 mx-auto" />
               </div>
-              <p className="text-gray-600">No visitors found matching your criteria</p>
+              <p className="text-gray-600">No reports found matching your criteria</p>
             </div>
           )}
         </motion.div>
       </motion.div>
 
-      {/* Visitor Detail Modal */}
+      {/* Report Detail Modal */}
       <AnimatePresence>
-        {selectedVisitor && (
+        {selectedReport && (
           <motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
-            onClick={() => setSelectedVisitor(null)}
+            onClick={() => setSelectedReport(null)}
           >
             <motion.div
               initial={{ scale: 0.9, opacity: 0 }}
@@ -307,47 +411,48 @@ function Visitors() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="text-center mb-6">
-                <img 
-                  src={selectedVisitor.avatar} 
-                  alt={selectedVisitor.name}
-                  className="w-20 h-20 rounded-full object-cover mx-auto mb-4 border-4 border-blue-100"
-                />
-                <h3 className="text-2xl font-bold text-gray-900">{selectedVisitor.name}</h3>
-                <p className="text-gray-600">{selectedVisitor.company}</p>
+                <div className="w-20 h-20 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-2xl mx-auto mb-4 shadow-lg">
+                  {selectedReport.visitor_name ? selectedReport.visitor_name.charAt(0).toUpperCase() : 'V'}
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900">{selectedReport.visitor_name || 'Unknown Visitor'}</h3>
+                <p className="text-gray-600">Report ID: {selectedReport.id}</p>
               </div>
               
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">Email</label>
-                  <p className="text-gray-900 font-medium">{selectedVisitor.email}</p>
+                  <label className="block text-sm font-medium text-gray-500 mb-1">Check In</label>
+                  <p className="text-gray-900 font-medium">{formatDateTime(selectedReport.check_in)}</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">Phone</label>
-                  <p className="text-gray-900 font-medium">{selectedVisitor.phone}</p>
+                  <label className="block text-sm font-medium text-gray-500 mb-1">Check Out</label>
+                  <p className="text-gray-900 font-medium">{formatDateTime(selectedReport.check_out)}</p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">Purpose</label>
-                  <p className="text-gray-900 font-medium">{selectedVisitor.purpose}</p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">Host</label>
-                  <p className="text-gray-900 font-medium">{selectedVisitor.host}</p>
+                  <label className="block text-sm font-medium text-gray-500 mb-1">Visit Count</label>
+                  <p className="text-gray-900 font-medium flex items-center space-x-1">
+                    <Hash className="w-4 h-4 text-blue-500" />
+                    <span>{selectedReport.visit_count}</span>
+                  </p>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-500 mb-1">Status</label>
-                  {getStatusBadge(selectedVisitor.status)}
+                  {getStatusBadge(getReportStatus(selectedReport.check_in, selectedReport.check_out))}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-500 mb-1">Remarks</label>
+                  <p className="text-gray-900 font-medium">{selectedReport.remarks || 'No remarks'}</p>
                 </div>
               </div>
 
               <div className="flex space-x-3 mt-8">
                 <button 
-                  onClick={() => setSelectedVisitor(null)}
+                  onClick={() => setSelectedReport(null)}
                   className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium"
                 >
                   Close
                 </button>
                 <button className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 font-medium">
-                  Edit Visitor
+                  Edit Report
                 </button>
               </div>
             </motion.div>
@@ -379,4 +484,4 @@ function getStatusBadge(status) {
   );
 }
 
-export default Visitors;
+export default Reports;
