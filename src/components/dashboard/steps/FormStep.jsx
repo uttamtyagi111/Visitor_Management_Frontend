@@ -91,7 +91,7 @@ const FormStep = ({
           )}
         </div>
 
-        <div>
+        {/* <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Company
           </label>
@@ -103,7 +103,7 @@ const FormStep = ({
             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
             placeholder="Enter your company name (optional)"
           />
-        </div>
+        </div> */}
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -133,7 +133,7 @@ const FormStep = ({
           )}
         </div>
 
-        <div>
+        {/* <div>
           <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 mb-2">
             <User className="w-4 h-4" />
             <span>Host/Person to Meet</span>
@@ -146,7 +146,7 @@ const FormStep = ({
             className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
             placeholder="Enter host name (optional)"
           />
-        </div>
+        </div> */}
 
         {error && (
           <div className="flex items-center space-x-2 text-red-600 bg-red-50 p-3 rounded-lg border border-red-200">

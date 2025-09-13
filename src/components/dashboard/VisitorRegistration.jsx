@@ -111,7 +111,7 @@ const VisitorRegistration = () => {
       email: "",
       // company: "",
       purpose: "",
-      host: "",
+      // host: "",
     });
     setCapturedImage(null);
     if (imagePreview) {

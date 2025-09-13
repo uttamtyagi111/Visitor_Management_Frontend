@@ -19,7 +19,8 @@ import {
   RefreshCw,
   CheckCircle,
   XCircle,
-  MoreVertical
+  MoreVertical,
+  Save
 } from 'lucide-react';
 
 import { visitorAPI } from '../../api/visitor'; // Import your actual API
