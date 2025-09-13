@@ -170,6 +170,52 @@ function Invitees() {
     resetForm();
   };
 
+  const handleGenerateInvitePass = async (inviteId) => {
+    try {
+      setLoading(true);
+      await inviteeAPI.generatePass(inviteId);
+      
+      // Update invite to show pass generated
+      setInvites(prevInvites => 
+        prevInvites.map(invite => 
+          invite.id === inviteId 
+            ? { ...invite, pass_generated: true }
+            : invite
+        )
+      );
+      
+      setSuccess('Pass generated successfully!');
+    } catch (error) {
+      setError(inviteeHelpers.handleApiError(error));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDownloadPass = async (inviteId, format = 'image') => {
+    try {
+      setLoading(true);
+      const blob = await inviteeAPI.downloadPass(inviteId, format);
+      
+      // Create download link
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = `invite_pass_${inviteId}.${format === 'image' ? 'png' : 'pdf'}`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      setSuccess('Pass downloaded successfully!');
+    } catch (error) {
+      setError(inviteeHelpers.handleApiError(error));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const getStatusBadge = (status) => {
     const colorClass = inviteeHelpers.getStatusColor(status);
     return (
@@ -324,12 +370,37 @@ function Invitees() {
                       className="hover:bg-white/50 transition-colors duration-200"
                     >
                       <td className="px-6 py-4">
-                        <div>
-                          <p className="font-bold text-gray-900">{invite.visitor_name}</p>
-                          <p className="text-gray-600 text-sm">{invite.visitor_email}</p>
-                          {invite.visitor_phone && (
-                            <p className="text-gray-500 text-xs">{invite.visitor_phone}</p>
-                          )}
+                        <div className="flex items-center space-x-3">
+                          <div className="flex-shrink-0 w-10 h-10 relative">
+                            {invite.image ? (
+                              <img
+                                src={invite.image}
+                                alt={invite.visitor_name || 'Visitor'}
+                                className="w-10 h-10 rounded-full object-cover border-2 border-gray-200"
+                                onError={(e) => {
+                                  e.target.style.display = 'none';
+                                  const fallback = e.target.parentElement.querySelector('.fallback-avatar');
+                                  if (fallback) fallback.style.display = 'flex';
+                                }}
+                                onLoad={(e) => {
+                                  const fallback = e.target.parentElement.querySelector('.fallback-avatar');
+                                  if (fallback) fallback.style.display = 'none';
+                                }}
+                              />
+                            ) : null}
+                            <div 
+                              className={`fallback-avatar w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm absolute top-0 left-0 ${invite.image ? 'hidden' : 'flex'}`}
+                            >
+                              {(invite.visitor_name || 'V').charAt(0).toUpperCase()}
+                            </div>
+                          </div>
+                          <div>
+                            <p className="font-bold text-gray-900">{invite.visitor_name}</p>
+                            <p className="text-gray-600 text-sm">{invite.visitor_email}</p>
+                            {invite.visitor_phone && (
+                              <p className="text-gray-500 text-xs">{invite.visitor_phone}</p>
+                            )}
+                          </div>
                         </div>
                       </td>
                       <td className="px-6 py-4">
@@ -345,11 +416,11 @@ function Invitees() {
                       <td className="px-6 py-4">
                         <div className="flex items-center space-x-2">
                           <p className="font-medium text-gray-900">{invite.invite_code || 'N/A'}</p>
-                          {invite.status === 'checked_in' && (
+                          {(invite.status === 'checked_in' || invite.pass_generated) && (
                             <div className="group relative">
                               <Check className="w-4 h-4 text-green-600" />
                               <span className="absolute left-0 bottom-full mb-2 hidden group-hover:block bg-gray-800 text-white text-xs rounded py-1 px-2">
-                                Pass Issued / Checked In
+                                {invite.status === 'checked_in' ? 'Checked In' : 'Pass Generated'}
                               </span>
                             </div>
                           )}
@@ -385,6 +456,29 @@ function Invitees() {
                               </option>
                             ))}
                           </select>
+                          
+                          {/* Pass generation button for approved invites */}
+                          {invite.status === 'approved' && !invite.pass_generated && (
+                            <button
+                              onClick={() => handleGenerateInvitePass(invite.id)}
+                              disabled={loading}
+                              className="px-3 py-1 bg-blue-100 text-blue-800 rounded-lg hover:bg-blue-200 transition-colors duration-200 text-sm disabled:opacity-50"
+                            >
+                              Generate Pass
+                            </button>
+                          )}
+                          
+                          {/* Download pass button for generated passes */}
+                          {invite.pass_generated && (
+                            <button
+                              onClick={() => handleDownloadPass(invite.id, 'image')}
+                              disabled={loading}
+                              className="px-3 py-1 bg-green-100 text-green-800 rounded-lg hover:bg-green-200 transition-colors duration-200 text-sm disabled:opacity-50"
+                            >
+                              Download Pass
+                            </button>
+                          )}
+                          
                           <button 
                             onClick={() => handleDeleteInvite(invite.id)}
                             className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
@@ -413,7 +507,30 @@ function Invitees() {
                   transition={{ duration: 0.2, delay: index * 0.05 }}
                   className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm"
                 >
-                  <div className="flex items-start justify-between mb-3">
+                  <div className="flex items-center space-x-3">
+                    <div className="flex-shrink-0 w-12 h-12 relative">
+                      {invite.image ? (
+                        <img
+                          src={invite.image}
+                          alt={invite.visitor_name || 'Visitor'}
+                          className="w-12 h-12 rounded-full object-cover border-2 border-gray-200"
+                          onError={(e) => {
+                            e.target.style.display = 'none';
+                            const fallback = e.target.parentElement.querySelector('.fallback-avatar');
+                            if (fallback) fallback.style.display = 'flex';
+                          }}
+                          onLoad={(e) => {
+                            const fallback = e.target.parentElement.querySelector('.fallback-avatar');
+                            if (fallback) fallback.style.display = 'none';
+                          }}
+                        />
+                      ) : null}
+                      <div 
+                        className={`fallback-avatar w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg absolute top-0 left-0 ${invite.image ? 'hidden' : 'flex'}`}
+                      >
+                        {(invite.visitor_name || 'V').charAt(0).toUpperCase()}
+                      </div>
+                    </div>
                     <div className="flex-1">
                       <h3 className="text-lg font-bold text-gray-900">{invite.visitor_name}</h3>
                       <p className="text-sm text-gray-600">{invite.visitor_email}</p>
@@ -435,7 +552,7 @@ function Invitees() {
                       <span className="text-gray-500">Invite Code:</span>
                       <div className="flex items-center space-x-2">
                         <span className="text-gray-900 font-medium font-mono text-xs">{invite.invite_code || 'N/A'}</span>
-                        {invite.status === 'checked_in' && (
+                        {(invite.status === 'checked_in' || invite.pass_generated) && (
                           <Check className="w-4 h-4 text-green-600" />
                         )}
                       </div>
@@ -481,6 +598,29 @@ function Invitees() {
                         </option>
                       ))}
                     </select>
+                    
+                    {/* Pass generation button for approved invites */}
+                    {invite.status === 'approved' && !invite.pass_generated && (
+                      <button
+                        onClick={() => handleGenerateInvitePass(invite.id)}
+                        disabled={loading}
+                        className="px-3 py-1 bg-blue-100 text-blue-800 rounded-lg hover:bg-blue-200 transition-colors duration-200 text-sm disabled:opacity-50"
+                      >
+                        Generate Pass
+                      </button>
+                    )}
+                    
+                    {/* Download pass button for generated passes */}
+                    {invite.pass_generated && (
+                      <button
+                        onClick={() => handleDownloadPass(invite.id, 'image')}
+                        disabled={loading}
+                        className="px-3 py-1 bg-green-100 text-green-800 rounded-lg hover:bg-green-200 transition-colors duration-200 text-sm disabled:opacity-50"
+                      >
+                        Download
+                      </button>
+                    )}
+                    
                     <button 
                       onClick={() => handleDeleteInvite(invite.id)}
                       className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"

@@ -238,7 +238,20 @@ function Reports() {
                         >
                           <td className="px-6 py-4">
                             <div className="flex items-center space-x-3">
-                              <div className="w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-md">
+                              {report.image ? (
+                                <img 
+                                  src={report.image} 
+                                  alt={report.visitor_name || 'Visitor'}
+                                  className="w-10 h-10 rounded-full object-cover shadow-md border-2 border-white"
+                                  onError={(e) => {
+                                    e.target.style.display = 'none';
+                                    e.target.nextSibling.style.display = 'flex';
+                                  }}
+                                />
+                              ) : null}
+                              <div 
+                                className={`w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-md ${report.image ? 'hidden' : ''}`}
+                              >
                                 {report.visitor_name ? report.visitor_name.charAt(0).toUpperCase() : 'V'}
                               </div>
                               <div>
@@ -330,7 +343,20 @@ function Reports() {
                     >
                       <div className="flex items-start justify-between mb-3">
                         <div className="flex items-center space-x-3">
-                          <div className="w-12 h-12 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-md">
+                          {report.image ? (
+                            <img 
+                              src={report.image} 
+                              alt={report.visitor_name || 'Visitor'}
+                              className="w-12 h-12 rounded-full object-cover shadow-md border-2 border-white"
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                                e.target.nextSibling.style.display = 'flex';
+                              }}
+                            />
+                          ) : null}
+                          <div 
+                            className={`w-12 h-12 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-md ${report.image ? 'hidden' : ''}`}
+                          >
                             {report.visitor_name ? report.visitor_name.charAt(0).toUpperCase() : 'V'}
                           </div>
                           <div className="flex-1">
@@ -411,7 +437,20 @@ function Reports() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="text-center mb-6">
-                <div className="w-20 h-20 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-2xl mx-auto mb-4 shadow-lg">
+                {selectedReport.image ? (
+                  <img 
+                    src={selectedReport.image} 
+                    alt={selectedReport.visitor_name || 'Visitor'}
+                    className="w-20 h-20 rounded-full object-cover shadow-lg border-4 border-white mx-auto mb-4"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      e.target.nextSibling.style.display = 'flex';
+                    }}
+                  />
+                ) : null}
+                <div 
+                  className={`w-20 h-20 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-2xl mx-auto mb-4 shadow-lg ${selectedReport.image ? 'hidden' : ''}`}
+                >
                   {selectedReport.visitor_name ? selectedReport.visitor_name.charAt(0).toUpperCase() : 'V'}
                 </div>
                 <h3 className="text-2xl font-bold text-gray-900">{selectedReport.visitor_name || 'Unknown Visitor'}</h3>

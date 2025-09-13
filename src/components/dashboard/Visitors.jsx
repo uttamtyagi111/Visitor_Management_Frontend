@@ -1,6 +1,26 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, Filter, Calendar, Clock, CheckCircle, XCircle, MoreVertical, Plus, Download, RefreshCw, Users, Edit2, Save, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { 
+  Search, 
+  Filter, 
+  Calendar, 
+  Eye, 
+  Edit, 
+  Trash2, 
+  ChevronLeft, 
+  ChevronRight, 
+  Check, 
+  X, 
+  ThumbsUp, 
+  ThumbsDown,
+  Download,
+  User,
+  Clock,
+  RefreshCw,
+  CheckCircle,
+  XCircle,
+  MoreVertical
+} from 'lucide-react';
 
 import { visitorAPI } from '../../api/visitor'; // Import your actual API
 
@@ -18,6 +38,8 @@ function Visitors() {
   const [isEditing, setIsEditing] = useState(false);
   const [editingVisitor, setEditingVisitor] = useState(null);
   const [editForm, setEditForm] = useState({});
+  const [showPassModal, setShowPassModal] = useState(false);
+  const [passVisitor, setPassVisitor] = useState(null);
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -233,6 +255,41 @@ function Visitors() {
     setEditForm({});
   };
 
+  const handleGeneratePass = useCallback(async (visitorId) => {
+    try {
+      setUpdating(true);
+      
+      // Find the visitor
+      const visitor = visitors.find(v => v.id === visitorId);
+      if (!visitor) {
+        throw new Error('Visitor not found');
+      }
+      
+      // Set the visitor for pass generation
+      setPassVisitor(visitor);
+      setShowPassModal(true);
+      
+      // Update visitor to show pass generated
+      setVisitors(prevVisitors => 
+        prevVisitors.map(v => 
+          v.id === visitorId 
+            ? { ...v, pass_generated: true }
+            : v
+        )
+      );
+      
+      // Update selected visitor if it's the same one
+      if (selectedVisitor && selectedVisitor.id === visitorId) {
+        setSelectedVisitor(prev => ({ ...prev, pass_generated: true }));
+      }
+    } catch (err) {
+      console.error('Error generating pass:', err);
+      setError(err.message);
+    } finally {
+      setUpdating(false);
+    }
+  }, [visitors, selectedVisitor]);
+
   const handleFormChange = (field, value) => {
     setEditForm(prev => ({
       ...prev,
@@ -243,6 +300,218 @@ function Visitors() {
   const refreshData = () => {
     fetchVisitors();
   };
+
+  // Pass download functionality
+  const handleDownloadPass = useCallback(() => {
+    if (!passVisitor) return;
+
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Set canvas size
+    canvas.width = 400;
+    canvas.height = 600;
+    
+    // Create gradient background
+    const gradient = ctx.createLinearGradient(0, 0, 400, 600);
+    gradient.addColorStop(0, '#3B82F6');
+    gradient.addColorStop(1, '#8B5CF6');
+    
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 400, 600);
+    
+    // Add company header
+    ctx.fillStyle = 'white';
+    ctx.font = 'bold 24px Arial';
+    ctx.textAlign = 'center';
+    ctx.fillText('VISITOR PASS', 200, 50);
+    
+    ctx.font = '16px Arial';
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+    ctx.fillText('Wish Geeks Techserve', 200, 80);
+    
+    // Create a function to draw the pass with the image
+    const drawPass = (img = null) => {
+      // Clear and redraw background
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, 400, 600);
+      
+      // Redraw header text
+      ctx.fillStyle = 'white';
+      ctx.font = 'bold 24px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('VISITOR PASS', 200, 50);
+      
+      ctx.font = '16px Arial';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.fillText('Wish Geeks Techserve', 200, 80);
+      
+      // Draw visitor image if available
+      if (img) {
+        // Create a circular mask for the image
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(200, 170, 50, 0, Math.PI * 2);
+        ctx.closePath();
+        ctx.clip();
+        
+        // Draw the image
+        ctx.drawImage(img, 150, 120, 100, 100);
+        ctx.restore();
+        
+        // Add white border
+        ctx.beginPath();
+        ctx.arc(200, 170, 50, 0, Math.PI * 2);
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+      } else {
+        // Fallback to placeholder if no image
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+        ctx.beginPath();
+        ctx.arc(200, 170, 50, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Add initial letter
+        const initials = (passVisitor.name || passVisitor.firstName || 'V').charAt(0).toUpperCase() + 
+                        (passVisitor.lastName || '').charAt(0).toUpperCase();
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 24px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(initials, 200, 170);
+      }
+      
+      // Add visitor details
+      ctx.fillStyle = 'white';
+      ctx.font = 'bold 20px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'alphabetic';
+      ctx.fillText(passVisitor.name || `${passVisitor.firstName || ''} ${passVisitor.lastName || ''}`.trim(), 200, 260);
+      
+      ctx.font = '14px Arial';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+      ctx.fillText(passVisitor.email || '', 200, 285);
+      
+      // Add visit details
+      ctx.textAlign = 'left';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.fillText('Visit Time:', 50, 340);
+      ctx.fillStyle = 'white';
+      ctx.fillText(new Date().toLocaleString(), 150, 340);
+      
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.fillText('Purpose:', 50, 370);
+      ctx.fillStyle = 'white';
+      ctx.fillText(passVisitor.purpose || 'General Visit', 150, 370);
+      
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.fillText('Status:', 50, 400);
+      ctx.fillStyle = 'white';
+      ctx.fillText(passVisitor.status || 'Approved', 150, 400);
+      
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.fillText('ID:', 50, 430);
+      ctx.fillStyle = 'white';
+      ctx.fillText(`#${passVisitor.id}`, 150, 430);
+      
+      // Add footer
+      ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+      ctx.font = '12px Arial';
+      ctx.fillText('Please wear this pass at all times during your visit', 200, 520);
+      ctx.fillText('Generated on: ' + new Date().toLocaleDateString(), 200, 540);
+      
+      // Convert to blob and download
+      canvas.toBlob((blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `visitor-pass-${passVisitor.name || passVisitor.firstName || 'visitor'}-${Date.now()}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, 'image/png');
+    };
+    
+    // Try to load the visitor's image using fetch API
+    const loadImageWithFetch = async (url) => {
+      try {
+        console.log('Attempting to fetch image:', url);
+        const response = await fetch(url, {
+          mode: 'cors',
+          cache: 'no-cache',
+          credentials: 'same-origin'
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const blob = await response.blob();
+        const imageUrl = URL.createObjectURL(blob);
+        const img = new Image();
+        
+        img.onload = () => {
+          console.log('Image loaded successfully via fetch');
+          drawPass(img);
+          // Clean up the object URL after the image is loaded
+          URL.revokeObjectURL(imageUrl);
+        };
+        
+        img.onerror = (e) => {
+          console.error('Error creating image from blob:', e);
+          drawPass();
+          URL.revokeObjectURL(imageUrl);
+        };
+        
+        img.src = imageUrl;
+      } catch (error) {
+        console.error('Error loading image with fetch:', error);
+        // Fallback to regular image loading if fetch fails
+        loadImageDirectly(url);
+      }
+    };
+    
+    // Fallback method using regular image loading
+    const loadImageDirectly = (url) => {
+      console.log('Trying direct image load for:', url);
+      const img = new Image();
+      
+      img.onload = () => {
+        console.log('Image loaded successfully with direct method');
+        drawPass(img);
+      };
+      
+      img.onerror = (e) => {
+        console.error('Direct image load failed:', e);
+        drawPass();
+      };
+      
+      // Add timestamp to prevent caching
+      const timestamp = new Date().getTime();
+      const urlWithTimestamp = url.includes('?') 
+        ? `${url}&t=${timestamp}` 
+        : `${url}?t=${timestamp}`;
+      
+      img.crossOrigin = 'anonymous';
+      img.src = urlWithTimestamp;
+    };
+    
+    // Get the image URL and start loading
+    const imageUrl = passVisitor.image || passVisitor.imageUrl || passVisitor.photo;
+    console.log('Image URL:', imageUrl);
+    
+    if (imageUrl) {
+      // First try with fetch API, fallback to direct loading
+      loadImageWithFetch(imageUrl);
+    } else {
+      console.log('No image URL available for visitor');
+      // No image URL, draw without it
+      drawPass();
+    }
+  }, [passVisitor]);
 
   // For client-side filtering when search is active
   const filteredVisitors = useMemo(() => {
@@ -447,33 +716,31 @@ function Visitors() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center space-x-4">
                           <div className="flex-shrink-0 w-12 h-12 relative">
-                            {visitor.image ? (
+                            {(visitor.image || visitor.imageUrl || visitor.photo) ? (
                               <img
-                                src={visitor.image}
-                                alt={`${visitor.firstName} ${visitor.lastName}`}
+                                src={visitor.image || visitor.imageUrl || visitor.photo}
+                                alt={`${visitor.name || visitor.firstName + ' ' + visitor.lastName}`}
                                 className="w-12 h-12 rounded-full object-cover border-2 border-gray-200"
                                 onError={(e) => {
-                                  console.log('Image failed to load:', visitor.image);
                                   e.target.style.display = 'none';
                                   const fallback = e.target.parentElement.querySelector('.fallback-avatar');
                                   if (fallback) fallback.style.display = 'flex';
                                 }}
                                 onLoad={(e) => {
-                                  console.log('Image loaded successfully:', visitor.image);
                                   const fallback = e.target.parentElement.querySelector('.fallback-avatar');
                                   if (fallback) fallback.style.display = 'none';
                                 }}
                               />
                             ) : null}
                             <div 
-                              className={`fallback-avatar w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg absolute top-0 left-0 ${visitor.image ? 'hidden' : 'flex'}`}
+                              className={`fallback-avatar w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg absolute top-0 left-0 ${(visitor.image || visitor.imageUrl || visitor.photo) ? 'hidden' : 'flex'}`}
                             >
-                              {visitor.firstName?.[0]?.toUpperCase()}{visitor.lastName?.[0]?.toUpperCase()}
+                              {(visitor.name || visitor.firstName || 'V').charAt(0).toUpperCase()}{(visitor.lastName || '').charAt(0).toUpperCase()}
                             </div>
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="text-sm font-bold text-gray-900 truncate">
-                              {visitor.firstName} {visitor.lastName}
+                              {visitor.name || `${visitor.firstName || ''} ${visitor.lastName || ''}`.trim()}
                             </div>
                             <div className="text-sm text-gray-600 truncate">
                               {visitor.email}
@@ -514,7 +781,65 @@ function Visitors() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center space-x-2">
-                          {visitor.status === 'scheduled' && (
+                          {/* Status Dropdown */}
+                          <select
+                            value={visitor.status || 'pending'}
+                            onChange={(e) => handleStatusUpdate(visitor.id, e.target.value)}
+                            className="px-2 py-1 text-sm border border-gray-200 rounded bg-white min-w-[100px]"
+                            disabled={updating}
+                          >
+                            <option value="pending">Pending</option>
+                            <option value="approved">Approved</option>
+                            <option value="rejected">Rejected</option>
+                            <option value="checked_in">Checked In</option>
+                            <option value="checked_out">Checked Out</option>
+                          </select>
+                          
+                          {/* Approve/Reject buttons for pending status */}
+                          {visitor.status === 'pending' && (
+                            <>
+                              <button
+                                onClick={() => handleStatusUpdate(visitor.id, 'approved')}
+                                disabled={updating}
+                                className="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors duration-200 disabled:opacity-50"
+                                title="Approve"
+                              >
+                                <ThumbsUp className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => handleStatusUpdate(visitor.id, 'rejected')}
+                                disabled={updating}
+                                className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors duration-200 disabled:opacity-50"
+                                title="Reject"
+                              >
+                                <ThumbsDown className="w-4 h-4" />
+                              </button>
+                            </>
+                          )}
+                          
+                          {/* Pass generation button for approved status */}
+                          {visitor.status === 'approved' && (
+                            <button
+                              onClick={() => handleGeneratePass(visitor.id)}
+                              disabled={updating}
+                              className="px-3 py-1 bg-blue-100 text-blue-800 rounded-lg hover:bg-blue-200 transition-colors duration-200 text-sm disabled:opacity-50"
+                            >
+                              Generate Pass
+                            </button>
+                          )}
+                          
+                          {/* Check mark for pass generated */}
+                          {visitor.pass_generated && (
+                            <div className="group relative">
+                              <Check className="w-4 h-4 text-green-600" />
+                              <span className="absolute left-0 bottom-full mb-2 hidden group-hover:block bg-gray-800 text-white text-xs rounded py-1 px-2">
+                                Pass Generated
+                              </span>
+                            </div>
+                          )}
+                          
+                          {/* Check In/Out buttons */}
+                          {visitor.status === 'approved' && !visitor.pass_generated && (
                             <button
                               onClick={() => handleStatusUpdate(visitor.id, 'checked_in')}
                               disabled={updating}
@@ -532,13 +857,7 @@ function Visitors() {
                               Check Out
                             </button>
                           )}
-                          {/* <button
-                            onClick={() => handleEditVisitor(visitor)}
-                            className="p-2 hover:bg-blue-100 rounded-lg transition-colors duration-200"
-                            title="Edit Visitor"
-                          >
-                            <Edit2 className="w-4 h-4 text-blue-600" />
-                          </button> */}
+                          
                           <button 
                             onClick={() => setSelectedVisitor(visitor)}
                             className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200"
@@ -568,35 +887,33 @@ function Visitors() {
                 >
                   <div className="flex items-start space-x-4">
                     <div className="flex-shrink-0 w-16 h-16 relative">
-                      {visitor.imageUrl ? (
+                      {(visitor.image || visitor.imageUrl || visitor.photo) ? (
                         <img
-                          src={visitor.imageUrl}
-                          alt={`${visitor.firstName} ${visitor.lastName}`}
+                          src={visitor.image || visitor.imageUrl || visitor.photo}
+                          alt={`${visitor.name || visitor.firstName + ' ' + visitor.lastName}`}
                           className="w-16 h-16 rounded-full object-cover border-2 border-gray-200"
                           onError={(e) => {
-                            console.log('Image failed to load:', visitor.imageUrl);
                             e.target.style.display = 'none';
                             const fallback = e.target.parentElement.querySelector('.fallback-avatar');
                             if (fallback) fallback.style.display = 'flex';
                           }}
                           onLoad={(e) => {
-                            console.log('Image loaded successfully:', visitor.imageUrl);
                             const fallback = e.target.parentElement.querySelector('.fallback-avatar');
                             if (fallback) fallback.style.display = 'none';
                           }}
                         />
                       ) : null}
                       <div 
-                        className={`fallback-avatar w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-xl absolute top-0 left-0 ${visitor.image ? 'hidden' : 'flex'}`}
+                        className={`fallback-avatar w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-xl absolute top-0 left-0 ${(visitor.image || visitor.imageUrl || visitor.photo) ? 'hidden' : 'flex'}`}
                       >
-                        {visitor.firstName?.[0]?.toUpperCase()}{visitor.lastName?.[0]?.toUpperCase()}
+                        {(visitor.name || visitor.firstName || 'V').charAt(0).toUpperCase()}{(visitor.lastName || '').charAt(0).toUpperCase()}
                       </div>
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between">
                         <div className="min-w-0 flex-1">
                           <h3 className="text-lg font-bold text-gray-900 truncate">
-                            {visitor.firstName} {visitor.lastName}
+                            {visitor.name || `${visitor.firstName || ''} ${visitor.lastName || ''}`.trim()}
                           </h3>
                           <p className="text-sm text-gray-600 truncate">{visitor.email}</p>
                           <p className="text-sm text-gray-500 truncate">{visitor.phone}</p>
@@ -630,25 +947,55 @@ function Visitors() {
                         </div>
                       </div>
                       
-                      <div className="mt-4 flex items-center justify-end space-x-2">
-                        {visitor.status === 'scheduled' && (
+                      <div className="mt-4 flex items-center justify-between space-x-2">
+                        <select
+                          value={visitor.status || 'pending'}
+                          onChange={(e) => handleStatusUpdate(visitor.id, e.target.value)}
+                          className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white"
+                          disabled={updating}
+                        >
+                          <option value="pending">Pending</option>
+                          <option value="approved">Approved</option>
+                          <option value="rejected">Rejected</option>
+                          <option value="checked_in">Checked In</option>
+                          <option value="checked_out">Checked Out</option>
+                        </select>
+                        
+                        {visitor.status === 'pending' && (
+                          <>
+                            <button
+                              onClick={() => handleStatusUpdate(visitor.id, 'approved')}
+                              disabled={updating}
+                              className="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors duration-200 disabled:opacity-50"
+                              title="Approve"
+                            >
+                              <ThumbsUp className="w-4 h-4" />
+                            </button>
+                            <button
+                              onClick={() => handleStatusUpdate(visitor.id, 'rejected')}
+                              disabled={updating}
+                              className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors duration-200 disabled:opacity-50"
+                              title="Reject"
+                            >
+                              <ThumbsDown className="w-4 h-4" />
+                            </button>
+                          </>
+                        )}
+                        
+                        {visitor.status === 'approved' && !visitor.pass_generated && (
                           <button
-                            onClick={() => handleStatusUpdate(visitor.id, 'checked_in')}
+                            onClick={() => handleGeneratePass(visitor.id)}
                             disabled={updating}
-                            className="px-3 py-1 bg-green-100 text-green-800 rounded-lg hover:bg-green-200 transition-colors duration-200 text-sm disabled:opacity-50"
+                            className="px-3 py-1 bg-blue-100 text-blue-800 rounded-lg hover:bg-blue-200 transition-colors duration-200 text-sm disabled:opacity-50"
                           >
-                            Check In
+                            Generate Pass
                           </button>
                         )}
-                        {visitor.status === 'checked_in' && (
-                          <button
-                            onClick={() => handleStatusUpdate(visitor.id, 'checked_out')}
-                            disabled={updating}
-                            className="px-3 py-1 bg-gray-100 text-gray-800 rounded-lg hover:bg-gray-200 transition-colors duration-200 text-sm disabled:opacity-50"
-                          >
-                            Check Out
-                          </button>
+                        
+                        {visitor.pass_generated && (
+                          <Check className="w-4 h-4 text-green-600" />
                         )}
+                        
                         <button 
                           onClick={() => setSelectedVisitor(visitor)}
                           className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200"
@@ -662,15 +1009,6 @@ function Visitors() {
               ))}
             </AnimatePresence>
           </div>
-
-          {filteredVisitors.length === 0 && !loading && (
-            <div className="text-center py-12">
-              <div className="text-gray-400 mb-4">
-                <Users className="w-12 h-12 mx-auto" />
-              </div>
-              <p className="text-gray-600">No visitors found matching your criteria</p>
-            </div>
-          )}
 
           {/* Pagination Controls */}
           {totalItems > itemsPerPage && (
@@ -738,6 +1076,100 @@ function Visitors() {
         </motion.div>
       </motion.div>
 
+      {/* Pass Generation Modal */}
+      <AnimatePresence>
+        {showPassModal && passVisitor && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4"
+            onClick={() => setShowPassModal(false)}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="text-center mb-6">
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">Visitor Pass Generated!</h3>
+                <p className="text-gray-600">Pass has been created successfully</p>
+              </div>
+
+              {/* Pass Preview */}
+              <div className="max-w-sm mx-auto mb-6">
+                <div className="bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl p-6 text-white shadow-2xl">
+                  <div className="text-center mb-4">
+                    <h4 className="text-lg font-bold">VISITOR PASS</h4>
+                    <p className="text-blue-100 text-sm">Wish Geeks Techserve</p>
+                  </div>
+                  
+                  <div className="flex items-center space-x-4 mb-4">
+                    <div className="w-20 h-20 rounded-xl overflow-hidden bg-white/20">
+                      {(passVisitor.image || passVisitor.imageUrl || passVisitor.photo) ? (
+                        <img 
+                          src={passVisitor.image || passVisitor.imageUrl || passVisitor.photo} 
+                          alt="Visitor" 
+                          className="w-full h-full object-cover" 
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <User className="w-8 h-8 text-white/60" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex-1">
+                      <h5 className="font-bold text-lg">
+                        {passVisitor.name || `${passVisitor.firstName || ''} ${passVisitor.lastName || ''}`.trim()}
+                      </h5>
+                      <p className="text-blue-100 text-sm">{passVisitor.email}</p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-blue-100">Visit Time:</span>
+                      <span>{new Date().toLocaleString()}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-blue-100">Purpose:</span>
+                      <span className="text-right">{passVisitor.purpose || 'General Visit'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-blue-100">Status:</span>
+                      <span className="text-right">{passVisitor.status || 'Approved'}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-blue-100">ID:</span>
+                      <span className="text-right font-mono text-xs">#{passVisitor.id}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="space-y-3">
+                <button 
+                  onClick={handleDownloadPass}
+                  className="w-full py-3 bg-gradient-to-r from-green-600 to-blue-600 text-white font-medium rounded-xl hover:from-green-700 hover:to-blue-700 transition-all duration-200 flex items-center justify-center space-x-2"
+                >
+                  <Download className="w-5 h-5" />
+                  <span>Download Pass</span>
+                </button>
+                <button 
+                  onClick={() => setShowPassModal(false)}
+                  className="w-full py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200"
+                >
+                  Done
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Visitor Detail Modal */}
       <AnimatePresence>
         {selectedVisitor && !isEditing && (
@@ -756,15 +1188,23 @@ function Visitors() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="text-center mb-6">
-                <img 
-                  src={selectedVisitor.image || selectedVisitor.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(selectedVisitor.name)}&background=random`} 
-                  alt={selectedVisitor.name}
-                  className="w-20 h-20 rounded-full object-cover mx-auto mb-4 border-4 border-blue-100"
-                  onError={(e) => {
-                    e.target.src = `https://ui-avatars.com/api/?name=${encodeURIComponent(selectedVisitor.name)}&background=random`;
-                  }}
-                />
-                <h3 className="text-2xl font-bold text-gray-900">{selectedVisitor.name}</h3>
+                {(selectedVisitor.image || selectedVisitor.imageUrl || selectedVisitor.photo) ? (
+                  <img 
+                    src={selectedVisitor.image || selectedVisitor.imageUrl || selectedVisitor.photo} 
+                    alt={selectedVisitor.name || `${selectedVisitor.firstName || ''} ${selectedVisitor.lastName || ''}`.trim()}
+                    className="w-20 h-20 rounded-full object-cover mx-auto mb-4 border-4 border-blue-100"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      e.target.nextSibling.style.display = 'flex';
+                    }}
+                  />
+                ) : null}
+                <div 
+                  className={`w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-2xl mx-auto mb-4 border-4 border-blue-100 ${(selectedVisitor.image || selectedVisitor.imageUrl || selectedVisitor.photo) ? 'hidden' : 'flex'}`}
+                >
+                  {(selectedVisitor.name || selectedVisitor.firstName || 'V').charAt(0).toUpperCase()}{(selectedVisitor.lastName || '').charAt(0).toUpperCase()}
+                </div>
+                <h3 className="text-2xl font-bold text-gray-900">{selectedVisitor.name || `${selectedVisitor.firstName || ''} ${selectedVisitor.lastName || ''}`.trim()}</h3>
                 {/* <p className="text-gray-600">{selectedVisitor.company || 'No company'}</p> */}
               </div>
               
