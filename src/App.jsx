@@ -20,7 +20,7 @@ function App() {
       <Router>
         <div className="min-h-screen bg-gradient-to-br from-slate-600 via-grey-900 to-slate-900">
           <Routes>
-            <Route path="/api/visitor" element={<VisitorRegistration />} />
+            <Route path="/visitor" element={<VisitorRegistration />} />
             <Route path="/invite" element={<PublicInvitePage />} />
             <Route path="/invite/:inviteCode" element={<PublicInvitePage />} />
             <Route path="/login" element={<Login />} />
