@@ -26,20 +26,18 @@ import {
 
 // Import the API service
 import inviteeAPI, { inviteeHelpers } from '../../api/invite.js';
+// Import the invite modal component
+import InviteModal from '../invite/InviteModal';
 
 function Invitees() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [showInviteForm, setShowInviteForm] = useState(false);
   const [showInviteCodeModal, setShowInviteCodeModal] = useState(false);
-  const [currentStep, setCurrentStep] = useState(1);
-  const [inviteCode, setInviteCode] = useState('');
-  const [capturedImage, setCapturedImage] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [invites, setInvites] = useState([]);
-  const fileInputRef = useRef(null);
   
   const [inviteFormData, setInviteFormData] = useState({
     visitor_name: '',
@@ -51,12 +49,6 @@ function Invitees() {
     expiry_time: ''
   });
 
-  const steps = [
-    { id: 1, title: 'Enter Code', icon: QrCode },
-    { id: 2, title: 'Edit Details', icon: Edit },
-    { id: 3, title: 'Capture Image', icon: Camera },
-    { id: 4, title: 'Preview Pass', icon: User }
-  ];
 
   // Load invites on component mount
   useEffect(() => {
@@ -107,7 +99,16 @@ function Invitees() {
       }
 
       const response = await inviteeAPI.createInvite(inviteFormData);
-      setSuccess('Invitation sent successfully!');
+      
+      // Backend returns the invite data with generated invite_code
+      if (response && response.invite_code) {
+        // Generate email template using backend invite code
+        const emailTemplate = inviteeHelpers.generateInviteEmailTemplate(response);
+        console.log('Email template generated:', emailTemplate);
+        // You can use this emailTemplate to send emails via your backend
+      }
+      
+      setSuccess(`Invitation sent successfully! Invite code: ${response.invite_code || 'Generated'}`);
       setShowInviteForm(false);
       resetForm();
       loadInvites(); // Reload the list
@@ -118,113 +119,7 @@ function Invitees() {
     }
   };
 
-  const handleInviteCodeSubmit = async () => {
-    setLoading(true);
-    setError('');
 
-    try {
-      if (!inviteCode.trim()) {
-        throw new Error('Please enter an invite code');
-      }
-
-      const inviteData = await inviteeAPI.verifyInvite(inviteCode);
-      
-      // Map API response to form data
-      setInviteFormData({
-        visitor_name: inviteData.visitor_name || '',
-        visitor_email: inviteData.visitor_email || '',
-        visitor_phone: inviteData.visitor_phone || '',
-        purpose: inviteData.purpose || '',
-        invited_by: inviteData.invited_by || '',
-        visit_time: inviteData.visit_time || '',
-        expiry_time: inviteData.expiry_time || ''
-      });
-      
-      setCurrentStep(2);
-    } catch (error) {
-      setError(inviteeHelpers.handleApiError(error));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleImageCapture = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      // Validate file size (5MB limit)
-      if (file.size > 5 * 1024 * 1024) {
-        setError('Image must be less than 5MB');
-        return;
-      }
-
-      // Validate file type
-      if (!file.type.startsWith('image/')) {
-        setError('Please select a valid image file');
-        return;
-      }
-
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setCapturedImage({
-          file: file,
-          preview: e.target.result
-        });
-        setError('');
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleCaptureVisitorData = async () => {
-    if (!capturedImage) {
-      setError('Please capture or upload an image first');
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-
-    try {
-      // First, capture the visitor data (image upload)
-      await inviteeAPI.captureVisitorData(inviteCode, capturedImage.file);
-      
-      // Then, update the status to 'checked_in' using PATCH
-      const inviteData = invites.find(invite => invite.invite_code === inviteCode);
-      if (inviteData && inviteData.id) {
-        await inviteeAPI.updateInviteStatus(inviteData.id, 'checked_in');
-      } else {
-        throw new Error('Unable to find invite ID for status update');
-      }
-
-      setSuccess('Visitor pass created successfully!');
-      setCurrentStep(4);
-      loadInvites(); // Reload the invites to reflect the status change and flag
-    } catch (error) {
-      setError(inviteeHelpers.handleApiError(error));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handlePrintPass = () => {
-    const passElement = document.getElementById('visitor-pass');
-    if (passElement) {
-      const printWindow = window.open('', '_blank');
-      printWindow.document.write('<html><head><title>Visitor Pass</title>');
-      printWindow.document.write('<style>');
-      // Add necessary styles for printing
-      printWindow.document.write(`
-        body { font-family: sans-serif; }
-        .pass-container { width: 300px; padding: 20px; background: linear-gradient(to bottom right, #2563eb, #7c3aed); color: white; border-radius: 16px; }
-        .qr-container { background: white; border-radius: 8px; padding: 8px; }
-      `);
-      printWindow.document.write('</style></head><body>');
-      printWindow.document.write(passElement.outerHTML);
-      printWindow.document.write('</body></html>');
-      printWindow.document.close();
-      printWindow.print();
-    }
-  };
 
   const handleDeleteInvite = async (id) => {
     if (!window.confirm('Are you sure you want to delete this invitation?')) {
@@ -266,9 +161,6 @@ function Invitees() {
       visit_time: '',
       expiry_time: ''
     });
-    setInviteCode('');
-    setCapturedImage(null);
-    setCurrentStep(1);
     setError('');
     setSuccess('');
   };
@@ -295,306 +187,6 @@ function Invitees() {
     return date.toISOString().slice(0, 16);
   };
 
-  const renderStepContent = () => {
-    switch (currentStep) {
-      case 1:
-        return (
-          <div className="text-center py-8">
-            <div className="w-20 h-20 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
-              <QrCode className="w-10 h-10 text-white" />
-            </div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-4">Enter Invite Code</h3>
-            <p className="text-gray-600 mb-8">Enter the invitation code to proceed with the visitor pass creation</p>
-            
-            {error && (
-              <div className="mb-4 p-3 bg-red-100 border border-red-200 text-red-700 rounded-lg flex items-center space-x-2">
-                <AlertCircle className="w-4 h-4" />
-                <span className="text-sm">{error}</span>
-              </div>
-            )}
-            
-            <div className="max-w-md mx-auto">
-              <input
-                type="text"
-                value={inviteCode}
-                onChange={(e) => setInviteCode(e.target.value)}
-                className="w-full px-6 py-4 text-center text-2xl font-mono bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 tracking-wider"
-                placeholder="ENTER-CODE"
-              />
-              
-              <button
-                onClick={handleInviteCodeSubmit}
-                disabled={!inviteCode.trim() || loading}
-                className="w-full mt-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {loading ? 'Verifying...' : 'Verify Code'}
-              </button>
-            </div>
-          </div>
-        );
-
-      case 2:
-        return (
-          <div className="py-6">
-            <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">Edit Visitor Details</h3>
-            
-            {error && (
-              <div className="mb-4 p-3 bg-red-100 border border-red-200 text-red-700 rounded-lg flex items-center space-x-2">
-                <AlertCircle className="w-4 h-4" />
-                <span className="text-sm">{error}</span>
-              </div>
-            )}
-            
-            <form className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Full Name *</label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input
-                      type="text"
-                      value={inviteFormData.visitor_name}
-                      onChange={(e) => setInviteFormData({...inviteFormData, visitor_name: e.target.value})}
-                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                      placeholder="Enter full name"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Invited By *</label>
-                  <div className="relative">
-                    <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input
-                      type="text"
-                      value={inviteFormData.invited_by}
-                      onChange={(e) => setInviteFormData({...inviteFormData, invited_by: e.target.value})}
-                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                      placeholder="Enter who invited the visitor"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Email Address *</label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input
-                      type="email"
-                      value={inviteFormData.visitor_email}
-                      onChange={(e) => setInviteFormData({...inviteFormData, visitor_email: e.target.value})}
-                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                      placeholder="Enter email address"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
-                  <div className="relative">
-                    <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input
-                      type="tel"
-                      value={inviteFormData.visitor_phone}
-                      onChange={(e) => setInviteFormData({...inviteFormData, visitor_phone: e.target.value})}
-                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                      placeholder="Enter phone number"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Visit Time</label>
-                  <div className="relative">
-                    <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input
-                      type="datetime-local"
-                      value={formatDateTimeLocal(inviteFormData.visit_time)}
-                      onChange={(e) => setInviteFormData({...inviteFormData, visit_time: e.target.value})}
-                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                    />
-                  </div>
-                </div>
-                <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Expiry Time</label>
-                <div className="relative">
-                  <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type="datetime-local"
-                    value={formatDateTimeLocal(inviteFormData.expiry_time) }
-                    onChange={(e) => setInviteFormData({...inviteFormData, expiry_time: e.target.value})}
-                    className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                  />
-                </div>
-              </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Purpose of Visit *</label>
-                <input
-                  type="text"
-                  value={inviteFormData.purpose}
-                  onChange={(e) => setInviteFormData({...inviteFormData, purpose: e.target.value})}
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                  placeholder="e.g., Business meeting, Interview, Product demo"
-                  required
-                />
-              </div>
-            </form>
-          </div>
-        );
-
-      case 3:
-        return (
-          <div className="text-center py-8">
-            <div className="w-20 h-20 bg-gradient-to-r from-green-500 to-blue-500 rounded-2xl flex items-center justify-center mx-auto mb-6">
-              <Camera className="w-10 h-10 text-white" />
-            </div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-4">Capture Photo</h3>
-            <p className="text-gray-600 mb-8">Upload or capture a photo for the visitor pass</p>
-
-            {error && (
-              <div className="mb-4 p-3 bg-red-100 border border-red-200 text-red-700 rounded-lg flex items-center space-x-2 max-w-md mx-auto">
-                <AlertCircle className="w-4 h-4" />
-                <span className="text-sm">{error}</span>
-              </div>
-            )}
-
-            <div className="max-w-md mx-auto">
-              {capturedImage ? (
-                <div className="mb-6">
-                  <img 
-                    src={capturedImage.preview} 
-                    alt="Captured" 
-                    className="w-48 h-48 object-cover rounded-2xl mx-auto border-4 border-white shadow-lg"
-                  />
-                  <button
-                    onClick={() => setCapturedImage(null)}
-                    className="mt-4 px-4 py-2 text-blue-600 hover:text-blue-800 transition-colors"
-                  >
-                    Retake Photo
-                  </button>
-                </div>
-              ) : (
-                <div 
-                  onClick={() => fileInputRef.current?.click()}
-                  className="w-48 h-48 mx-auto border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-all duration-200"
-                >
-                  <Upload className="w-12 h-12 text-gray-400 mb-4" />
-                  <p className="text-gray-600 font-medium">Click to upload photo</p>
-                  <p className="text-gray-400 text-sm mt-2">JPG, PNG up to 5MB</p>
-                </div>
-              )}
-
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleImageCapture}
-                className="hidden"
-              />
-
-              {capturedImage && (
-                <button
-                  onClick={handleCaptureVisitorData}
-                  disabled={loading}
-                  className="w-full mt-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {loading ? 'Creating Pass...' : 'Create Pass'}
-                </button>
-              )}
-            </div>
-          </div>
-        );
-
-      case 4:
-        return (
-          <div className="py-6">
-            <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">Visitor Pass Created!</h3>
-            
-            {success && (
-              <div className="mb-6 p-3 bg-green-100 border border-green-200 text-green-700 rounded-lg flex items-center justify-center space-x-2">
-                <Check className="w-4 h-4" />
-                <span className="text-sm">{success}</span>
-              </div>
-            )}
-            
-            <div className="max-w-sm mx-auto">
-              {/* Pass Design */}
-              <div id="visitor-pass" className="bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl p-6 text-white shadow-2xl pass-container">
-                <div className="text-center mb-4">
-                  <h4 className="text-lg font-bold">VISITOR PASS</h4>
-                  <p className="text-blue-100 text-sm">Wish Geeks Techserve</p>
-                </div>
-                
-                <div className="flex items-center space-x-4 mb-4">
-                  <div className="w-20 h-20 rounded-xl overflow-hidden bg-white/20">
-                    {capturedImage ? (
-                      <img src={capturedImage.preview} alt="Visitor" className="w-full h-full object-cover" />
-                    ) : (
-                      <div className="w-full h-full flex items-center justify-center">
-                        <User className="w-8 h-8 text-white/60" />
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex-1">
-                    <h5 className="font-bold text-lg">{inviteFormData.visitor_name}</h5>
-                    <p className="text-blue-100 text-sm">{inviteFormData.visitor_email}</p>
-                  </div>
-                </div>
-
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-blue-100">Visit Time:</span>
-                    <span>{inviteeHelpers.formatDateTime(inviteFormData.visit_time)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-blue-100">Purpose:</span>
-                    <span className="text-right">{inviteFormData.purpose}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-blue-100">Invited By:</span>
-                    <span className="text-right">{inviteFormData.invited_by}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-blue-100">Code:</span>
-                    <span className="text-right font-mono text-xs">{inviteCode}</span>
-                  </div>
-                </div>
-
-                {/* <div className="mt-4 pt-4 border-t border-white/20 text-center qr-container">
-                  <div className="w-16 h-16 bg-white rounded-lg mx-auto flex items-center justify-center">
-                    <QrCode className="w-10 h-10 text-gray-800" />
-                  </div>
-                  <p className="text-xs text-blue-100 mt-2">Scan QR Code</p>
-                </div> */}
-              </div>
-
-              <div className="mt-6 space-y-3">
-                <button 
-                  onClick={handlePrintPass}
-                  className="w-full py-3 bg-gradient-to-r from-green-600 to-blue-600 text-white font-medium rounded-xl hover:from-green-700 hover:to-blue-700 transition-all duration-200"
-                >
-                  Print Pass
-                </button>
-                <button 
-                  onClick={closeModal}
-                  className="w-full py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200"
-                >
-                  Done
-                </button>
-              </div>
-            </div>
-          </div>
-        );
-
-      default:
-        return null;
-    }
-  };
 
   return (
     <div className="p-8 overflow-y-auto bg-gradient-to-br from-gray-50 to-blue-50 min-h-full">
@@ -706,19 +298,6 @@ function Invitees() {
           transition={{ delay: 0.5, duration: 0.6 }}
           className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/50 overflow-hidden"
         >
-          {/* <div className="p-6 border-b border-gray-200">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xl font-bold text-gray-900">Invitations</h3>
-              <button 
-                onClick={loadInvites}
-                disabled={loading}
-                className="px-4 py-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50"
-              >
-                {loading ? 'Loading...' : 'Refresh'}
-              </button>
-            </div>
-          </div> */}
-
           {/* Desktop and Tablet Table View */}
           <div className="hidden md:block overflow-auto max-h-[600px]">
             <table className="w-full table-auto">
@@ -726,7 +305,6 @@ function Invitees() {
                 <tr>
                   <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Invitee</th>
                   <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Host</th>
-                  {/* <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Email</th> */}
                   <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Invite_code</th>
                   <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Purpose</th>
                   <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Visit Time</th>
@@ -762,12 +340,8 @@ function Invitees() {
                               {inviteeHelpers.formatDateTime(invite.created_at)}
                             </p>
                           )}
-                          
                         </div>
                       </td>
-                      {/* <td className="px-6 py-4">
-                        <p className="font-medium text-gray-900">{invite.visitor_email}</p>
-                      </td> */}
                       <td className="px-6 py-4">
                         <div className="flex items-center space-x-2">
                           <p className="font-medium text-gray-900">{invite.invite_code || 'N/A'}</p>
@@ -1092,99 +666,11 @@ function Invitees() {
       </AnimatePresence>
 
       {/* Invite Code Modal */}
-      <AnimatePresence>
-        {showInviteCodeModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-2xl p-8 max-w-4xl w-full shadow-2xl max-h-[95vh] overflow-y-auto"
-            >
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-2xl font-bold text-gray-900">Process Invitation</h3>
-                <button 
-                  onClick={closeModal}
-                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-                >
-                  <X className="w-5 h-5 text-gray-400" />
-                </button>
-              </div>
-
-              {/* Step Indicator */}
-              <div className="mb-8">
-                <div className="flex items-center justify-between">
-                  {steps.map((step, index) => {
-                    const Icon = step.icon;
-                    const isActive = currentStep === step.id;
-                    const isCompleted = currentStep > step.id;
-                    
-                    return (
-                      <div key={step.id} className="flex items-center">
-                        <div className="flex flex-col items-center">
-                          <div className={`w-12 h-12 rounded-xl flex items-center justify-center transition-all duration-300 ${
-                            isCompleted 
-                              ? 'bg-green-500 text-white' 
-                              : isActive 
-                              ? 'bg-blue-600 text-white' 
-                              : 'bg-gray-200 text-gray-500'
-                          }`}>
-                            {isCompleted ? (
-                              <Check className="w-6 h-6" />
-                            ) : (
-                              <Icon className="w-6 h-6" />
-                            )}
-                          </div>
-                          <span className={`mt-2 text-sm font-medium transition-colors ${
-                            isActive ? 'text-blue-600' : 'text-gray-500'
-                          }`}>
-                            {step.title}
-                          </span>
-                        </div>
-                        {index < steps.length - 1 && (
-                          <div className={`flex-1 h-1 mx-4 rounded-full transition-colors ${
-                            currentStep > step.id ? 'bg-green-500' : 'bg-gray-200'
-                          }`} />
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Step Content */}
-              <div className="min-h-[400px]">
-                {renderStepContent()}
-              </div>
-
-              {/* Navigation Buttons */}
-              {currentStep > 1 && currentStep < 3 && (
-                <div className="flex space-x-4 pt-6 border-t border-gray-200">
-                  <button
-                    onClick={() => setCurrentStep(currentStep - 1)}
-                    className="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium"
-                  >
-                    Previous
-                  </button>
-                  <button
-                    onClick={() => setCurrentStep(currentStep + 1)}
-                    disabled={(currentStep === 3 && !capturedImage) || loading}
-                    className="flex-1 flex items-center justify-center space-x-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <span>Next</span>
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <InviteModal
+        isOpen={showInviteCodeModal}
+        onClose={closeModal}
+        isAdmin={true}
+      />
     </div>
   );
 }

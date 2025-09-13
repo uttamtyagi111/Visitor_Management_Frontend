@@ -186,7 +186,7 @@ function Visitors() {
       name: visitor.name || '',
       email: visitor.email || '',
       phone: visitor.phone || '',
-      company: visitor.company || '',
+      // company: visitor.company || '',
       purpose: visitor.purpose || '',
       host: visitor.host || ''
     });
@@ -425,7 +425,7 @@ function Visitors() {
               <thead className="bg-gray-50/50">
                 <tr>
                   <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Visitor</th>
-                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Company</th>
+                  {/* <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Company</th> */}
                   <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Purpose</th>
                   <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Host</th>
                   <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Check In</th>
@@ -484,9 +484,9 @@ function Visitors() {
                           </div>
                         </div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
+                      {/* <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">{visitor.company || 'N/A'}</div>
-                      </td>
+                      </td> */}
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">{visitor.purpose || 'N/A'}</div>
                       </td>
@@ -607,10 +607,10 @@ function Visitors() {
                       </div>
                       
                       <div className="mt-3 grid grid-cols-1 gap-2 text-sm">
-                        <div className="flex justify-between">
+                        {/* <div className="flex justify-between">
                           <span className="text-gray-500">Company:</span>
                           <span className="text-gray-900 font-medium">{visitor.company || 'N/A'}</span>
-                        </div>
+                        </div> */}
                         <div className="flex justify-between">
                           <span className="text-gray-500">Purpose:</span>
                           <span className="text-gray-900 font-medium">{visitor.purpose || 'N/A'}</span>
@@ -765,7 +765,7 @@ function Visitors() {
                   }}
                 />
                 <h3 className="text-2xl font-bold text-gray-900">{selectedVisitor.name}</h3>
-                <p className="text-gray-600">{selectedVisitor.company || 'No company'}</p>
+                {/* <p className="text-gray-600">{selectedVisitor.company || 'No company'}</p> */}
               </div>
               
               <div className="space-y-4">
@@ -874,7 +874,7 @@ function Visitors() {
                   />
                 </div>
 
-                <div>
+                {/* <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Company</label>
                   <input
                     type="text"
@@ -883,7 +883,7 @@ function Visitors() {
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Enter company name"
                   />
-                </div>
+                </div> */}
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Purpose</label>

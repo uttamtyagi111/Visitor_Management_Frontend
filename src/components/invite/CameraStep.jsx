@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Camera } from "lucide-react";
 
-const CameraStep = ({ onPhotoCapture, onSkip }) => {
+const CameraStep = ({ onPhotoCapture, onSkip, isLoggedIn = false, existingImage = null }) => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const isMountedRef = useRef(true);
@@ -205,6 +205,39 @@ const CameraStep = ({ onPhotoCapture, onSkip }) => {
     }, 50); // Small delay to ensure rendering is complete
   };
 
+  // If admin and visitor already has image, show it
+  if (isLoggedIn && existingImage) {
+    return (
+      <div className="text-center space-y-4">
+        <h2 className="text-2xl font-bold text-gray-800">Visitor Photo</h2>
+        <p className="text-gray-600 text-sm">Photo already uploaded by visitor</p>
+        
+        <div className="relative w-80 h-60 mx-auto bg-gray-200 rounded-xl overflow-hidden shadow-inner">
+          <img 
+            src={existingImage} 
+            alt="Visitor photo" 
+            className="w-full h-full object-cover"
+          />
+        </div>
+        
+        <div className="flex justify-center space-x-4">
+          <button
+            onClick={() => onPhotoCapture(null, existingImage)}
+            className="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors"
+          >
+            Use This Photo
+          </button>
+          <button
+            onClick={() => window.location.reload()}
+            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Retake Photo
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="text-center space-y-4">
       <h2 className="text-2xl font-bold text-gray-800">Take Your Photo</h2>
@@ -269,6 +302,27 @@ const CameraStep = ({ onPhotoCapture, onSkip }) => {
       )}
 
       <canvas ref={canvasRef} className="hidden" />
+
+      {/* Only show file upload for logged-in users (admins) */}
+      {isLoggedIn && (
+        <div className="mt-4">
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Or upload an image file:
+          </label>
+          <input
+            type="file"
+            accept="image/*"
+            onChange={(e) => {
+              const file = e.target.files[0];
+              if (file) {
+                const previewUrl = URL.createObjectURL(file);
+                onPhotoCapture(file, previewUrl);
+              }
+            }}
+            className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+          />
+        </div>
+      )}
 
       <button
         onClick={onSkip}

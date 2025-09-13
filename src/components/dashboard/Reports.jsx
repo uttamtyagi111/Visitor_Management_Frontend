@@ -195,7 +195,7 @@ function Reports() {
                   <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Check Out</th>
                   <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Visit Count</th>
                   <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Remarks</th>
+                  {/* <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Remarks</th> */}
                   <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
@@ -268,7 +268,7 @@ function Reports() {
                           <td className="px-6 py-4">
                             {getStatusBadge(status)}
                           </td>
-                          <td className="px-6 py-4">
+                          {/* <td className="px-6 py-4">
                             <span className="text-gray-700 text-sm">
                               {report.remarks ? (
                                 report.remarks.length > 50 
@@ -276,7 +276,7 @@ function Reports() {
                                   : report.remarks
                               ) : 'No remarks'}
                             </span>
-                          </td>
+                          </td> */}
                           <td className="px-6 py-4">
                             <button 
                               onClick={() => setSelectedReport(report)}
@@ -359,12 +359,12 @@ function Reports() {
                             <span className="text-blue-600 font-bold">{report.visit_count}</span>
                           </div>
                         </div>
-                        <div className="flex justify-between">
+                        {/* <div className="flex justify-between">
                           <span className="text-gray-500">Remarks:</span>
                           <span className="text-gray-900 font-medium text-right max-w-48 truncate">
                             {report.remarks || 'No remarks'}
                           </span>
-                        </div>
+                        </div> */}
                       </div>
                       
                       <div className="flex items-center justify-end">
@@ -438,10 +438,10 @@ function Reports() {
                   <label className="block text-sm font-medium text-gray-500 mb-1">Status</label>
                   {getStatusBadge(getReportStatus(selectedReport.check_in, selectedReport.check_out))}
                 </div>
-                <div>
+                {/* <div>
                   <label className="block text-sm font-medium text-gray-500 mb-1">Remarks</label>
                   <p className="text-gray-900 font-medium">{selectedReport.remarks || 'No remarks'}</p>
-                </div>
+                </div> */}
               </div>
 
               <div className="flex space-x-3 mt-8">

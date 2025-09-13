@@ -6,6 +6,7 @@ import PasswordReset from './components/auth/PasswordReset';
 import PasswordVerify from './components/auth/PasswordVerify';
 import Dashboard from './components/dashboard/Dashboard';
 import VisitorRegistration from './components/dashboard/VisitorRegistration';
+import PublicInvitePage from './components/invite/PublicInvitePage';
 import './index.css';
 
 function ProtectedRoute({ children }) {
@@ -20,6 +21,8 @@ function App() {
         <div className="min-h-screen bg-gradient-to-br from-slate-600 via-grey-900 to-slate-900">
           <Routes>
             <Route path="/api/visitor" element={<VisitorRegistration />} />
+            <Route path="/invite" element={<PublicInvitePage />} />
+            <Route path="/invite/:inviteCode" element={<PublicInvitePage />} />
             <Route path="/login" element={<Login />} />
             <Route path="/password-reset" element={<PasswordReset />} />
             <Route path="/password-verify" element={<PasswordVerify />} />

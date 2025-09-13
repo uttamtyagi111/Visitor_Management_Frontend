@@ -92,12 +92,15 @@ class InviteeAPI {
     });
   }
 
-  // Verify invite by code
+  // Verify invite by code (Public access - no auth required)
   async verifyInvite(inviteCode) {
     return await this.makeRequest('/invites/verify/', {
       method: 'POST',
       body: JSON.stringify({ invite_code: inviteCode }),
-      // headers: {} // No auth headers for public access
+      headers: {
+        'Content-Type': 'application/json'
+        // No Authorization header for public access
+      }
     });
   }
 
@@ -182,7 +185,7 @@ export const inviteeHelpers = {
     return phoneRegex.test(phone.replace(/\s|-|\(|\)/g, ''));
   },
 
-  // Validate UUID format for invite codes
+  // Validate invite code format (6 hex chars from UUID, matches backend)
   validateInviteCode: (code) => {
     const shortCodeRegex = /^[a-f0-9]{6}$/i;
     return shortCodeRegex.test(code);
@@ -198,6 +201,80 @@ export const inviteeHelpers = {
   generateInviteUrl: (inviteCode) => {
     const baseUrl = window.location.origin;
     return `${baseUrl}/invite/${inviteCode}`;
+  },
+
+  // Generate email template for invite (uses backend-generated invite_code)
+  generateInviteEmailTemplate: (inviteData) => {
+    const inviteUrl = inviteeHelpers.generateInviteUrl(inviteData.invite_code);
+    return {
+      subject: `Invitation to Visit Wish Geeks Techserve - ${inviteData.purpose}`,
+      html: `
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; background-color: #f8fafc;">
+          <div style="background: linear-gradient(135deg, #2563eb, #7c3aed); padding: 30px; border-radius: 16px; text-align: center; margin-bottom: 20px;">
+            <h1 style="color: white; margin: 0; font-size: 28px;">You're Invited!</h1>
+            <p style="color: #e0e7ff; margin: 10px 0 0 0; font-size: 16px;">Wish Geeks Techserve</p>
+          </div>
+          
+          <div style="background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+            <h2 style="color: #1f2937; margin-top: 0;">Visit Details</h2>
+            
+            <div style="background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0;">
+              <p style="margin: 8px 0;"><strong>Visitor:</strong> ${inviteData.visitor_name}</p>
+              <p style="margin: 8px 0;"><strong>Purpose:</strong> ${inviteData.purpose}</p>
+              <p style="margin: 8px 0;"><strong>Invited by:</strong> ${inviteData.invited_by}</p>
+              <p style="margin: 8px 0;"><strong>Visit Time:</strong> ${inviteeHelpers.formatDateTime(inviteData.visit_time)}</p>
+              <p style="margin: 8px 0;"><strong>Valid Until:</strong> ${inviteeHelpers.formatDateTime(inviteData.expiry_time)}</p>
+            </div>
+
+            <div style="text-align: center; margin: 30px 0;">
+              <div style="background: #f0f9ff; border: 2px dashed #0ea5e9; padding: 20px; border-radius: 8px; margin-bottom: 20px;">
+                <p style="margin: 0 0 10px 0; color: #0c4a6e; font-weight: bold;">Your Invite Code:</p>
+                <p style="font-family: 'Courier New', monospace; font-size: 24px; font-weight: bold; color: #0ea5e9; margin: 0; letter-spacing: 2px;">${inviteData.invite_code}</p>
+              </div>
+              
+              <a href="${inviteUrl}" style="display: inline-block; background: linear-gradient(135deg, #2563eb, #7c3aed); color: white; padding: 15px 30px; text-decoration: none; border-radius: 8px; font-weight: bold; font-size: 16px;">Complete Your Registration</a>
+            </div>
+
+            <div style="background: #fef3c7; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0;">
+              <h3 style="color: #92400e; margin-top: 0;">What to do next:</h3>
+              <ol style="color: #92400e; margin: 0; padding-left: 20px;">
+                <li>Click the link above or visit: <code>${inviteUrl}</code></li>
+                <li>Enter your invite code: <strong>${inviteData.invite_code}</strong></li>
+                <li>Verify your details</li>
+                <li>Take or upload your photo</li>
+                <li>You're all set for your visit!</li>
+              </ol>
+            </div>
+
+            <div style="border-top: 1px solid #e5e7eb; padding-top: 20px; margin-top: 30px; text-align: center; color: #6b7280; font-size: 14px;">
+              <p>Need help? Contact us at <a href="mailto:reception@wishgeeks.com" style="color: #2563eb;">reception@wishgeeks.com</a></p>
+              <p style="margin: 10px 0 0 0;">&copy; 2024 Wish Geeks Techserve. All rights reserved.</p>
+            </div>
+          </div>
+        </div>
+      `,
+      text: `
+You're invited to visit Wish Geeks Techserve!
+
+Visit Details:
+- Visitor: ${inviteData.visitor_name}
+- Purpose: ${inviteData.purpose}
+- Invited by: ${inviteData.invited_by}
+- Visit Time: ${inviteeHelpers.formatDateTime(inviteData.visit_time)}
+- Valid Until: ${inviteeHelpers.formatDateTime(inviteData.expiry_time)}
+
+Your Invite Code: ${inviteData.invite_code}
+
+To complete your registration:
+1. Visit: ${inviteUrl}
+2. Enter your invite code: ${inviteData.invite_code}
+3. Verify your details
+4. Take or upload your photo
+5. You're all set for your visit!
+
+Need help? Contact us at reception@wishgeeks.com
+      `
+    };
   },
 
   // Handle API errors consistently

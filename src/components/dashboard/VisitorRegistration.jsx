@@ -10,7 +10,7 @@ const VisitorRegistration = () => {
     name: "",
     phone: "",
     email: "",
-    company: "",
+    // company: "",
     purpose: "",
     host: "",
   });
@@ -109,7 +109,7 @@ const VisitorRegistration = () => {
       name: "",
       phone: "",
       email: "",
-      company: "",
+      // company: "",
       purpose: "",
       host: "",
     });
