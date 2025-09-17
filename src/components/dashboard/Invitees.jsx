@@ -1,15 +1,15 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { 
-  Search, 
-  Filter, 
-  Calendar, 
-  Clock, 
-  Plus, 
-  Mail, 
-  Phone, 
-  Building, 
-  User, 
+import React, { useState, useRef, useEffect, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import {
+  Search,
+  Filter,
+  Calendar,
+  Clock,
+  Plus,
+  Mail,
+  Phone,
+  Building,
+  User,
   X,
   Send,
   Edit,
@@ -21,39 +21,51 @@ import {
   Check,
   ChevronRight,
   Upload,
-  AlertCircle
-} from 'lucide-react';
+  AlertCircle,
+  ThumbsUp,
+  ThumbsDown,
+  MoreVertical,
+  RefreshCw,
+} from "lucide-react";
 
 // Import the API service
-import inviteeAPI, { inviteeHelpers } from '../../api/invite.js';
+import inviteeAPI, { inviteeHelpers } from "../../api/invite.js";
 // Import the invite modal component
-import InviteModal from '../invite/InviteModal';
+import InviteModal from "../invite/InviteModal";
 
 function Invitees() {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [showInviteForm, setShowInviteForm] = useState(false);
   const [showInviteCodeModal, setShowInviteCodeModal] = useState(false);
+  const [dateFilter, setDateFilter] = useState("today");
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [invites, setInvites] = useState([]);
-  
+
   const [inviteFormData, setInviteFormData] = useState({
-    visitor_name: '',
-    visitor_email: '',
-    visitor_phone: '',
-    invited_by: '',
-    purpose: '',
-    visit_time: '',
-    expiry_time: ''
+    visitor_name: "",
+    visitor_email: "",
+    visitor_phone: "",
+    invited_by: "",
+    purpose: "",
+    visit_time: "",
+    expiry_time: "",
   });
 
+  const [selectedInvite, setSelectedInvite] = useState(null);
+  const [showPassModal, setShowPassModal] = useState(false);
+  const [showPassPreview, setShowPassPreview] = useState(false);
 
   // Load invites on component mount
   useEffect(() => {
     loadInvites();
   }, []);
+
+  const refreshData = () => {
+    loadInvites();
+  };
 
   const loadInvites = async () => {
     try {
@@ -67,48 +79,63 @@ function Invitees() {
     }
   };
 
-  const filteredInvitees = invites.filter(invite => {
-    const matchesSearch = invite.visitor_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         invite.visitor_email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         invite.purpose?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesStatus = statusFilter === 'all' || invite.status === statusFilter;
-    
+  const filteredInvitees = invites.filter((invite) => {
+    const matchesSearch =
+      invite.visitor_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      invite.visitor_email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      invite.purpose?.toLowerCase().includes(searchTerm.toLowerCase());
+
+    const matchesStatus =
+      statusFilter === "all" || invite.status === statusFilter;
+
     return matchesSearch && matchesStatus;
   });
 
   const handleSubmitInvite = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setError('');
+    setError("");
 
     try {
       // Validate required fields
-      if (!inviteFormData.visitor_name || !inviteFormData.visitor_email || !inviteFormData.purpose) {
-        throw new Error('Please fill in all required fields');
+      if (
+        !inviteFormData.visitor_name ||
+        !inviteFormData.visitor_email ||
+        !inviteFormData.purpose
+      ) {
+        throw new Error("Please fill in all required fields");
       }
 
       // Validate email format
       if (!inviteeHelpers.validateEmail(inviteFormData.visitor_email)) {
-        throw new Error('Please enter a valid email address');
+        throw new Error("Please enter a valid email address");
       }
 
       // Validate phone if provided
-      if (inviteFormData.visitor_phone && !inviteeHelpers.validatePhone(inviteFormData.visitor_phone)) {
-        throw new Error('Please enter a valid phone number');
+      if (
+        inviteFormData.visitor_phone &&
+        !inviteeHelpers.validatePhone(inviteFormData.visitor_phone)
+      ) {
+        throw new Error("Please enter a valid phone number");
       }
 
       const response = await inviteeAPI.createInvite(inviteFormData);
-      
+
       // Backend returns the invite data with generated invite_code
       if (response && response.invite_code) {
         // Generate email template using backend invite code
-        const emailTemplate = inviteeHelpers.generateInviteEmailTemplate(response);
-        console.log('Email template generated:', emailTemplate);
+        const emailTemplate =
+          inviteeHelpers.generateInviteEmailTemplate(response);
+        console.log("Email template generated:", emailTemplate);
         // You can use this emailTemplate to send emails via your backend
       }
-      
-      setSuccess(`Invitation sent successfully! Invite code: ${response.invite_code || 'Generated'}`);
+
+      setSuccess(
+        `Invitation sent successfully! Invite code: ${
+          response.invite_code || "Generated"
+        }`
+      );
+      setTimeout(() => {}, 3000);
       setShowInviteForm(false);
       resetForm();
       loadInvites(); // Reload the list
@@ -119,17 +146,18 @@ function Invitees() {
     }
   };
 
-
-
   const handleDeleteInvite = async (id) => {
-    if (!window.confirm('Are you sure you want to delete this invitation?')) {
+    if (!window.confirm("Are you sure you want to delete this invitation?")) {
       return;
     }
 
     try {
       setLoading(true);
       await inviteeAPI.deleteInvite(id);
-      setSuccess('Invitation deleted successfully');
+      setSuccess("Invitation deleted successfully");
+      setTimeout(() => {
+        setSuccess("");
+      }, 3000);
       loadInvites();
     } catch (error) {
       setError(inviteeHelpers.handleApiError(error));
@@ -142,7 +170,10 @@ function Invitees() {
     try {
       setLoading(true);
       await inviteeAPI.updateInviteStatus(id, newStatus);
-      setSuccess('Status updated successfully');
+      setSuccess("Status updated successfully");
+      setTimeout(() => {
+        setSuccess("");
+      }, 3000);
       loadInvites();
     } catch (error) {
       setError(inviteeHelpers.handleApiError(error));
@@ -153,16 +184,16 @@ function Invitees() {
 
   const resetForm = () => {
     setInviteFormData({
-      visitor_name: '',
-      visitor_email: '',
-      visitor_phone: '',
-      invited_by: '',
-      purpose: '',
-      visit_time: '',
-      expiry_time: ''
+      visitor_name: "",
+      visitor_email: "",
+      visitor_phone: "",
+      invited_by: "",
+      purpose: "",
+      visit_time: "",
+      expiry_time: "",
     });
-    setError('');
-    setSuccess('');
+    setError("");
+    setSuccess("");
   };
 
   const closeModal = () => {
@@ -170,56 +201,265 @@ function Invitees() {
     resetForm();
   };
 
-  const handleGenerateInvitePass = async (inviteId) => {
-    try {
-      setLoading(true);
-      await inviteeAPI.generatePass(inviteId);
-      
-      // Update invite to show pass generated
-      setInvites(prevInvites => 
-        prevInvites.map(invite => 
-          invite.id === inviteId 
-            ? { ...invite, pass_generated: true }
-            : invite
-        )
-      );
-      
-      setSuccess('Pass generated successfully!');
-    } catch (error) {
-      setError(inviteeHelpers.handleApiError(error));
-    } finally {
-      setLoading(false);
-    }
-  };
+  const handleGenerateInvitePass = useCallback(
+    async (invite) => {
+      try {
+        setLoading(true);
 
-  const handleDownloadPass = async (inviteId, format = 'image') => {
-    try {
-      setLoading(true);
-      const blob = await inviteeAPI.downloadPass(inviteId, format);
-      
-      // Create download link
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.style.display = 'none';
-      a.href = url;
-      a.download = `invite_pass_${inviteId}.${format === 'image' ? 'png' : 'pdf'}`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-      
-      setSuccess('Pass downloaded successfully!');
-    } catch (error) {
-      setError(inviteeHelpers.handleApiError(error));
-    } finally {
-      setLoading(false);
+        // Find the invite using invite code
+        const targetInvite = invites.find(
+          (i) => i.invite_code === invite.invite_code
+        );
+        if (!targetInvite) {
+          throw new Error("Invite not found");
+        }
+
+        // Set the invite and show preview
+        setSelectedInvite(targetInvite);
+        setShowPassPreview(true);
+
+        // Update invite to show pass generated
+        setInvites((prevInvites) =>
+          prevInvites.map((i) =>
+            i.invite_code === invite.invite_code
+              ? { ...i, pass_generated: true, status: "checked_in" }
+              : i
+          )
+        );
+
+        // Update API
+        await inviteeAPI.updateInviteStatus(targetInvite.id, "checked_in");
+
+        setSuccess("Pass generated successfully!");
+        setTimeout(() => {
+          setSuccess("");
+        }, 3000);
+      } catch (err) {
+        console.error("Error generating pass:", err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [invites]
+  );
+
+  const handleDownloadPass = useCallback((invite) => {
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+
+    // Set canvas size
+    canvas.width = 400;
+    canvas.height = 600;
+
+    // Create gradient background
+    const gradient = ctx.createLinearGradient(0, 0, 400, 600);
+    gradient.addColorStop(0, "#3B82F6");
+    gradient.addColorStop(1, "#8B5CF6");
+
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, 400, 600);
+
+    // Add company header
+    ctx.fillStyle = "white";
+    ctx.font = "bold 24px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText("VISITOR PASS", 200, 50);
+
+    ctx.font = "16px Arial";
+    ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+    ctx.fillText("Wish Geeks Techserve", 200, 80);
+
+    const drawPass = (img = null) => {
+      // Clear and redraw background
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, 400, 600);
+
+      // Redraw header text
+      ctx.fillStyle = "white";
+      ctx.font = "bold 24px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("VISITOR PASS", 200, 50);
+
+      ctx.font = "16px Arial";
+      ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+      ctx.fillText("Wish Geeks Techserve", 200, 80);
+
+      // Draw visitor image if available
+      if (img) {
+        // Create a circular mask for the image
+        ctx.save();
+        ctx.beginPath();
+        ctx.arc(200, 170, 50, 0, Math.PI * 2);
+        ctx.closePath();
+        ctx.clip();
+
+        // Draw the image
+        ctx.drawImage(img, 150, 120, 100, 100);
+        ctx.restore();
+
+        // Add white border
+        ctx.beginPath();
+        ctx.arc(200, 170, 50, 0, Math.PI * 2);
+        ctx.strokeStyle = "white";
+        ctx.lineWidth = 4;
+        ctx.stroke();
+      } else {
+        // Fallback to placeholder if no image
+        ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
+        ctx.beginPath();
+        ctx.arc(200, 170, 50, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Add initial letter
+        const initials = (invite.visitor_name || "V").charAt(0).toUpperCase();
+        ctx.fillStyle = "white";
+        ctx.font = "bold 24px Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(initials, 200, 170);
+      }
+
+      // Add visitor details
+      ctx.fillStyle = "white";
+      ctx.font = "bold 20px Arial";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "alphabetic";
+      ctx.fillText(invite.visitor_name, 200, 260);
+
+      ctx.font = "14px Arial";
+      ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+      ctx.fillText(invite.visitor_email, 200, 285);
+
+      // Add visit details
+      ctx.textAlign = "left";
+      ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+      ctx.fillText("Visit Time:", 50, 340);
+      ctx.fillStyle = "white";
+      ctx.fillText(inviteeHelpers.formatDateTime(invite.visit_time), 150, 340);
+
+      ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+      ctx.fillText("Purpose:", 50, 370);
+      ctx.fillStyle = "white";
+      ctx.fillText(invite.purpose || "General Visit", 150, 370);
+
+      ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+      ctx.fillText("Invite Code:", 50, 400);
+      ctx.fillStyle = "white";
+      ctx.fillText(invite.invite_code, 150, 400);
+
+      // Add footer
+      ctx.textAlign = "center";
+      ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+      ctx.font = "12px Arial";
+      ctx.fillText(
+        "Please wear this pass at all times during your visit",
+        200,
+        520
+      );
+      ctx.fillText(
+        "Generated on: " + new Date().toLocaleDateString(),
+        200,
+        540
+      );
+
+      // Download the pass
+      canvas.toBlob((blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `visitor-pass-${invite.visitor_name}-${Date.now()}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      }, "image/png");
+    };
+
+    // Try to load the visitor's image using fetch API
+    const loadImageWithFetch = async (url) => {
+      try {
+        console.log("Attempting to fetch image:", url);
+        const response = await fetch(url, {
+          mode: "cors",
+          cache: "no-cache",
+          credentials: "same-origin",
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const blob = await response.blob();
+        const imageUrl = URL.createObjectURL(blob);
+        const img = new Image();
+
+        img.onload = () => {
+          console.log("Image loaded successfully via fetch");
+          drawPass(img);
+          // Clean up the object URL after the image is loaded
+          URL.revokeObjectURL(imageUrl);
+        };
+
+        img.onerror = (e) => {
+          console.error("Error creating image from blob:", e);
+          drawPass();
+          URL.revokeObjectURL(imageUrl);
+        };
+
+        img.src = imageUrl;
+      } catch (error) {
+        console.error("Error loading image with fetch:", error);
+        // Fallback to regular image loading if fetch fails
+        loadImageDirectly(url);
+      }
+    };
+
+    // Fallback method using regular image loading
+    const loadImageDirectly = (url) => {
+      console.log("Trying direct image load for:", url);
+      const img = new Image();
+
+      img.onload = () => {
+        console.log("Image loaded successfully with direct method");
+        drawPass(img);
+      };
+
+      img.onerror = (e) => {
+        console.error("Direct image load failed:", e);
+        drawPass();
+      };
+
+      // Add timestamp to prevent caching
+      const timestamp = new Date().getTime();
+      const urlWithTimestamp = url.includes("?")
+        ? `${url}&t=${timestamp}`
+        : `${url}?t=${timestamp}`;
+
+      img.crossOrigin = "anonymous";
+      img.src = urlWithTimestamp;
+    };
+
+    // Get the image URL and start loading
+    const imageUrl = invite.image;
+    console.log("Image URL:", imageUrl);
+
+    if (imageUrl) {
+      // First try with fetch API, fallback to direct loading
+      loadImageWithFetch(imageUrl);
+    } else {
+      console.log("No image URL available for visitor");
+      // No image URL, draw without it
+      drawPass();
     }
-  };
+  }, []);
 
   const getStatusBadge = (status) => {
     const colorClass = inviteeHelpers.getStatusColor(status);
     return (
-      <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${colorClass}`}>
+      <span
+        className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${colorClass}`}
+      >
         {status.charAt(0).toUpperCase() + status.slice(1)}
       </span>
     );
@@ -233,7 +473,6 @@ function Invitees() {
     return date.toISOString().slice(0, 16);
   };
 
-
   return (
     <div className="p-8 overflow-y-auto bg-gradient-to-br from-gray-50 to-blue-50 min-h-full">
       <motion.div
@@ -244,18 +483,32 @@ function Invitees() {
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Invite Management</h1>
-            <p className="text-gray-600 text-base">Send invitations and manage upcoming visits</p>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">
+              Invite Management
+            </h1>
+            <p className="text-gray-600 text-base">
+              Send invitations and manage upcoming visits
+            </p>
           </div>
           <div className="flex items-center space-x-4">
-            <button 
+            <button
+              onClick={refreshData}
+              disabled={loading}
+              className="flex items-center space-x-2 px-4 py-2 bg-white/70 border border-gray-200 rounded-xl hover:bg-white hover:shadow-lg transition-all duration-200 disabled:opacity-50"
+            >
+              <RefreshCw
+                className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
+              />
+              <span>Refresh</span>
+            </button>
+            <button
               onClick={() => setShowInviteCodeModal(true)}
               className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-green-600 to-blue-600 text-white rounded-xl hover:from-green-700 hover:to-blue-700 shadow-lg hover:shadow-xl transition-all duration-200"
             >
               <QrCode className="w-5 h-5" />
               <span>Invite Code</span>
             </button>
-            <button 
+            <button
               onClick={() => setShowInviteForm(true)}
               className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 shadow-lg hover:shadow-xl transition-all duration-200"
             >
@@ -274,8 +527,8 @@ function Invitees() {
           >
             <Check className="w-5 h-5" />
             <span>{success}</span>
-            <button 
-              onClick={() => setSuccess('')}
+            <button
+              onClick={() => setSuccess("")}
               className="ml-auto p-1 hover:bg-green-200 rounded"
             >
               <X className="w-4 h-4" />
@@ -291,8 +544,8 @@ function Invitees() {
           >
             <AlertCircle className="w-5 h-5" />
             <span>{error}</span>
-            <button 
-              onClick={() => setError('')}
+            <button
+              onClick={() => setError("")}
               className="ml-auto p-1 hover:bg-red-200 rounded"
             >
               <X className="w-4 h-4" />
@@ -320,19 +573,35 @@ function Invitees() {
                 />
               </div>
             </div>
-
-            <div className="relative">
-              <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 bg-white/50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 appearance-none"
-              >
-                <option value="all">All Status</option>
-                {inviteeHelpers.statusOptions.map(option => (
-                  <option key={option.value} value={option.value}>{option.label}</option>
-                ))}
-              </select>
+            <div className="flex items-center justify-end space-x-2">
+              <div className="relative w-1/2">
+                <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 bg-white/50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 appearance-none"
+                >
+                  <option value="all">All Status</option>
+                  {inviteeHelpers.statusOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="relative w-1/2">
+                <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                <select
+                  value={dateFilter}
+                  onChange={(e) => setDateFilter(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 bg-white/50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 appearance-none"
+                >
+                  <option value="today">Today</option>
+                  <option value="yesterday">Yesterday</option>
+                  <option value="week">This Week</option>
+                  <option value="month">This Month</option>
+                </select>
+              </div>
             </div>
           </div>
         </motion.div>
@@ -349,13 +618,27 @@ function Invitees() {
             <table className="w-full table-auto">
               <thead className="bg-gray-50/50">
                 <tr>
-                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Invitee</th>
-                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Host</th>
-                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Invite_code</th>
-                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Purpose</th>
-                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Visit Time</th>
-                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Actions</th>
+                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">
+                    Invitee
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">
+                    Host
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">
+                    Invite_code
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">
+                    Purpose
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">
+                    Visit Time
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -375,37 +658,55 @@ function Invitees() {
                             {invite.image ? (
                               <img
                                 src={invite.image}
-                                alt={invite.visitor_name || 'Visitor'}
+                                alt={invite.visitor_name || "Visitor"}
                                 className="w-10 h-10 rounded-full object-cover border-2 border-gray-200"
                                 onError={(e) => {
-                                  e.target.style.display = 'none';
-                                  const fallback = e.target.parentElement.querySelector('.fallback-avatar');
-                                  if (fallback) fallback.style.display = 'flex';
+                                  e.target.style.display = "none";
+                                  const fallback =
+                                    e.target.parentElement.querySelector(
+                                      ".fallback-avatar"
+                                    );
+                                  if (fallback) fallback.style.display = "flex";
                                 }}
                                 onLoad={(e) => {
-                                  const fallback = e.target.parentElement.querySelector('.fallback-avatar');
-                                  if (fallback) fallback.style.display = 'none';
+                                  const fallback =
+                                    e.target.parentElement.querySelector(
+                                      ".fallback-avatar"
+                                    );
+                                  if (fallback) fallback.style.display = "none";
                                 }}
                               />
                             ) : null}
-                            <div 
-                              className={`fallback-avatar w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm absolute top-0 left-0 ${invite.image ? 'hidden' : 'flex'}`}
+                            <div
+                              className={`fallback-avatar w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm absolute top-0 left-0 ${
+                                invite.image ? "hidden" : "flex"
+                              }`}
                             >
-                              {(invite.visitor_name || 'V').charAt(0).toUpperCase()}
+                              {(invite.visitor_name || "V")
+                                .charAt(0)
+                                .toUpperCase()}
                             </div>
                           </div>
                           <div>
-                            <p className="font-bold text-gray-900">{invite.visitor_name}</p>
-                            <p className="text-gray-600 text-sm">{invite.visitor_email}</p>
+                            <p className="font-bold text-gray-900">
+                              {invite.visitor_name}
+                            </p>
+                            <p className="text-gray-600 text-sm">
+                              {invite.visitor_email}
+                            </p>
                             {invite.visitor_phone && (
-                              <p className="text-gray-500 text-xs">{invite.visitor_phone}</p>
+                              <p className="text-gray-500 text-xs">
+                                {invite.visitor_phone}
+                              </p>
                             )}
                           </div>
                         </div>
                       </td>
                       <td className="px-6 py-4">
                         <div>
-                          <p className="font-medium text-gray-900">{invite.invited_by}</p>
+                          <p className="font-medium text-gray-900">
+                            {invite.invited_by}
+                          </p>
                           {invite.created_at && (
                             <p className="text-gray-600 text-sm">
                               {inviteeHelpers.formatDateTime(invite.created_at)}
@@ -415,29 +716,37 @@ function Invitees() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center space-x-2">
-                          <p className="font-medium text-gray-900">{invite.invite_code || 'N/A'}</p>
-                          {(invite.status === 'checked_in' || invite.pass_generated) && (
+                          <p className="font-medium text-gray-900">
+                            {invite.invite_code || "N/A"}
+                          </p>
+                          {(invite.status === "checked_in" ||
+                            invite.pass_generated) && (
                             <div className="group relative">
                               <Check className="w-4 h-4 text-green-600" />
                               <span className="absolute left-0 bottom-full mb-2 hidden group-hover:block bg-gray-800 text-white text-xs rounded py-1 px-2">
-                                {invite.status === 'checked_in' ? 'Checked In' : 'Pass Generated'}
+                                {invite.status === "checked_in"
+                                  ? "Checked In"
+                                  : "Pass Generated"}
                               </span>
                             </div>
                           )}
                         </div>
                       </td>
                       <td className="px-6 py-4">
-                        <span className="font-medium text-gray-900">{invite.purpose}</span>
+                        <span className="font-medium text-gray-900">
+                          {invite.purpose}
+                        </span>
                       </td>
                       <td className="px-6 py-4">
                         <p className="font-medium text-gray-900">
                           {inviteeHelpers.formatDateTime(invite.visit_time)}
                         </p>
                         {invite.expiry_time && (
-                            <p className="text-gray-600 text-sm">
-                              Expires: {inviteeHelpers.formatDateTime(invite.expiry_time)}
-                            </p>
-                          )}
+                          <p className="text-gray-600 text-sm">
+                            Expires:{" "}
+                            {inviteeHelpers.formatDateTime(invite.expiry_time)}
+                          </p>
+                        )}
                       </td>
                       <td className="px-6 py-4">
                         {getStatusBadge(invite.status)}
@@ -446,45 +755,102 @@ function Invitees() {
                         <div className="flex items-center space-x-2">
                           <select
                             value={invite.status}
-                            onChange={(e) => handleStatusUpdate(invite.id, e.target.value)}
-                            className="px-2 py-1 text-sm border border-gray-200 rounded bg-white"
+                            onChange={(e) =>
+                              handleStatusUpdate(invite.id, e.target.value)
+                            }
+                            className="px-2 py-1 text-sm border border-gray-200 rounded bg-white min-w-[100px]"
                             disabled={loading}
                           >
-                            {inviteeHelpers.statusOptions.map(option => (
+                            {inviteeHelpers.statusOptions.map((option) => (
                               <option key={option.value} value={option.value}>
                                 {option.label}
                               </option>
                             ))}
                           </select>
-                          
-                          {/* Pass generation button for approved invites */}
-                          {invite.status === 'approved' && !invite.pass_generated && (
-                            <button
-                              onClick={() => handleGenerateInvitePass(invite.id)}
-                              disabled={loading}
-                              className="px-3 py-1 bg-blue-100 text-blue-800 rounded-lg hover:bg-blue-200 transition-colors duration-200 text-sm disabled:opacity-50"
-                            >
-                              Generate Pass
-                            </button>
+
+                          {/* Approve/Reject buttons for pending status */}
+                          {invite.status === "pending" && (
+                            <>
+                              <button
+                                onClick={() =>
+                                  handleStatusUpdate(invite.id, "approved")
+                                }
+                                disabled={loading}
+                                className="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors duration-200 disabled:opacity-50"
+                                title="Approve"
+                              >
+                                <ThumbsUp className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() =>
+                                  handleStatusUpdate(invite.id, "rejected")
+                                }
+                                disabled={loading}
+                                className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors duration-200 disabled:opacity-50"
+                                title="Reject"
+                              >
+                                <ThumbsDown className="w-4 h-4" />
+                              </button>
+                            </>
                           )}
-                          
-                          {/* Download pass button for generated passes */}
+
+                          {/* Pass generation button for approved invites */}
+                          {invite.status === "approved" &&
+                            !invite.pass_generated && (
+                              <button
+                                onClick={() => handleGenerateInvitePass(invite)}
+                                disabled={loading}
+                                className="px-3 py-1 bg-blue-100 text-blue-800 rounded-lg hover:bg-blue-200 transition-colors duration-200 text-sm disabled:opacity-50"
+                              >
+                                Generate Pass
+                              </button>
+                            )}
+
+                          {/* Check mark for pass generated */}
                           {invite.pass_generated && (
+                            <div className="group relative">
+                              <Check className="w-4 h-4 text-green-600" />
+                              <span className="absolute left-0 bottom-full mb-2 hidden group-hover:block bg-gray-800 text-white text-xs rounded py-1 px-2">
+                                Pass Generated
+                              </span>
+                            </div>
+                          )}
+
+                          {/* Check In/Out buttons */}
+                          {/* {invite.status === 'approved' && !invite.pass_generated && (
                             <button
-                              onClick={() => handleDownloadPass(invite.id, 'image')}
+                              onClick={() => handleStatusUpdate(invite.id, 'checked_in')}
                               disabled={loading}
                               className="px-3 py-1 bg-green-100 text-green-800 rounded-lg hover:bg-green-200 transition-colors duration-200 text-sm disabled:opacity-50"
                             >
-                              Download Pass
+                              Check In
+                            </button>
+                          )} */}
+                          {invite.status === "checked_in" && (
+                            <button
+                              onClick={() =>
+                                handleStatusUpdate(invite.id, "checked_out")
+                              }
+                              disabled={loading}
+                              className="px-3 py-1 bg-gray-100 text-gray-800 rounded-lg hover:bg-gray-200 transition-colors duration-200 text-sm disabled:opacity-50"
+                            >
+                              Check Out
                             </button>
                           )}
-                          
-                          <button 
+
+                          <button
                             onClick={() => handleDeleteInvite(invite.id)}
                             className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                             disabled={loading}
                           >
                             <Trash2 className="w-4 h-4" />
+                          </button>
+
+                          <button
+                            onClick={() => invite}
+                            className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200"
+                          >
+                            <MoreVertical className="w-4 h-4 text-gray-400" />
                           </button>
                         </div>
                       </td>
@@ -512,54 +878,75 @@ function Invitees() {
                       {invite.image ? (
                         <img
                           src={invite.image}
-                          alt={invite.visitor_name || 'Visitor'}
+                          alt={invite.visitor_name || "Visitor"}
                           className="w-12 h-12 rounded-full object-cover border-2 border-gray-200"
                           onError={(e) => {
-                            e.target.style.display = 'none';
-                            const fallback = e.target.parentElement.querySelector('.fallback-avatar');
-                            if (fallback) fallback.style.display = 'flex';
+                            e.target.style.display = "none";
+                            const fallback =
+                              e.target.parentElement.querySelector(
+                                ".fallback-avatar"
+                              );
+                            if (fallback) fallback.style.display = "flex";
                           }}
                           onLoad={(e) => {
-                            const fallback = e.target.parentElement.querySelector('.fallback-avatar');
-                            if (fallback) fallback.style.display = 'none';
+                            const fallback =
+                              e.target.parentElement.querySelector(
+                                ".fallback-avatar"
+                              );
+                            if (fallback) fallback.style.display = "none";
                           }}
                         />
                       ) : null}
-                      <div 
-                        className={`fallback-avatar w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg absolute top-0 left-0 ${invite.image ? 'hidden' : 'flex'}`}
+                      <div
+                        className={`fallback-avatar w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg absolute top-0 left-0 ${
+                          invite.image ? "hidden" : "flex"
+                        }`}
                       >
-                        {(invite.visitor_name || 'V').charAt(0).toUpperCase()}
+                        {(invite.visitor_name || "V").charAt(0).toUpperCase()}
                       </div>
                     </div>
                     <div className="flex-1">
-                      <h3 className="text-lg font-bold text-gray-900">{invite.visitor_name}</h3>
-                      <p className="text-sm text-gray-600">{invite.visitor_email}</p>
+                      <h3 className="text-lg font-bold text-gray-900">
+                        {invite.visitor_name}
+                      </h3>
+                      <p className="text-sm text-gray-600">
+                        {invite.visitor_email}
+                      </p>
                       {invite.visitor_phone && (
-                        <p className="text-sm text-gray-500">{invite.visitor_phone}</p>
+                        <p className="text-sm text-gray-500">
+                          {invite.visitor_phone}
+                        </p>
                       )}
                     </div>
                     <div className="ml-2 flex-shrink-0">
                       {getStatusBadge(invite.status)}
                     </div>
                   </div>
-                  
+
                   <div className="grid grid-cols-1 gap-2 text-sm mb-4">
                     <div className="flex justify-between">
                       <span className="text-gray-500">Host:</span>
-                      <span className="text-gray-900 font-medium">{invite.invited_by}</span>
+                      <span className="text-gray-900 font-medium">
+                        {invite.invited_by}
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-500">Invite Code:</span>
                       <div className="flex items-center space-x-2">
-                        <span className="text-gray-900 font-medium font-mono text-xs">{invite.invite_code || 'N/A'}</span>
-                        {(invite.status === 'checked_in' || invite.pass_generated) && (
+                        <span className="text-gray-900 font-medium font-mono text-xs">
+                          {invite.invite_code || "N/A"}
+                        </span>
+                        {(invite.status === "checked_in" ||
+                          invite.pass_generated) && (
                           <Check className="w-4 h-4 text-green-600" />
                         )}
                       </div>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-500">Purpose:</span>
-                      <span className="text-gray-900 font-medium text-right">{invite.purpose}</span>
+                      <span className="text-gray-900 font-medium text-right">
+                        {invite.purpose}
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-gray-500">Visit Time:</span>
@@ -584,44 +971,72 @@ function Invitees() {
                       </div>
                     )}
                   </div>
-                  
+
                   <div className="flex items-center justify-between space-x-2">
                     <select
                       value={invite.status}
-                      onChange={(e) => handleStatusUpdate(invite.id, e.target.value)}
+                      onChange={(e) =>
+                        handleStatusUpdate(invite.id, e.target.value)
+                      }
                       className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white"
                       disabled={loading}
                     >
-                      {inviteeHelpers.statusOptions.map(option => (
+                      {inviteeHelpers.statusOptions.map((option) => (
                         <option key={option.value} value={option.value}>
                           {option.label}
                         </option>
                       ))}
                     </select>
-                    
+
+                    {/* Approve/Reject buttons for pending invites */}
+                    {invite.status === "pending" && (
+                      <>
+                        <button
+                          onClick={() =>
+                            handleStatusUpdate(invite.id, "approved")
+                          }
+                          disabled={loading}
+                          className="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors duration-200 disabled:opacity-50"
+                          title="Approve"
+                        >
+                          <ThumbsUp className="w-4 h-4" />
+                        </button>
+                        <button
+                          onClick={() =>
+                            handleStatusUpdate(invite.id, "rejected")
+                          }
+                          disabled={loading}
+                          className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors duration-200 disabled:opacity-50"
+                          title="Reject"
+                        >
+                          <ThumbsDown className="w-4 h-4" />
+                        </button>
+                      </>
+                    )}
+
                     {/* Pass generation button for approved invites */}
-                    {invite.status === 'approved' && !invite.pass_generated && (
+                    {invite.status === "approved" && !invite.pass_generated && (
                       <button
-                        onClick={() => handleGenerateInvitePass(invite.id)}
+                        onClick={() => handleGenerateInvitePass(invite)}
                         disabled={loading}
                         className="px-3 py-1 bg-blue-100 text-blue-800 rounded-lg hover:bg-blue-200 transition-colors duration-200 text-sm disabled:opacity-50"
                       >
                         Generate Pass
                       </button>
                     )}
-                    
+
                     {/* Download pass button for generated passes */}
                     {invite.pass_generated && (
                       <button
-                        onClick={() => handleDownloadPass(invite.id, 'image')}
+                        onClick={() => handleDownloadPass(invite.id, "image")}
                         disabled={loading}
                         className="px-3 py-1 bg-green-100 text-green-800 rounded-lg hover:bg-green-200 transition-colors duration-200 text-sm disabled:opacity-50"
                       >
-                        Download
+                        Download Pass
                       </button>
                     )}
-                    
-                    <button 
+
+                    <button
                       onClick={() => handleDeleteInvite(invite.id)}
                       className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                       disabled={loading}
@@ -639,7 +1054,9 @@ function Invitees() {
               <div className="text-gray-400 mb-4">
                 <Users className="w-12 h-12 mx-auto" />
               </div>
-              <p className="text-gray-600">No invitees found matching your criteria</p>
+              <p className="text-gray-600">
+                No invitees found matching your criteria
+              </p>
             </div>
           )}
 
@@ -668,8 +1085,10 @@ function Invitees() {
               className="bg-white rounded-2xl p-8 max-w-2xl w-full shadow-2xl max-h-[90vh] overflow-y-auto"
             >
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-2xl font-bold text-gray-900">Send Invitation</h3>
-                <button 
+                <h3 className="text-2xl font-bold text-gray-900">
+                  Send Invitation
+                </h3>
+                <button
                   onClick={() => setShowInviteForm(false)}
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
                 >
@@ -687,13 +1106,20 @@ function Invitees() {
               <form onSubmit={handleSubmitInvite} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Full Name *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Full Name *
+                    </label>
                     <div className="relative">
                       <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                       <input
                         type="text"
                         value={inviteFormData.visitor_name}
-                        onChange={(e) => setInviteFormData({...inviteFormData, visitor_name: e.target.value})}
+                        onChange={(e) =>
+                          setInviteFormData({
+                            ...inviteFormData,
+                            visitor_name: e.target.value,
+                          })
+                        }
                         className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                         placeholder="Enter full name"
                         required
@@ -702,13 +1128,20 @@ function Invitees() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Email Address *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Email Address *
+                    </label>
                     <div className="relative">
                       <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                       <input
                         type="email"
                         value={inviteFormData.visitor_email}
-                        onChange={(e) => setInviteFormData({...inviteFormData, visitor_email: e.target.value})}
+                        onChange={(e) =>
+                          setInviteFormData({
+                            ...inviteFormData,
+                            visitor_email: e.target.value,
+                          })
+                        }
                         className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                         placeholder="Enter email address"
                         required
@@ -716,13 +1149,20 @@ function Invitees() {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Invited By *</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Invited By *
+                    </label>
                     <div className="relative">
                       <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                       <input
                         type="text"
                         value={inviteFormData.invited_by}
-                        onChange={(e) => setInviteFormData({...inviteFormData, invited_by: e.target.value})}
+                        onChange={(e) =>
+                          setInviteFormData({
+                            ...inviteFormData,
+                            invited_by: e.target.value,
+                          })
+                        }
                         className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                         placeholder="Enter who invited the visitor"
                         required
@@ -731,13 +1171,20 @@ function Invitees() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Phone Number</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Phone Number
+                    </label>
                     <div className="relative">
                       <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                       <input
                         type="tel"
                         value={inviteFormData.visitor_phone}
-                        onChange={(e) => setInviteFormData({...inviteFormData, visitor_phone: e.target.value})}
+                        onChange={(e) =>
+                          setInviteFormData({
+                            ...inviteFormData,
+                            visitor_phone: e.target.value,
+                          })
+                        }
                         className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                         placeholder="Enter phone number"
                       />
@@ -745,37 +1192,58 @@ function Invitees() {
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Visit Time</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Visit Time
+                    </label>
                     <div className="relative">
                       <Clock className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                       <input
                         type="datetime-local"
                         value={inviteFormData.visit_time}
-                        onChange={(e) => setInviteFormData({...inviteFormData, visit_time: e.target.value})}
+                        onChange={(e) =>
+                          setInviteFormData({
+                            ...inviteFormData,
+                            visit_time: e.target.value,
+                          })
+                        }
                         className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                       />
                     </div>
                   </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Expiry Time</label>
-                  <div className="relative">
-                    <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                    <input
-                      type="datetime-local"
-                      value={inviteFormData.expiry_time}
-                      onChange={(e) => setInviteFormData({...inviteFormData, expiry_time: e.target.value})}
-                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                    />
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Expiry Time
+                    </label>
+                    <div className="relative">
+                      <Calendar className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+                      <input
+                        type="datetime-local"
+                        value={inviteFormData.expiry_time}
+                        onChange={(e) =>
+                          setInviteFormData({
+                            ...inviteFormData,
+                            expiry_time: e.target.value,
+                          })
+                        }
+                        className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                      />
+                    </div>
                   </div>
-                </div>
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Purpose of Visit *</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Purpose of Visit *
+                  </label>
                   <input
                     type="text"
                     value={inviteFormData.purpose}
-                    onChange={(e) => setInviteFormData({...inviteFormData, purpose: e.target.value})}
+                    onChange={(e) =>
+                      setInviteFormData({
+                        ...inviteFormData,
+                        purpose: e.target.value,
+                      })
+                    }
                     className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
                     placeholder="e.g., Business meeting, Interview, Product demo"
                     required
@@ -796,7 +1264,7 @@ function Invitees() {
                     className="flex-1 flex items-center justify-center space-x-2 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Send className="w-4 h-4" />
-                    <span>{loading ? 'Sending...' : 'Send Invitation'}</span>
+                    <span>{loading ? "Sending..." : "Send Invitation"}</span>
                   </button>
                 </div>
               </form>
@@ -811,6 +1279,99 @@ function Invitees() {
         onClose={closeModal}
         isAdmin={true}
       />
+
+      {/* Pass Preview Modal */}
+      {showPassPreview && selectedInvite && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+          onClick={() => setShowPassPreview(false)}
+        >
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-center mb-4">
+              <h3 className="text-xl font-bold text-gray-900">
+                Visitor Pass Preview
+              </h3>
+              <p className="text-gray-600">Download your pass</p>
+            </div>
+
+            <div
+              id="pass-preview"
+              className="bg-gradient-to-br from-blue-600 to-purple-600 rounded-xl p-6 text-white mb-6"
+            >
+              <div className="text-center mb-4">
+                <h4 className="text-lg font-bold">VISITOR PASS</h4>
+                <p className="text-blue-100 text-sm">Wish Geeks Techserve</p>
+              </div>
+
+              <div className="flex items-center space-x-4 mb-4">
+                <div className="w-20 h-20 rounded-xl overflow-hidden bg-white/20">
+                  {selectedInvite.image ? (
+                    <img
+                      src={selectedInvite.image}
+                      alt="Visitor"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center">
+                      <User className="w-8 h-8 text-white/60" />
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <h5 className="font-bold text-lg">
+                    {selectedInvite.visitor_name}
+                  </h5>
+                  <p className="text-blue-100 text-sm">
+                    {selectedInvite.visitor_email}
+                  </p>
+                </div>
+              </div>
+
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-blue-100">Visit Time:</span>
+                  <span>
+                    {inviteeHelpers.formatDateTime(selectedInvite.visit_time)}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-blue-100">Purpose:</span>
+                  <span>{selectedInvite.purpose}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-blue-100">Invite Code:</span>
+                  <span>{selectedInvite.invite_code}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex space-x-3">
+              <button
+                onClick={() => setShowPassPreview(false)}
+                className="flex-1 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200"
+              >
+                Close
+              </button>
+              <button
+                onClick={() => handleDownloadPass(selectedInvite)}
+                className="flex-1 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center space-x-2"
+              >
+                <Download className="w-4 h-4" />
+                <span>Download Pass</span>
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
     </div>
   );
 }

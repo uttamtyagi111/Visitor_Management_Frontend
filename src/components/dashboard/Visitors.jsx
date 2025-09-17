@@ -274,11 +274,11 @@ function Visitors() {
       setVisitors(prevVisitors => 
         prevVisitors.map(v => 
           v.id === visitorId 
-            ? { ...v, pass_generated: true }
+            ? { ...v, pass_generated: true, status: 'checked_in'}
             : v
         )
       );
-      
+      await visitorAPI.updateVisitorStatus(visitorId, { status: 'checked_in' });
       // Update selected visitor if it's the same one
       if (selectedVisitor && selectedVisitor.id === visitorId) {
         setSelectedVisitor(prev => ({ ...prev, pass_generated: true }));
@@ -840,7 +840,7 @@ function Visitors() {
                           )}
                           
                           {/* Check In/Out buttons */}
-                          {visitor.status === 'approved' && !visitor.pass_generated && (
+                          {/* {visitor.status === 'approved' && !visitor.pass_generated && (
                             <button
                               onClick={() => handleStatusUpdate(visitor.id, 'checked_in')}
                               disabled={updating}
@@ -848,7 +848,7 @@ function Visitors() {
                             >
                               Check In
                             </button>
-                          )}
+                          )} */}
                           {visitor.status === 'checked_in' && (
                             <button
                               onClick={() => handleStatusUpdate(visitor.id, 'checked_out')}

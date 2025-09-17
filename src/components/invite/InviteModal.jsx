@@ -93,14 +93,14 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false }) => {
         invited_by: inviteData.invited_by || '',
         visit_time: inviteData.visit_time || '',
         expiry_time: inviteData.expiry_time || '',
-        visitor_image: inviteData.visitor_image || null
+        image: inviteData.image || null
       });
 
       // If visitor already uploaded image, set it as captured image for admin
-      if (isAdmin && inviteData.visitor_image) {
+      if (isAdmin && inviteData.image) {
         setCapturedImage({
           file: null, // No file object since it's already uploaded
-          preview: inviteData.visitor_image
+          preview: inviteData.image
         });
       }
       
@@ -160,8 +160,10 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false }) => {
     setError('');
 
     try {
-      await inviteeAPI.captureVisitorData(inviteCode, capturedImage.file);
-      
+      if (capturedImage.file) {
+        await inviteeAPI.captureVisitorData(inviteCode, capturedImage.file);
+      }
+
       if (isAdmin) {
         setSuccess('Visitor data captured successfully!');
         setCurrentStep(4);
@@ -179,21 +181,155 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false }) => {
   };
 
   const handlePrintPass = () => {
-    const passElement = document.getElementById('visitor-pass');
-    if (passElement) {
-      const printWindow = window.open('', '_blank');
-      printWindow.document.write('<html><head><title>Visitor Pass</title>');
-      printWindow.document.write('<style>');
-      printWindow.document.write(`
-        body { font-family: sans-serif; }
-        .pass-container { width: 300px; padding: 20px; background: linear-gradient(to bottom right, #2563eb, #7c3aed); color: white; border-radius: 16px; }
-        .qr-container { background: white; border-radius: 8px; padding: 8px; }
-      `);
-      printWindow.document.write('</style></head><body>');
-      printWindow.document.write(passElement.outerHTML);
-      printWindow.document.write('</body></html>');
-      printWindow.document.close();
-      printWindow.print();
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Set canvas size for the pass
+    canvas.width = 400;
+    canvas.height = 600;
+    
+    // Create gradient background
+    const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+    gradient.addColorStop(0, '#2563eb');
+    gradient.addColorStop(1, '#7c3aed');
+    
+    // Draw the pass
+    const drawPass = (img = null) => {
+      // Draw background
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // Add header
+      ctx.fillStyle = 'white';
+      ctx.font = 'bold 24px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('VISITOR PASS', canvas.width / 2, 50);
+      
+      ctx.font = '16px Arial';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.fillText('Wish Geeks Techserve', canvas.width / 2, 80);
+      
+      // Add visitor image or placeholder
+      if (img) {
+        // Draw image with border
+        const imgSize = 120;
+        const x = (canvas.width - imgSize) / 2;
+        const y = 120;
+        
+        // Draw circular image
+        ctx.beginPath();
+        ctx.arc(x + imgSize/2, y + imgSize/2, imgSize/2, 0, Math.PI * 2);
+        ctx.closePath();
+        ctx.save();
+        ctx.clip();
+        
+        // Draw the image
+        ctx.drawImage(img, x, y, imgSize, imgSize);
+        ctx.restore();
+        
+        // Add border
+        ctx.beginPath();
+        ctx.arc(x + imgSize/2, y + imgSize/2, imgSize/2, 0, Math.PI * 2);
+        ctx.strokeStyle = 'white';
+        ctx.lineWidth = 4;
+        ctx.stroke();
+      } else {
+        // Draw placeholder
+        const x = canvas.width / 2 - 60;
+        const y = 120;
+        const size = 120;
+        
+        // Draw circle
+        ctx.beginPath();
+        ctx.arc(x + size/2, y + size/2, size/2, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+        ctx.fill();
+        
+        // Add user icon
+        ctx.fillStyle = 'white';
+        ctx.font = '48px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('👤', x + size/2, y + size/2);
+      }
+      
+      // Add visitor name
+      ctx.font = 'bold 20px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = 'white';
+      ctx.fillText(inviteFormData.visitor_name || 'Visitor', canvas.width / 2, 280);
+      
+      // Add email if available
+      if (inviteFormData.visitor_email) {
+        ctx.font = '14px Arial';
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+        ctx.fillText(inviteFormData.visitor_email, canvas.width / 2, 310);
+      }
+      
+      // Add visit details
+      ctx.textAlign = 'left';
+      ctx.font = '14px Arial';
+      
+      // Purpose
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.fillText('Purpose:', 50, 360);
+      ctx.fillStyle = 'white';
+      ctx.fillText(inviteFormData.purpose || 'General Visit', 150, 360);
+      
+      // Visit Time
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.fillText('Visit Time:', 50, 390);
+      ctx.fillStyle = 'white';
+      ctx.fillText(inviteeHelpers.formatDateTime(inviteFormData.visit_time), 150, 390);
+      
+      // Invited By
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.fillText('Invited By:', 50, 420);
+      ctx.fillStyle = 'white';
+      ctx.fillText(inviteFormData.invited_by || 'Admin', 150, 420);
+      
+      // Invite Code
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.fillText('Code:', 50, 450);
+      ctx.fillStyle = 'white';
+      ctx.font = 'monospace 14px Arial';
+      ctx.fillText(inviteCode, 150, 450);
+      
+      // Add footer
+      ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
+      ctx.font = '12px Arial';
+      ctx.fillText('Please wear this pass at all times during your visit', canvas.width / 2, 520);
+      ctx.fillText('Generated on: ' + new Date().toLocaleDateString(), canvas.width / 2, 540);
+      
+      // Convert to blob and download
+      canvas.toBlob((blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `invite-pass-${inviteFormData.visitor_name || 'visitor'}-${Date.now()}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      });
+    };
+    
+    // Load image if available
+    if (capturedImage?.preview) {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.src = capturedImage.preview;
+      
+      img.onload = () => {
+        drawPass(img);
+      };
+      
+      img.onerror = () => {
+        drawPass();
+      };
+    } else {
+      drawPass();
     }
   };
 
@@ -382,7 +518,7 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false }) => {
               {capturedImage ? (
                 <div className="mb-6">
                   <img 
-                    src={capturedImage.preview} 
+                    src={capturedImage ? capturedImage.preview : inviteFormData.image} 
                     alt="Captured" 
                     className="w-48 h-48 object-cover rounded-2xl mx-auto border-4 border-white shadow-lg"
                   />
@@ -391,9 +527,9 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false }) => {
                       onClick={() => setCapturedImage(null)}
                       className="px-4 py-2 text-blue-600 hover:text-blue-800 transition-colors"
                     >
-                      {inviteFormData.visitor_image && isAdmin ? 'Change Photo' : 'Retake Photo'}
+                      {inviteFormData.image && isAdmin ? 'Change Photo' : 'Retake Photo'}
                     </button>
-                    {inviteFormData.visitor_image && isAdmin && (
+                    {inviteFormData.image && !capturedImage && (
                       <span className="px-4 py-2 text-green-600 text-sm bg-green-50 rounded-lg">
                         ✓ Uploaded by visitor
                       </span>
@@ -465,7 +601,7 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false }) => {
         return (
           <div className="py-6">
             <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">
-              {isAdmin ? 'Visitor Pass Created!' : 'Registration Complete!'}
+              {isAdmin ? 'Invites Pass Created!' : 'Registration Complete!'}
             </h3>
             
             {success && (
@@ -480,7 +616,7 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false }) => {
               <div className="max-w-sm mx-auto">
                 <div id="visitor-pass" className="bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl p-6 text-white shadow-2xl pass-container">
                 <div className="text-center mb-4">
-                  <h4 className="text-lg font-bold">VISITOR PASS</h4>
+                  <h4 className="text-lg font-bold">INVITES PASS</h4>
                   <p className="text-blue-100 text-sm">Wish Geeks Techserve</p>
                 </div>
                 
@@ -546,7 +682,7 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false }) => {
                   <h4 className="text-xl font-semibold text-gray-900">Thank You!</h4>
                   <p className="text-gray-600">
                     You have successfully reviewed your details and uploaded your image. 
-                    Please wait for your visitor pass to be generated by our admin team.
+                    Please wait for your invite pass to be generated by our admin team.
                   </p>
                   
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6">
@@ -558,7 +694,7 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false }) => {
                         <p className="text-blue-800 font-medium text-sm">What happens next?</p>
                         <ul className="text-blue-700 text-sm mt-2 space-y-1">
                           <li>• Our admin will review your information</li>
-                          <li>• Your visitor pass will be generated</li>
+                          <li>• Your invite pass will be generated</li>
                           <li>• You'll be notified when ready</li>
                         </ul>
                       </div>
@@ -684,7 +820,7 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false }) => {
                   onPhotoCapture={handleCameraPhotoCapture}
                   onSkip={handleSkipCameraPhoto}
                   isLoggedIn={isAdmin}
-                  existingImage={inviteFormData.visitor_image}
+                  existingImage={inviteFormData.image}
                 />
               </motion.div>
             </motion.div>
