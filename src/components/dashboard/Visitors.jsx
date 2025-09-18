@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '../../contexts/AuthContext';
 import { 
   Search, 
   Filter, 
@@ -26,6 +27,7 @@ import {
 import { visitorAPI } from '../../api/visitor'; // Import your actual API
 
 function Visitors() {
+  const { user } = useAuth();
   const [visitors, setVisitors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -146,6 +148,35 @@ function Visitors() {
     fetchVisitors(1);
   }, [statusFilter, dateFilter]);
 
+  // Fetch visitor details when selected visitor changes
+  useEffect(() => {
+    const fetchVisitorDetails = async () => {
+      if (selectedVisitor?.id) {
+        try {
+          setUpdating(true);
+          const response = await visitorAPI.getVisitor(selectedVisitor.id);
+          
+          // Update the selected visitor with fresh data
+          setSelectedVisitor(prev => ({ ...prev, ...response }));
+          
+          // Also update the visitor in the visitors list
+          setVisitors(prevVisitors => 
+            prevVisitors.map(v => 
+              v.id === selectedVisitor.id ? { ...v, ...response } : v
+            )
+          );
+        } catch (error) {
+          console.error('Error fetching visitor details:', error);
+          // Optionally show an error toast here
+        } finally {
+          setUpdating(false);
+        }
+      }
+    };
+
+    fetchVisitorDetails();
+  }, [selectedVisitor?.id]); // Only re-run if selectedVisitor.id changes
+
   useEffect(() => {
     debouncedSearch(searchTerm);
   }, [searchTerm, debouncedSearch]);
@@ -177,20 +208,73 @@ function Visitors() {
   const handleStatusUpdate = useCallback(async (visitorId, newStatus) => {
     try {
       setUpdating(true);
-      await visitorAPI.updateVisitorStatus(visitorId, newStatus);
       
-      // Optimistic update for better UX
+      // Get the current visitor data
+      const existingVisitor = visitors.find(v => v.id === visitorId);
+      const now = new Date().toISOString();
+      
+      // Prepare update data with preserved fields
+      const updateData = {
+        status: newStatus,
+        host: existingVisitor?.host || existingVisitor?.hostName || user?.name || 'System',
+        hostName: existingVisitor?.hostName || existingVisitor?.host || user?.name || 'System',
+        // Preserve all existing data
+        ...existingVisitor
+      };
+      
+      // Handle status-specific updates
+      if (newStatus === 'checked_out') {
+        updateData.checkOutTime = now;
+        updateData.checkedOutAt = now;
+        updateData.checkedOutBy = user?.name || 'System';
+        // Ensure check-in data exists
+        if (!updateData.checkInTime && !updateData.checkedInAt) {
+          updateData.checkInTime = now;
+          updateData.checkedInAt = now;
+          updateData.checkedInBy = user?.name || 'System';
+        }
+      } else if (newStatus === 'checked_in') {
+        updateData.checkInTime = now;
+        updateData.checkedInAt = now;
+        updateData.checkedInBy = user?.name || 'System';
+        // Clear any previous check-out data
+        delete updateData.checkOutTime;
+        delete updateData.checkedOutAt;
+        delete updateData.checkedOutBy;
+      }
+      
+      // Update the visitors list with the new data
       setVisitors(prevVisitors => 
         prevVisitors.map(visitor => 
-          visitor.id === visitorId 
-            ? { ...visitor, status: newStatus, updated_at: new Date().toISOString() }
-            : visitor
+          visitor.id === visitorId ? { ...visitor, ...updateData, updated_at: now } : visitor
         )
       );
       
       // Update selected visitor if it's the same one
-      if (selectedVisitor && selectedVisitor.id === visitorId) {
-        setSelectedVisitor(prev => ({ ...prev, status: newStatus }));
+      if (selectedVisitor?.id === visitorId) {
+        setSelectedVisitor(prev => ({ ...prev, ...updateData, updated_at: now }));
+      }
+      
+      // Prepare the data for the API call
+      const apiPayload = {
+        status: newStatus,
+        issued_by: user?.id || 'System'
+      };
+      
+      // Add check-in/check-out data to the API payload
+      if (newStatus === 'checked_out') {
+        apiPayload.check_out = now;
+        apiPayload.check_in = updateData.checkInTime || updateData.checkedInAt || now;
+      } else if (newStatus === 'checked_in') {
+        apiPayload.check_in = now;
+      }
+      
+      // Make the API call with the prepared payload
+      await visitorAPI.updateVisitor(visitorId, apiPayload);
+      
+      // For non-check-out statuses, also update the status separately to ensure it's set
+      if (newStatus !== 'checked_out') {
+        await visitorAPI.updateVisitorStatus(visitorId, newStatus);
       }
     } catch (err) {
       console.error('Error updating visitor status:', err);
@@ -200,7 +284,7 @@ function Visitors() {
     } finally {
       setUpdating(false);
     }
-  }, [selectedVisitor, fetchVisitors]);
+  }, [selectedVisitor, fetchVisitors, user?.name]);
 
   // Edit functionality
   const handleEditVisitor = (visitor) => {
@@ -211,7 +295,7 @@ function Visitors() {
       phone: visitor.phone || '',
       // company: visitor.company || '',
       purpose: visitor.purpose || '',
-      host: visitor.host || ''
+      // host: visitor.host || ''
     });
     setIsEditing(true);
   };
@@ -257,6 +341,7 @@ function Visitors() {
   };
 
   const handleGeneratePass = useCallback(async (visitorId) => {
+    // debugger;
     try {
       setUpdating(true);
       
@@ -270,26 +355,46 @@ function Visitors() {
       setPassVisitor(visitor);
       setShowPassModal(true);
       
-      // Update visitor to show pass generated
+      // Get current timestamp for check-in
+      const checkInTime = new Date().toISOString();
+      
+      // Prepare update data with check-in information
+      const updateData = {
+        status: 'checked_in',
+        pass_generated: true,
+        checkInTime,
+        hostName: user?.name || 'System',
+        checkedInBy: user?.name || 'System',
+        checkedInAt: checkInTime,
+        updated_at: new Date().toISOString()
+      };
+      
+      // Optimistic UI update
       setVisitors(prevVisitors => 
         prevVisitors.map(v => 
-          v.id === visitorId 
-            ? { ...v, pass_generated: true, status: 'checked_in'}
-            : v
+          v.id === visitorId ? { ...v, ...updateData } : v
         )
       );
-      await visitorAPI.updateVisitorStatus(visitorId, { status: 'checked_in' });
+      
       // Update selected visitor if it's the same one
       if (selectedVisitor && selectedVisitor.id === visitorId) {
-        setSelectedVisitor(prev => ({ ...prev, pass_generated: true }));
+        setSelectedVisitor(prev => ({ ...prev, ...updateData }));
       }
+      
+      // Call API to update visitor
+      await visitorAPI.updateVisitorStatus(visitorId, "checked_in");
+      await visitorAPI.updateVisitor(visitorId, {issued_by: user?.id || 'System'});
+      // await visitorAPI.updateVisitor(visitorId, updateData);
+      
     } catch (err) {
       console.error('Error generating pass:', err);
       setError(err.message);
+      // Revert optimistic update on error
+      fetchVisitors();
     } finally {
       setUpdating(false);
     }
-  }, [visitors, selectedVisitor]);
+  }, [visitors, selectedVisitor, fetchVisitors, user?.name]);
 
   const handleFormChange = (field, value) => {
     setEditForm(prev => ({
@@ -759,22 +864,35 @@ function Visitors() {
                         <div className="text-sm text-gray-900">{visitor.purpose || 'N/A'}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{visitor.hostName || 'N/A'}</div>
+                        <div className="text-sm text-gray-900">{visitor.host || visitor.hostName || 'N/A'}</div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">
-                          <span className="block">
-                            {visitor.checkInTime 
-                              ? new Date(visitor.checkInTime).toLocaleDateString()
-                              : 'Not checked in'
-                            }
-                          </span>
-                          <span className="text-xs text-gray-500">
-                            {visitor.checkInTime 
-                              ? new Date(visitor.checkInTime).toLocaleTimeString()
-                              : 'Not checked in'
-                            }
-                          </span>
+                          <div className="mb-1">
+                            <span className="block">
+                              {visitor.checkInTime 
+                                ? new Date(visitor.checkInTime).toLocaleDateString()
+                                : 'Not checked in'
+                              }
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              {visitor.checkInTime 
+                                ? new Date(visitor.checkInTime).toLocaleTimeString()
+                                : 'Not checked in'
+                              }
+                            </span>
+                          </div>
+                          {visitor.checkOutTime && (
+                            <div className="mt-2 pt-2 border-t border-gray-100">
+                              <span className="block text-xs text-gray-500">Checked Out:</span>
+                              <span className="block">
+                                {new Date(visitor.checkOutTime).toLocaleDateString()}
+                              </span>
+                              <span className="text-xs text-gray-500">
+                                {new Date(visitor.checkOutTime).toLocaleTimeString()}
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </td>
                       <td className="px-6 py-4">
@@ -935,16 +1053,26 @@ function Visitors() {
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-500">Host:</span>
-                          <span className="text-gray-900 font-medium">{visitor.hostName || 'N/A'}</span>
+                          <span className="text-gray-900 font-medium">{visitor.host || visitor.hostName || 'N/A'}</span>
                         </div>
-                        <div className="flex justify-between">
-                          <span className="text-gray-500">Check In:</span>
-                          <span className="text-gray-900 font-medium">
-                            {visitor.checkInTime 
-                              ? `${new Date(visitor.checkInTime).toLocaleDateString()} ${new Date(visitor.checkInTime).toLocaleTimeString()}`
-                              : 'Not checked in'
-                            }
-                          </span>
+                        <div className="space-y-1">
+                          <div className="flex justify-between">
+                            <span className="text-gray-500">Check In:</span>
+                            <span className="text-gray-900 font-medium">
+                              {visitor.checkInTime 
+                                ? `${new Date(visitor.checkInTime).toLocaleDateString()} ${new Date(visitor.checkInTime).toLocaleTimeString()}`
+                                : 'Not checked in'
+                              }
+                            </span>
+                          </div>
+                          {visitor.checkOutTime && (
+                            <div className="flex justify-between pt-2 border-t border-gray-100">
+                              <span className="text-gray-500">Check Out:</span>
+                              <span className="text-gray-900 font-medium">
+                                {`${new Date(visitor.checkOutTime).toLocaleDateString()} ${new Date(visitor.checkOutTime).toLocaleTimeString()}`}
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </div>
                       

@@ -163,7 +163,7 @@ export const visitorAPI = {
 
   // Update visitor status
   updateVisitorStatus: async (visitorId, status) => {
-    return apiRequest(`${API_BASE_URL}/visitors/${visitorId}/`, {
+    return apiRequest(`${API_BASE_URL}/visitors/${visitorId}/status/`, {
       method: 'PATCH',
       body: JSON.stringify({ status }),
     });

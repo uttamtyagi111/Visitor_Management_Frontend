@@ -57,6 +57,18 @@ function Invitees() {
   const [selectedInvite, setSelectedInvite] = useState(null);
   const [showPassModal, setShowPassModal] = useState(false);
   const [showPassPreview, setShowPassPreview] = useState(false);
+  
+  // Edit functionality state
+  const [isEditing, setIsEditing] = useState(false);
+  const [editingInvite, setEditingInvite] = useState(null);
+  const [editForm, setEditForm] = useState({
+    visitor_name: "",
+    visitor_email: "",
+    visitor_phone: "",
+    purpose: "",
+    visit_time: "",
+    expiry_time: ""
+  });
 
   // Load invites on component mount
   useEffect(() => {
@@ -473,6 +485,63 @@ function Invitees() {
     return date.toISOString().slice(0, 16);
   };
 
+  const handleEditInvite = (invite) => {
+    setEditingInvite(invite);
+    setEditForm({
+      visitor_name: invite.visitor_name || "",
+      visitor_email: invite.visitor_email || "",
+      visitor_phone: invite.visitor_phone || "",
+      purpose: invite.purpose || "",
+      visit_time: invite.visit_time ? invite.visit_time.slice(0, 16) : "",
+      expiry_time: invite.expiry_time ? invite.expiry_time.slice(0, 16) : ""
+    });
+    setIsEditing(true);
+  };
+
+  const handleUpdateInvite = async (e) => {
+    e.preventDefault();
+    if (!editingInvite) return;
+
+    try {
+      setLoading(true);
+      setError("");
+
+      // Validate required fields
+      if (!editForm.visitor_name || !editForm.visitor_email || !editForm.purpose) {
+        throw new Error("Please fill in all required fields");
+      }
+
+      // Validate email format
+      if (!inviteeHelpers.validateEmail(editForm.visitor_email)) {
+        throw new Error("Please enter a valid email address");
+      }
+
+      // Validate phone if provided
+      if (editForm.visitor_phone && !inviteeHelpers.validatePhone(editForm.visitor_phone)) {
+        throw new Error("Please enter a valid phone number");
+      }
+
+      await inviteeAPI.updateInvite(editingInvite.id, editForm);
+
+      setSuccess("Invitation updated successfully");
+      setTimeout(() => setSuccess(""), 3000);
+      setIsEditing(false);
+      loadInvites();
+    } catch (error) {
+      setError(inviteeHelpers.handleApiError(error));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditInputChange = (e) => {
+    const { name, value } = e.target;
+    setEditForm(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
   return (
     <div className="p-8 overflow-y-auto bg-gradient-to-br from-gray-50 to-blue-50 min-h-full">
       <motion.div
@@ -844,6 +913,13 @@ function Invitees() {
                             disabled={loading}
                           >
                             <Trash2 className="w-4 h-4" />
+                          </button>
+
+                          <button
+                            onClick={() => handleEditInvite(invite)}
+                            className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200"
+                          >
+                            <Edit className="w-4 h-4 text-blue-500" />
                           </button>
 
                           <button

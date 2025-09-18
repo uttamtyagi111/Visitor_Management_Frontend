@@ -11,7 +11,7 @@ function Settings() {
 
   const tabs = [
     { name: 'General QR', href: '/dashboard/settings', icon: QrCode },
-    { name: 'Form Customization', href: '/dashboard/settings/form-customization', icon: Palette }
+    // { name: 'Form Customization', href: '/dashboard/settings/form-customization', icon: Palette }
   ];
 
   const isActive = (href) => {
@@ -67,7 +67,7 @@ function Settings() {
         {/* Tab Content */}
         <Routes>
           <Route path="/" element={<GeneralQR />} />
-          <Route path="/form-customization" element={<FormCustomization />} />
+          {/* <Route path="/form-customization" element={<FormCustomization />} /> */}
         </Routes>
       </motion.div>
     </div>
