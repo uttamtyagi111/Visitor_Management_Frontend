@@ -1,18 +1,18 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useAuth } from '../../contexts/AuthContext';
-import { 
-  Search, 
-  Filter, 
-  Calendar, 
-  Eye, 
-  Edit, 
-  Trash2, 
-  ChevronLeft, 
-  ChevronRight, 
-  Check, 
-  X, 
-  ThumbsUp, 
+import React, { useState, useEffect, useMemo, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "../../contexts/AuthContext";
+import {
+  Search,
+  Filter,
+  Calendar,
+  Eye,
+  Edit,
+  Trash2,
+  ChevronLeft,
+  ChevronRight,
+  Check,
+  X,
+  ThumbsUp,
   ThumbsDown,
   Download,
   User,
@@ -21,29 +21,29 @@ import {
   CheckCircle,
   XCircle,
   MoreVertical,
-  Save
-} from 'lucide-react';
+  Save,
+} from "lucide-react";
 
-import { visitorAPI } from '../../api/visitor'; // Import your actual API
+import { visitorAPI } from "../../api/visitor"; // Import your actual API
 
 function Visitors() {
   const { user } = useAuth();
   const [visitors, setVisitors] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [dateFilter, setDateFilter] = useState('today');
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [dateFilter, setDateFilter] = useState("today");
   const [selectedVisitor, setSelectedVisitor] = useState(null);
   const [updating, setUpdating] = useState(false);
-  
+
   // Edit functionality state
   const [isEditing, setIsEditing] = useState(false);
   const [editingVisitor, setEditingVisitor] = useState(null);
   const [editForm, setEditForm] = useState({});
   const [showPassModal, setShowPassModal] = useState(false);
   const [passVisitor, setPassVisitor] = useState(null);
-  
+
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(10);
@@ -66,27 +66,27 @@ function Visitors() {
   const dateFilters = useMemo(() => {
     const today = new Date();
     const filters = {};
-    
+
     switch (dateFilter) {
-      case 'today':
-        filters.created_at_after = today.toISOString().split('T')[0];
-        filters.created_at_before = today.toISOString().split('T')[0];
+      case "today":
+        filters.created_at_after = today.toISOString().split("T")[0];
+        filters.created_at_before = today.toISOString().split("T")[0];
         break;
-      case 'yesterday':
+      case "yesterday":
         const yesterday = new Date(today);
         yesterday.setDate(yesterday.getDate() - 1);
-        filters.created_at_after = yesterday.toISOString().split('T')[0];
-        filters.created_at_before = yesterday.toISOString().split('T')[0];
+        filters.created_at_after = yesterday.toISOString().split("T")[0];
+        filters.created_at_before = yesterday.toISOString().split("T")[0];
         break;
-      case 'week':
+      case "week":
         const weekAgo = new Date(today);
         weekAgo.setDate(weekAgo.getDate() - 7);
-        filters.created_at_after = weekAgo.toISOString().split('T')[0];
+        filters.created_at_after = weekAgo.toISOString().split("T")[0];
         break;
-      case 'month':
+      case "month":
         const monthAgo = new Date(today);
         monthAgo.setMonth(monthAgo.getMonth() - 1);
-        filters.created_at_after = monthAgo.toISOString().split('T')[0];
+        filters.created_at_after = monthAgo.toISOString().split("T")[0];
         break;
       default:
         break;
@@ -94,41 +94,52 @@ function Visitors() {
     return filters;
   }, [dateFilter]);
 
-  const fetchVisitors = useCallback(async (page = 1) => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      const filters = { 
-        ...dateFilters,
-        page,
-        page_size: itemsPerPage,
-        ordering: '-created_at' // Most recent first
-      };
-      
-      // Apply status filter
-      if (statusFilter !== 'all') {
-        filters.status = statusFilter;
-      }
+  const fetchVisitors = useCallback(
+    async (page = 1) => {
+      try {
+        setLoading(true);
+        setError(null);
 
-      const data = await visitorAPI.getVisitorsWithFilters(filters);
-      const results = Array.isArray(data) ? data : data.results || data || [];
-      
-      setVisitors(results);
-      setTotalItems(data.count || results.length);
-      setCurrentPage(page);
-    } catch (err) {
-      console.error('Error fetching visitors:', err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [statusFilter, dateFilters, itemsPerPage]);
+        const filters = {
+          ...dateFilters,
+          page,
+          page_size: itemsPerPage,
+          ordering: "-created_at", // Most recent first
+        };
+
+        // Apply status filter
+        if (statusFilter !== "all") {
+          filters.status = statusFilter;
+        }
+
+        const data = await visitorAPI.getVisitorsWithFilters(filters);
+        const results = Array.isArray(data) ? data : data.results || data || [];
+        results.forEach((visitor) => {
+          return { ...visitor, checkInTime: visitor.checkInTime || visitor.check_in, checkedOutTime: visitor.checkOutTime || visitor.check_out, hostName: visitor.host || visitor.issued_by };
+        });
+        console.log("Fetched visitor details:", results);
+        setVisitors(results);
+        setTotalItems(data.count || results.length);
+        setCurrentPage(page);
+      } catch (err) {
+        console.error("Error fetching visitors:", err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [statusFilter, dateFilters, itemsPerPage]
+  );
+
+  console.log("Visitors state:", visitors);
 
   // Handle page changes
-  const handlePageChange = useCallback((page) => {
-    fetchVisitors(page);
-  }, [fetchVisitors]);
+  const handlePageChange = useCallback(
+    (page) => {
+      fetchVisitors(page);
+    },
+    [fetchVisitors]
+  );
 
   // Optimized debounce search with useCallback
   const debouncedSearch = useCallback(
@@ -155,18 +166,18 @@ function Visitors() {
         try {
           setUpdating(true);
           const response = await visitorAPI.getVisitor(selectedVisitor.id);
-          
+
           // Update the selected visitor with fresh data
-          setSelectedVisitor(prev => ({ ...prev, ...response }));
-          
+          setSelectedVisitor((prev) => ({ ...prev, ...response }));
+
           // Also update the visitor in the visitors list
-          setVisitors(prevVisitors => 
-            prevVisitors.map(v => 
+          setVisitors((prevVisitors) =>
+            prevVisitors.map((v) =>
               v.id === selectedVisitor.id ? { ...v, ...response } : v
             )
           );
         } catch (error) {
-          console.error('Error fetching visitor details:', error);
+          console.error("Error fetching visitor details:", error);
           // Optionally show an error toast here
         } finally {
           setUpdating(false);
@@ -181,120 +192,129 @@ function Visitors() {
     debouncedSearch(searchTerm);
   }, [searchTerm, debouncedSearch]);
 
-  const handleSearch = useCallback(async (term = searchTerm) => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      // Combine search with current filters for better results
-      const filters = { ...dateFilters };
-      if (statusFilter !== 'all') {
-        filters.status = statusFilter;
-      }
-      if (term.trim()) {
-        filters.search = term.trim();
-      }
-      
-      const data = await visitorAPI.getVisitorsWithFilters(filters);
-      setVisitors(Array.isArray(data) ? data : data.results || data || []);
-    } catch (err) {
-      console.error('Error searching visitors:', err);
-      setError(err.message);
-    } finally {
-      setLoading(false);
-    }
-  }, [searchTerm, statusFilter, dateFilters]);
+  const handleSearch = useCallback(
+    async (term = searchTerm) => {
+      try {
+        setLoading(true);
+        setError(null);
 
-  const handleStatusUpdate = useCallback(async (visitorId, newStatus) => {
-    try {
-      setUpdating(true);
-      
-      // Get the current visitor data
-      const existingVisitor = visitors.find(v => v.id === visitorId);
-      const now = new Date().toISOString();
-      
-      // Prepare update data with preserved fields
-      const updateData = {
-        status: newStatus,
-        host: existingVisitor?.host || existingVisitor?.hostName || user?.name || 'System',
-        hostName: existingVisitor?.hostName || existingVisitor?.host || user?.name || 'System',
-        // Preserve all existing data
-        ...existingVisitor
-      };
-      
-      // Handle status-specific updates
-      if (newStatus === 'checked_out') {
-        updateData.checkOutTime = now;
-        updateData.checkedOutAt = now;
-        updateData.checkedOutBy = user?.name || 'System';
-        // Ensure check-in data exists
-        if (!updateData.checkInTime && !updateData.checkedInAt) {
+        // Combine search with current filters for better results
+        const filters = { ...dateFilters };
+        if (statusFilter !== "all") {
+          filters.status = statusFilter;
+        }
+        if (term.trim()) {
+          filters.search = term.trim();
+        }
+
+        const data = await visitorAPI.getVisitorsWithFilters(filters);
+        const results = Array.isArray(data) ? data : data.results || data || [];
+        results.forEach((visitor) => {
+          return { ...visitor, checkInTime: visitor.checkInTime || visitor.check_in, checkedOutTime: visitor.checkOutTime || visitor.check_out, hostName: visitor.host || visitor.issued_by };
+        });
+
+        console.log("Search results:", results);
+        setVisitors(results);
+      } catch (err) {
+        console.error("Error searching visitors:", err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [searchTerm, statusFilter, dateFilters]
+  );
+
+  const handleStatusUpdate = useCallback(
+    async (visitorId, newStatus) => {
+      try {
+        setUpdating(true);
+
+        // 1️⃣ Get current visitor
+        const existingVisitor = visitors.find((v) => v.id === visitorId);
+        const now = new Date().toISOString();
+
+        // 2️⃣ Prepare updated visitor data for updateVisitor API
+        const updateData = {
+          ...existingVisitor, // preserve existing fields
+          status: newStatus,
+          host:
+            existingVisitor?.host ||
+            existingVisitor?.hostName ||
+            user?.name ||
+            "System",
+          hostName:
+            existingVisitor?.hostName ||
+            existingVisitor?.host ||
+            user?.name ||
+            "System",
+        };
+
+        if (newStatus === "checked_in") {
           updateData.checkInTime = now;
           updateData.checkedInAt = now;
-          updateData.checkedInBy = user?.name || 'System';
+          updateData.checkedInBy = user?.name || "System";
+          delete updateData.checkOutTime;
+          delete updateData.checkedOutAt;
+          delete updateData.checkedOutBy;
+        } else if (newStatus === "checked_out") {
+          updateData.checkOutTime = now;
+          updateData.checkedOutAt = now;
+          updateData.checkedOutBy = user?.name || "System";
+          // Ensure check-in data exists
+          if (!updateData.checkInTime && !updateData.checkedInAt) {
+            updateData.checkInTime = now;
+            updateData.checkedInAt = now;
+            updateData.checkedInBy = user?.name || "System";
+          }
         }
-      } else if (newStatus === 'checked_in') {
-        updateData.checkInTime = now;
-        updateData.checkedInAt = now;
-        updateData.checkedInBy = user?.name || 'System';
-        // Clear any previous check-out data
-        delete updateData.checkOutTime;
-        delete updateData.checkedOutAt;
-        delete updateData.checkedOutBy;
-      }
-      
-      // Update the visitors list with the new data
-      setVisitors(prevVisitors => 
-        prevVisitors.map(visitor => 
-          visitor.id === visitorId ? { ...visitor, ...updateData, updated_at: now } : visitor
-        )
-      );
-      
-      // Update selected visitor if it's the same one
-      if (selectedVisitor?.id === visitorId) {
-        setSelectedVisitor(prev => ({ ...prev, ...updateData, updated_at: now }));
-      }
-      
-      // Prepare the data for the API call
-      const apiPayload = {
-        status: newStatus,
-        issued_by: user?.id || 'System'
-      };
-      
-      // Add check-in/check-out data to the API payload
-      if (newStatus === 'checked_out') {
-        apiPayload.check_out = now;
-        apiPayload.check_in = updateData.checkInTime || updateData.checkedInAt || now;
-      } else if (newStatus === 'checked_in') {
-        apiPayload.check_in = now;
-      }
-      
-      // Make the API call with the prepared payload
-      await visitorAPI.updateVisitor(visitorId, apiPayload);
-      
-      // For non-check-out statuses, also update the status separately to ensure it's set
-      if (newStatus !== 'checked_out') {
+
+        // 3️⃣ Optimistic update in frontend state
+        setVisitors((prev) =>
+          prev.map((v) =>
+            v.id === visitorId ? { ...v, ...updateData, updated_at: now } : v
+          )
+        );
+        if (selectedVisitor?.id === visitorId) {
+          setSelectedVisitor((prev) => ({
+            ...prev,
+            ...updateData,
+            updated_at: now,
+          }));
+        }
+
+        // 4️⃣ Call updateVisitor API to save host/check-in/out info
+        const visitorPayload = {
+          ...updateData,
+          issued_by: user?.id || "System",
+        };
+        await visitorAPI.updateVisitor(visitorId, visitorPayload);
+        // 5️⃣ Call updateVisitorStatus API to update status and trigger email
         await visitorAPI.updateVisitorStatus(visitorId, newStatus);
+        // const updatedVisitor = await visitorAPI.getVisitor(visitorId);
+        // setSelectedVisitor(updatedVisitor);
+        // setVisitors(prev => prev.map(v => v.id === visitorId ? updatedVisitor : v));
+      } catch (err) {
+        console.error("Error updating visitor status:", err);
+        setError(err.message);
+        // rollback frontend state
+        fetchVisitors();
+      } finally {
+        setUpdating(false);
       }
-    } catch (err) {
-      console.error('Error updating visitor status:', err);
-      setError(err.message);
-      // Revert optimistic update on error
-      fetchVisitors();
-    } finally {
-      setUpdating(false);
-    }
-  }, [selectedVisitor, fetchVisitors, user?.name]);
+    },
+    [visitors, selectedVisitor, user?.name, fetchVisitors]
+  );
 
   // Edit functionality
   const handleEditVisitor = (visitor) => {
     setEditingVisitor(visitor);
     setEditForm({
-      name: visitor.name || '',
-      email: visitor.email || '',
-      phone: visitor.phone || '',
+      name: visitor.name || "",
+      email: visitor.email || "",
+      phone: visitor.phone || "",
       // company: visitor.company || '',
-      purpose: visitor.purpose || '',
+      purpose: visitor.purpose || "",
       // host: visitor.host || ''
     });
     setIsEditing(true);
@@ -303,31 +323,33 @@ function Visitors() {
   const handleSaveEdit = async () => {
     try {
       setUpdating(true);
-      
+
       // Call API to update visitor
-      const updatedVisitor = await visitorAPI.updateVisitor(editingVisitor.id, editForm);
-      
+      const updatedVisitor = await visitorAPI.updateVisitor(
+        editingVisitor.id,
+        editForm
+      );
+
       // Update local state
-      setVisitors(prevVisitors =>
-        prevVisitors.map(visitor =>
+      setVisitors((prevVisitors) =>
+        prevVisitors.map((visitor) =>
           visitor.id === editingVisitor.id
             ? { ...visitor, ...editForm }
             : visitor
         )
       );
-      
+
       // Update selected visitor if it's the same one
       if (selectedVisitor && selectedVisitor.id === editingVisitor.id) {
-        setSelectedVisitor(prev => ({ ...prev, ...editForm }));
+        setSelectedVisitor((prev) => ({ ...prev, ...editForm }));
       }
-      
+
       // Close edit mode
       setIsEditing(false);
       setEditingVisitor(null);
       setEditForm({});
-      
     } catch (err) {
-      console.error('Error updating visitor:', err);
+      console.error("Error updating visitor:", err);
       setError(err.message);
     } finally {
       setUpdating(false);
@@ -340,66 +362,271 @@ function Visitors() {
     setEditForm({});
   };
 
-  const handleGeneratePass = useCallback(async (visitorId) => {
-    // debugger;
-    try {
-      setUpdating(true);
-      
-      // Find the visitor
-      const visitor = visitors.find(v => v.id === visitorId);
-      if (!visitor) {
-        throw new Error('Visitor not found');
-      }
-      
-      // Set the visitor for pass generation
-      setPassVisitor(visitor);
-      setShowPassModal(true);
-      
-      // Get current timestamp for check-in
-      const checkInTime = new Date().toISOString();
-      
-      // Prepare update data with check-in information
-      const updateData = {
-        status: 'checked_in',
-        pass_generated: true,
-        checkInTime,
-        hostName: user?.name || 'System',
-        checkedInBy: user?.name || 'System',
-        checkedInAt: checkInTime,
-        updated_at: new Date().toISOString()
+  const generatePassImage = async (visitor) => {
+    return new Promise((resolve, reject) => {
+      const canvas = document.createElement("canvas");
+      const ctx = canvas.getContext("2d");
+
+      // Set canvas size
+      canvas.width = 400;
+      canvas.height = 600;
+
+      // Create gradient background
+      const gradient = ctx.createLinearGradient(0, 0, 400, 600);
+      gradient.addColorStop(0, "#3B82F6");
+      gradient.addColorStop(1, "#8B5CF6");
+
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, 400, 600);
+
+      // Add company header
+      ctx.fillStyle = "white";
+      ctx.font = "bold 24px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("VISITOR PASS", 200, 50);
+
+      ctx.font = "16px Arial";
+      ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+      ctx.fillText("Wish Geeks Techserve", 200, 80);
+
+      const drawPassContent = (img = null) => {
+        // Redraw the pass content
+        if (img) {
+          // Create a circular mask for the image
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(200, 170, 50, 0, Math.PI * 2);
+          ctx.closePath();
+          ctx.clip();
+
+          // Draw the image
+          ctx.drawImage(img, 150, 120, 100, 100);
+          ctx.restore();
+
+          // Add white border
+          ctx.beginPath();
+          ctx.arc(200, 170, 50, 0, Math.PI * 2);
+          ctx.strokeStyle = "white";
+          ctx.lineWidth = 4;
+          ctx.stroke();
+        } else {
+          // Fallback to placeholder if no image
+          ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
+          ctx.beginPath();
+          ctx.arc(200, 170, 50, 0, Math.PI * 2);
+          ctx.fill();
+
+          // Add initial letter
+          const initials =
+            (visitor.name || visitor.firstName || "V").charAt(0).toUpperCase() +
+            (visitor.lastName || "").charAt(0).toUpperCase();
+          ctx.fillStyle = "white";
+          ctx.font = "bold 24px Arial";
+          ctx.textAlign = "center";
+          ctx.textBaseline = "middle";
+          ctx.fillText(initials, 200, 170);
+        }
+
+        // Add visitor details
+        ctx.fillStyle = "white";
+        ctx.font = "bold 20px Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "alphabetic";
+        ctx.fillText(
+          visitor.name ||
+            `${visitor.firstName || ""} ${visitor.lastName || ""}`.trim(),
+          200,
+          260
+        );
+
+        ctx.font = "14px Arial";
+        ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+        ctx.fillText(visitor.email || "", 200, 285);
+
+        // Add visit details
+        ctx.textAlign = "left";
+        ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+        ctx.fillText("Visit Time:", 50, 340);
+        ctx.fillStyle = "white";
+        ctx.fillText(new Date().toLocaleString(), 150, 340);
+
+        ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+        ctx.fillText("Purpose:", 50, 370);
+        ctx.fillStyle = "white";
+        ctx.fillText(visitor.purpose || "General Visit", 150, 370);
+
+        ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+        ctx.fillText("Status:", 50, 400);
+        ctx.fillStyle = "white";
+        ctx.fillText("Checked In", 150, 400);
+
+        ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+        ctx.fillText("ID:", 50, 430);
+        ctx.fillStyle = "white";
+        ctx.fillText(`#${visitor.id}`, 150, 430);
+
+        // Add footer
+        ctx.textAlign = "center";
+        ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+        ctx.font = "12px Arial";
+        ctx.fillText(
+          "Please wear this pass at all times during your visit",
+          200,
+          520
+        );
+        ctx.fillText(
+          "Generated on: " + new Date().toLocaleDateString(),
+          200,
+          540
+        );
+
+        // Convert canvas to blob
+        canvas.toBlob(
+          (blob) => {
+            resolve(blob);
+          },
+          "image/png",
+          1.0
+        );
       };
-      
-      // Optimistic UI update
-      setVisitors(prevVisitors => 
-        prevVisitors.map(v => 
-          v.id === visitorId ? { ...v, ...updateData } : v
-        )
-      );
-      
-      // Update selected visitor if it's the same one
-      if (selectedVisitor && selectedVisitor.id === visitorId) {
-        setSelectedVisitor(prev => ({ ...prev, ...updateData }));
+
+      // Try to load the visitor's image using fetch API first
+      const loadImage = async () => {
+        const imageUrl = visitor.image || visitor.imageUrl || visitor.photo;
+        if (!imageUrl) {
+          drawPassContent();
+          return;
+        }
+
+        try {
+          // First try using fetch to handle CORS properly
+          const response = await fetch(imageUrl, {
+            mode: "cors",
+            cache: "no-cache",
+          });
+
+          if (!response.ok) {
+            throw new Error("Image fetch failed");
+          }
+
+          const blob = await response.blob();
+          const img = new Image();
+          const blobUrl = URL.createObjectURL(blob);
+
+          img.onload = () => {
+            drawPassContent(img);
+            URL.revokeObjectURL(blobUrl);
+          };
+
+          img.onerror = () => {
+            console.error("Error loading image from blob");
+            URL.revokeObjectURL(blobUrl);
+            fallbackImageLoad();
+          };
+
+          img.src = blobUrl;
+        } catch (error) {
+          console.error("Error fetching image:", error);
+          fallbackImageLoad();
+        }
+      };
+
+      // Fallback method using direct image loading
+      const fallbackImageLoad = () => {
+        const imageUrl = visitor.image || visitor.imageUrl || visitor.photo;
+        const img = new Image();
+
+        // Add timestamp to prevent caching
+        const timestamp = new Date().getTime();
+        const urlWithTimestamp = imageUrl.includes("?")
+          ? `${imageUrl}&t=${timestamp}`
+          : `${imageUrl}?t=${timestamp}`;
+
+        img.crossOrigin = "anonymous";
+        img.onload = () => drawPassContent(img);
+        img.onerror = () => {
+          console.error("Fallback image load failed");
+          drawPassContent(); // Draw without image
+        };
+        img.src = urlWithTimestamp;
+      };
+
+      // Start the image loading process
+      loadImage();
+    });
+  };
+
+  const handleGeneratePass = useCallback(
+    async (visitorId) => {
+      try {
+        setUpdating(true);
+
+        // Find the visitor
+        const visitor = visitors.find((v) => v.id === visitorId);
+        if (!visitor) {
+          throw new Error("Visitor not found");
+        }
+
+        // Set the visitor for pass generation
+        setPassVisitor(visitor);
+        setShowPassModal(true);
+
+        // Get current timestamp for check-in
+        const checkInTime = new Date().toISOString();
+
+        // Generate the pass image
+        const passBlob = await generatePassImage(visitor);
+
+        // Create a File object from the blob
+        const passFile = new File(
+          [passBlob],
+          `visitor-pass-${visitor.id}.png`,
+          { type: "image/png" }
+        );
+
+        // Prepare update data with check-in information
+        const updateData = {
+          status: "checked_in",
+          pass_generated: true,
+          checkInTime,
+          hostName: user?.name || "System",
+          checkedInBy: user?.name || "System",
+          checkedInAt: checkInTime,
+          updated_at: new Date().toISOString(),
+          issued_by: user?.id || "System",
+        };
+
+        // Optimistic UI update
+        setVisitors((prevVisitors) =>
+          prevVisitors.map((v) =>
+            v.id === visitorId ? { ...v, ...updateData } : v
+          )
+        );
+
+        // Update selected visitor if it's the same one
+        if (selectedVisitor && selectedVisitor.id === visitorId) {
+          setSelectedVisitor((prev) => ({ ...prev, ...updateData }));
+        }
+
+        // Call API to update visitor with pass file
+        await visitorAPI.updateVisitorStatus(visitorId, "checked_in", passFile);
+        await visitorAPI.updateVisitor(visitorId, updateData, null, passFile);
+      } catch (err) {
+        console.error("Error generating pass:", err);
+        setError(err.message);
+        // Revert optimistic update on error
+        fetchVisitors();
+      } finally {
+        setUpdating(false);
       }
-      
-      // Call API to update visitor
-      await visitorAPI.updateVisitorStatus(visitorId, "checked_in");
-      await visitorAPI.updateVisitor(visitorId, {issued_by: user?.id || 'System'});
-      // await visitorAPI.updateVisitor(visitorId, updateData);
-      
-    } catch (err) {
-      console.error('Error generating pass:', err);
-      setError(err.message);
-      // Revert optimistic update on error
-      fetchVisitors();
-    } finally {
-      setUpdating(false);
-    }
-  }, [visitors, selectedVisitor, fetchVisitors, user?.name]);
+    },
+    [visitors, selectedVisitor, fetchVisitors, user?.name]
+  );
 
   const handleFormChange = (field, value) => {
-    setEditForm(prev => ({
+    setEditForm((prev) => ({
       ...prev,
-      [field]: value
+      [field]: value,
     }));
   };
 
@@ -411,47 +638,47 @@ function Visitors() {
   const handleDownloadPass = useCallback(() => {
     if (!passVisitor) return;
 
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+
     // Set canvas size
     canvas.width = 400;
     canvas.height = 600;
-    
+
     // Create gradient background
     const gradient = ctx.createLinearGradient(0, 0, 400, 600);
-    gradient.addColorStop(0, '#3B82F6');
-    gradient.addColorStop(1, '#8B5CF6');
-    
+    gradient.addColorStop(0, "#3B82F6");
+    gradient.addColorStop(1, "#8B5CF6");
+
     ctx.fillStyle = gradient;
     ctx.fillRect(0, 0, 400, 600);
-    
+
     // Add company header
-    ctx.fillStyle = 'white';
-    ctx.font = 'bold 24px Arial';
-    ctx.textAlign = 'center';
-    ctx.fillText('VISITOR PASS', 200, 50);
-    
-    ctx.font = '16px Arial';
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-    ctx.fillText('Wish Geeks Techserve', 200, 80);
-    
+    ctx.fillStyle = "white";
+    ctx.font = "bold 24px Arial";
+    ctx.textAlign = "center";
+    ctx.fillText("VISITOR PASS", 200, 50);
+
+    ctx.font = "16px Arial";
+    ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+    ctx.fillText("Wish Geeks Techserve", 200, 80);
+
     // Create a function to draw the pass with the image
     const drawPass = (img = null) => {
       // Clear and redraw background
       ctx.fillStyle = gradient;
       ctx.fillRect(0, 0, 400, 600);
-      
+
       // Redraw header text
-      ctx.fillStyle = 'white';
-      ctx.font = 'bold 24px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText('VISITOR PASS', 200, 50);
-      
-      ctx.font = '16px Arial';
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-      ctx.fillText('Wish Geeks Techserve', 200, 80);
-      
+      ctx.fillStyle = "white";
+      ctx.font = "bold 24px Arial";
+      ctx.textAlign = "center";
+      ctx.fillText("VISITOR PASS", 200, 50);
+
+      ctx.font = "16px Arial";
+      ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+      ctx.fillText("Wish Geeks Techserve", 200, 80);
+
       // Draw visitor image if available
       if (img) {
         // Create a circular mask for the image
@@ -460,160 +687,179 @@ function Visitors() {
         ctx.arc(200, 170, 50, 0, Math.PI * 2);
         ctx.closePath();
         ctx.clip();
-        
+
         // Draw the image
         ctx.drawImage(img, 150, 120, 100, 100);
         ctx.restore();
-        
+
         // Add white border
         ctx.beginPath();
         ctx.arc(200, 170, 50, 0, Math.PI * 2);
-        ctx.strokeStyle = 'white';
+        ctx.strokeStyle = "white";
         ctx.lineWidth = 4;
         ctx.stroke();
       } else {
         // Fallback to placeholder if no image
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.2)';
+        ctx.fillStyle = "rgba(255, 255, 255, 0.2)";
         ctx.beginPath();
         ctx.arc(200, 170, 50, 0, Math.PI * 2);
         ctx.fill();
-        
+
         // Add initial letter
-        const initials = (passVisitor.name || passVisitor.firstName || 'V').charAt(0).toUpperCase() + 
-                        (passVisitor.lastName || '').charAt(0).toUpperCase();
-        ctx.fillStyle = 'white';
-        ctx.font = 'bold 24px Arial';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
+        const initials =
+          (passVisitor.name || passVisitor.firstName || "V")
+            .charAt(0)
+            .toUpperCase() +
+          (passVisitor.lastName || "").charAt(0).toUpperCase();
+        ctx.fillStyle = "white";
+        ctx.font = "bold 24px Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
         ctx.fillText(initials, 200, 170);
       }
-      
+
       // Add visitor details
-      ctx.fillStyle = 'white';
-      ctx.font = 'bold 20px Arial';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'alphabetic';
-      ctx.fillText(passVisitor.name || `${passVisitor.firstName || ''} ${passVisitor.lastName || ''}`.trim(), 200, 260);
-      
-      ctx.font = '14px Arial';
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-      ctx.fillText(passVisitor.email || '', 200, 285);
-      
+      ctx.fillStyle = "white";
+      ctx.font = "bold 20px Arial";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "alphabetic";
+      ctx.fillText(
+        passVisitor.name ||
+          `${passVisitor.firstName || ""} ${passVisitor.lastName || ""}`.trim(),
+        200,
+        260
+      );
+
+      ctx.font = "14px Arial";
+      ctx.fillStyle = "rgba(255, 255, 255, 0.9)";
+      ctx.fillText(passVisitor.email || "", 200, 285);
+
       // Add visit details
-      ctx.textAlign = 'left';
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-      ctx.fillText('Visit Time:', 50, 340);
-      ctx.fillStyle = 'white';
+      ctx.textAlign = "left";
+      ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+      ctx.fillText("Visit Time:", 50, 340);
+      ctx.fillStyle = "white";
       ctx.fillText(new Date().toLocaleString(), 150, 340);
-      
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-      ctx.fillText('Purpose:', 50, 370);
-      ctx.fillStyle = 'white';
-      ctx.fillText(passVisitor.purpose || 'General Visit', 150, 370);
-      
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-      ctx.fillText('Status:', 50, 400);
-      ctx.fillStyle = 'white';
-      ctx.fillText(passVisitor.status || 'Approved', 150, 400);
-      
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
-      ctx.fillText('ID:', 50, 430);
-      ctx.fillStyle = 'white';
+
+      ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+      ctx.fillText("Purpose:", 50, 370);
+      ctx.fillStyle = "white";
+      ctx.fillText(passVisitor.purpose || "General Visit", 150, 370);
+
+      ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+      ctx.fillText("Status:", 50, 400);
+      ctx.fillStyle = "white";
+      ctx.fillText(passVisitor.status || "Approved", 150, 400);
+
+      ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+      ctx.fillText("ID:", 50, 430);
+      ctx.fillStyle = "white";
       ctx.fillText(`#${passVisitor.id}`, 150, 430);
-      
+
       // Add footer
-      ctx.textAlign = 'center';
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-      ctx.font = '12px Arial';
-      ctx.fillText('Please wear this pass at all times during your visit', 200, 520);
-      ctx.fillText('Generated on: ' + new Date().toLocaleDateString(), 200, 540);
-      
+      ctx.textAlign = "center";
+      ctx.fillStyle = "rgba(255, 255, 255, 0.6)";
+      ctx.font = "12px Arial";
+      ctx.fillText(
+        "Please wear this pass at all times during your visit",
+        200,
+        520
+      );
+      ctx.fillText(
+        "Generated on: " + new Date().toLocaleDateString(),
+        200,
+        540
+      );
+
       // Convert to blob and download
       canvas.toBlob((blob) => {
         const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
+        const a = document.createElement("a");
         a.href = url;
-        a.download = `visitor-pass-${passVisitor.name || passVisitor.firstName || 'visitor'}-${Date.now()}.png`;
+        a.download = `visitor-pass-${
+          passVisitor.name || passVisitor.firstName || "visitor"
+        }-${Date.now()}.png`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
-      }, 'image/png');
+      }, "image/png");
     };
-    
+
     // Try to load the visitor's image using fetch API
     const loadImageWithFetch = async (url) => {
       try {
-        console.log('Attempting to fetch image:', url);
+        console.log("Attempting to fetch image:", url);
         const response = await fetch(url, {
-          mode: 'cors',
-          cache: 'no-cache',
-          credentials: 'same-origin'
+          mode: "cors",
+          cache: "no-cache",
+          credentials: "same-origin",
         });
-        
+
         if (!response.ok) {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
-        
+
         const blob = await response.blob();
         const imageUrl = URL.createObjectURL(blob);
         const img = new Image();
-        
+
         img.onload = () => {
-          console.log('Image loaded successfully via fetch');
+          console.log("Image loaded successfully via fetch");
           drawPass(img);
           // Clean up the object URL after the image is loaded
           URL.revokeObjectURL(imageUrl);
         };
-        
+
         img.onerror = (e) => {
-          console.error('Error creating image from blob:', e);
+          console.error("Error creating image from blob:", e);
           drawPass();
           URL.revokeObjectURL(imageUrl);
         };
-        
+
         img.src = imageUrl;
       } catch (error) {
-        console.error('Error loading image with fetch:', error);
+        console.error("Error loading image with fetch:", error);
         // Fallback to regular image loading if fetch fails
         loadImageDirectly(url);
       }
     };
-    
+
     // Fallback method using regular image loading
     const loadImageDirectly = (url) => {
-      console.log('Trying direct image load for:', url);
+      console.log("Trying direct image load for:", url);
       const img = new Image();
-      
+
       img.onload = () => {
-        console.log('Image loaded successfully with direct method');
+        console.log("Image loaded successfully with direct method");
         drawPass(img);
       };
-      
+
       img.onerror = (e) => {
-        console.error('Direct image load failed:', e);
+        console.error("Direct image load failed:", e);
         drawPass();
       };
-      
+
       // Add timestamp to prevent caching
       const timestamp = new Date().getTime();
-      const urlWithTimestamp = url.includes('?') 
-        ? `${url}&t=${timestamp}` 
+      const urlWithTimestamp = url.includes("?")
+        ? `${url}&t=${timestamp}`
         : `${url}?t=${timestamp}`;
-      
-      img.crossOrigin = 'anonymous';
+
+      img.crossOrigin = "anonymous";
       img.src = urlWithTimestamp;
     };
-    
+
     // Get the image URL and start loading
-    const imageUrl = passVisitor.image || passVisitor.imageUrl || passVisitor.photo;
-    console.log('Image URL:', imageUrl);
-    
+    const imageUrl =
+      passVisitor.image || passVisitor.imageUrl || passVisitor.photo;
+    console.log("Image URL:", imageUrl);
+
     if (imageUrl) {
       // First try with fetch API, fallback to direct loading
       loadImageWithFetch(imageUrl);
     } else {
-      console.log('No image URL available for visitor');
+      console.log("No image URL available for visitor");
       // No image URL, draw without it
       drawPass();
     }
@@ -632,42 +878,48 @@ function Visitors() {
       checked_out: 0,
       pending: 0,
       approved: 0,
-      rejected: 0
+      rejected: 0,
     };
-    
-    filteredVisitors.forEach(visitor => {
-      const status = visitor.status || 'pending';
+
+    filteredVisitors.forEach((visitor) => {
+      const status = visitor.status || "pending";
       if (stats.hasOwnProperty(status)) {
         stats[status]++;
       }
     });
-    
+
     return stats;
   }, [filteredVisitors]);
 
   const getStatusBadge = (status) => {
     const styles = {
-      'checked_in': 'bg-green-100 text-green-800 border-green-200',
-      'checked_out': 'bg-gray-100 text-gray-800 border-gray-200',
-      'scheduled': 'bg-blue-100 text-blue-800 border-blue-200',
-      'approved': 'bg-blue-100 text-blue-800 border-blue-200',
-      'rejected': 'bg-red-100 text-red-800 border-red-200',
-      'pending': 'bg-yellow-100 text-yellow-800 border-yellow-200'
+      checked_in: "bg-green-100 text-green-800 border-green-200",
+      checked_out: "bg-gray-100 text-gray-800 border-gray-200",
+      scheduled: "bg-blue-100 text-blue-800 border-blue-200",
+      approved: "bg-blue-100 text-blue-800 border-blue-200",
+      rejected: "bg-red-100 text-red-800 border-red-200",
+      pending: "bg-yellow-100 text-yellow-800 border-yellow-200",
     };
-    
+
     const icons = {
-      'checked_in': <CheckCircle className="w-4 h-4" />,
-      'checked_out': <XCircle className="w-4 h-4" />,
-      'scheduled': <Clock className="w-4 h-4" />,
-      'approved': <CheckCircle className="w-4 h-4" />,
-      'rejected': <XCircle className="w-4 h-4" />,
-      'pending': <Clock className="w-4 h-4" />
+      checked_in: <CheckCircle className="w-4 h-4" />,
+      checked_out: <XCircle className="w-4 h-4" />,
+      scheduled: <Clock className="w-4 h-4" />,
+      approved: <CheckCircle className="w-4 h-4" />,
+      rejected: <XCircle className="w-4 h-4" />,
+      pending: <Clock className="w-4 h-4" />,
     };
 
     return (
-      <span className={`inline-flex items-center space-x-1 px-3 py-1 rounded-full text-sm font-medium border ${styles[status] || styles.pending}`}>
+      <span
+        className={`inline-flex items-center space-x-1 px-3 py-1 rounded-full text-sm font-medium border ${
+          styles[status] || styles.pending
+        }`}
+      >
         {icons[status] || icons.pending}
-        <span className="capitalize">{status?.replace('_', ' ') || 'pending'}</span>
+        <span className="capitalize">
+          {status?.replace("_", " ") || "pending"}
+        </span>
       </span>
     );
   };
@@ -692,8 +944,12 @@ function Visitors() {
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Visitor Management</h1>
-            <p className="text-gray-600 text-base">Track and manage all visitor activities</p>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">
+              Visitor Management
+            </h1>
+            <p className="text-gray-600 text-base">
+              Track and manage all visitor activities
+            </p>
             {error && (
               <div className="mt-2 p-3 bg-red-100 border border-red-300 rounded-lg text-red-700">
                 {error}
@@ -701,12 +957,14 @@ function Visitors() {
             )}
           </div>
           <div className="flex space-x-3">
-            <button 
+            <button
               onClick={refreshData}
               disabled={loading}
               className="flex items-center space-x-2 px-4 py-2 bg-white/70 border border-gray-200 rounded-xl hover:bg-white hover:shadow-lg transition-all duration-200 disabled:opacity-50"
             >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
+              <RefreshCw
+                className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
+              />
               <span>Refresh</span>
             </button>
             <button className="flex items-center space-x-2 px-4 py-2 bg-white/70 border border-gray-200 rounded-xl hover:bg-white hover:shadow-lg transition-all duration-200">
@@ -785,7 +1043,7 @@ function Visitors() {
           className="bg-white/70 backdrop-blur-sm rounded-2xl shadow-xl border border-white/50 overflow-hidden"
         >
           {/* <div className="p-6 border-b border-gray-200"> */}
-            {/* <div className="flex items-center justify-between">
+          {/* <div className="flex items-center justify-between">
               <h3 className="text-xl font-bold text-gray-900">Visitors List</h3>
               <div className="flex items-center space-x-2 text-sm text-gray-600">
                 <RefreshCw className="w-4 h-4" />
@@ -799,13 +1057,25 @@ function Visitors() {
             <table className="w-full table-auto">
               <thead className="bg-gray-50/50">
                 <tr>
-                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Visitor</th>
+                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">
+                    Visitor
+                  </th>
                   {/* <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Company</th> */}
-                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Purpose</th>
-                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Host</th>
-                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Check In</th>
-                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Status</th>
-                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Actions</th>
+                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">
+                    Purpose
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">
+                    Host
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">
+                    Check In
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">
+                    Status
+                  </th>
+                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -822,31 +1092,58 @@ function Visitors() {
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="flex items-center space-x-4">
                           <div className="flex-shrink-0 w-12 h-12 relative">
-                            {(visitor.image || visitor.imageUrl || visitor.photo) ? (
+                            {visitor.image ||
+                            visitor.imageUrl ||
+                            visitor.photo ? (
                               <img
-                                src={visitor.image || visitor.imageUrl || visitor.photo}
-                                alt={`${visitor.name || visitor.firstName + ' ' + visitor.lastName}`}
+                                src={
+                                  visitor.image ||
+                                  visitor.imageUrl ||
+                                  visitor.photo
+                                }
+                                alt={`${
+                                  visitor.name ||
+                                  visitor.firstName + " " + visitor.lastName
+                                }`}
                                 className="w-12 h-12 rounded-full object-cover border-2 border-gray-200"
                                 onError={(e) => {
-                                  e.target.style.display = 'none';
-                                  const fallback = e.target.parentElement.querySelector('.fallback-avatar');
-                                  if (fallback) fallback.style.display = 'flex';
+                                  e.target.style.display = "none";
+                                  const fallback =
+                                    e.target.parentElement.querySelector(
+                                      ".fallback-avatar"
+                                    );
+                                  if (fallback) fallback.style.display = "flex";
                                 }}
                                 onLoad={(e) => {
-                                  const fallback = e.target.parentElement.querySelector('.fallback-avatar');
-                                  if (fallback) fallback.style.display = 'none';
+                                  const fallback =
+                                    e.target.parentElement.querySelector(
+                                      ".fallback-avatar"
+                                    );
+                                  if (fallback) fallback.style.display = "none";
                                 }}
                               />
                             ) : null}
-                            <div 
-                              className={`fallback-avatar w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg absolute top-0 left-0 ${(visitor.image || visitor.imageUrl || visitor.photo) ? 'hidden' : 'flex'}`}
+                            <div
+                              className={`fallback-avatar w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg absolute top-0 left-0 ${
+                                visitor.image ||
+                                visitor.imageUrl ||
+                                visitor.photo
+                                  ? "hidden"
+                                  : "flex"
+                              }`}
                             >
-                              {(visitor.name || visitor.firstName || 'V').charAt(0).toUpperCase()}{(visitor.lastName || '').charAt(0).toUpperCase()}
+                              {(visitor.name || visitor.firstName || "V")
+                                .charAt(0)
+                                .toUpperCase()}
+                              {(visitor.lastName || "").charAt(0).toUpperCase()}
                             </div>
                           </div>
                           <div className="min-w-0 flex-1">
                             <div className="text-sm font-bold text-gray-900 truncate">
-                              {visitor.name || `${visitor.firstName || ''} ${visitor.lastName || ''}`.trim()}
+                              {visitor.name ||
+                                `${visitor.firstName || ""} ${
+                                  visitor.lastName || ""
+                                }`.trim()}
                             </div>
                             <div className="text-sm text-gray-600 truncate">
                               {visitor.email}
@@ -861,35 +1158,47 @@ function Visitors() {
                         <div className="text-sm text-gray-900">{visitor.company || 'N/A'}</div>
                       </td> */}
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{visitor.purpose || 'N/A'}</div>
+                        <div className="text-sm text-gray-900">
+                          {visitor.purpose || "N/A"}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <div className="text-sm text-gray-900">{visitor.host || visitor.hostName || 'N/A'}</div>
+                        <div className="text-sm text-gray-900">
+                          {visitor.host || visitor.hostName || visitor.issued_by == user.id ? user.name : "N/A"}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
                         <div className="text-sm text-gray-900">
                           <div className="mb-1">
                             <span className="block">
-                              {visitor.checkInTime 
-                                ? new Date(visitor.checkInTime).toLocaleDateString()
-                                : 'Not checked in'
-                              }
+                              {(visitor.checkInTime || visitor.check_in)
+                                ? new Date(
+                                    visitor.checkInTime || visitor.check_in
+                                  ).toLocaleDateString()
+                                : "Not checked in"}
                             </span>
                             <span className="text-xs text-gray-500">
-                              {visitor.checkInTime 
-                                ? new Date(visitor.checkInTime).toLocaleTimeString()
-                                : 'Not checked in'
-                              }
+                              {(visitor.checkInTime || visitor.check_in)
+                                ? new Date(
+                                    visitor.checkInTime || visitor.check_in
+                                  ).toLocaleTimeString()
+                                : "Not checked in"}
                             </span>
                           </div>
-                          {visitor.checkOutTime && (
+                          {(visitor.checkOutTime || visitor.check_out) && (
                             <div className="mt-2 pt-2 border-t border-gray-100">
-                              <span className="block text-xs text-gray-500">Checked Out:</span>
+                              <span className="block text-xs text-gray-500">
+                                Checked Out:
+                              </span>
                               <span className="block">
-                                {new Date(visitor.checkOutTime).toLocaleDateString()}
+                                {new Date(
+                                  visitor.checkOutTime || visitor.check_out
+                                ).toLocaleDateString()}
                               </span>
                               <span className="text-xs text-gray-500">
-                                {new Date(visitor.checkOutTime).toLocaleTimeString()}
+                                {new Date(
+                                  visitor.checkOutTime || visitor.check_out
+                                ).toLocaleTimeString()}
                               </span>
                             </div>
                           )}
@@ -902,8 +1211,10 @@ function Visitors() {
                         <div className="flex items-center space-x-2">
                           {/* Status Dropdown */}
                           <select
-                            value={visitor.status || 'pending'}
-                            onChange={(e) => handleStatusUpdate(visitor.id, e.target.value)}
+                            value={visitor.status || "pending"}
+                            onChange={(e) =>
+                              handleStatusUpdate(visitor.id, e.target.value)
+                            }
                             className="px-2 py-1 text-sm border border-gray-200 rounded bg-white min-w-[100px]"
                             disabled={updating}
                           >
@@ -913,12 +1224,14 @@ function Visitors() {
                             <option value="checked_in">Checked In</option>
                             <option value="checked_out">Checked Out</option>
                           </select>
-                          
+
                           {/* Approve/Reject buttons for pending status */}
-                          {visitor.status === 'pending' && (
+                          {visitor.status === "pending" && (
                             <>
                               <button
-                                onClick={() => handleStatusUpdate(visitor.id, 'approved')}
+                                onClick={() =>
+                                  handleStatusUpdate(visitor.id, "approved")
+                                }
                                 disabled={updating}
                                 className="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors duration-200 disabled:opacity-50"
                                 title="Approve"
@@ -926,7 +1239,9 @@ function Visitors() {
                                 <ThumbsUp className="w-4 h-4" />
                               </button>
                               <button
-                                onClick={() => handleStatusUpdate(visitor.id, 'rejected')}
+                                onClick={() =>
+                                  handleStatusUpdate(visitor.id, "rejected")
+                                }
                                 disabled={updating}
                                 className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors duration-200 disabled:opacity-50"
                                 title="Reject"
@@ -935,9 +1250,9 @@ function Visitors() {
                               </button>
                             </>
                           )}
-                          
+
                           {/* Pass generation button for approved status */}
-                          {visitor.status === 'approved' && (
+                          {visitor.status === "approved" && (
                             <button
                               onClick={() => handleGeneratePass(visitor.id)}
                               disabled={updating}
@@ -946,7 +1261,7 @@ function Visitors() {
                               Generate Pass
                             </button>
                           )}
-                          
+
                           {/* Check mark for pass generated */}
                           {visitor.pass_generated && (
                             <div className="group relative">
@@ -956,7 +1271,7 @@ function Visitors() {
                               </span>
                             </div>
                           )}
-                          
+
                           {/* Check In/Out buttons */}
                           {/* {visitor.status === 'approved' && !visitor.pass_generated && (
                             <button
@@ -967,17 +1282,19 @@ function Visitors() {
                               Check In
                             </button>
                           )} */}
-                          {visitor.status === 'checked_in' && (
+                          {visitor.status === "checked_in" && (
                             <button
-                              onClick={() => handleStatusUpdate(visitor.id, 'checked_out')}
+                              onClick={() =>
+                                handleStatusUpdate(visitor.id, "checked_out")
+                              }
                               disabled={updating}
                               className="px-3 py-1 bg-gray-100 text-gray-800 rounded-lg hover:bg-gray-200 transition-colors duration-200 text-sm disabled:opacity-50"
                             >
                               Check Out
                             </button>
                           )}
-                          
-                          <button 
+
+                          <button
                             onClick={() => setSelectedVisitor(visitor)}
                             className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200"
                           >
@@ -1006,42 +1323,67 @@ function Visitors() {
                 >
                   <div className="flex items-start space-x-4">
                     <div className="flex-shrink-0 w-16 h-16 relative">
-                      {(visitor.image || visitor.imageUrl || visitor.photo) ? (
+                      {visitor.image || visitor.imageUrl || visitor.photo ? (
                         <img
-                          src={visitor.image || visitor.imageUrl || visitor.photo}
-                          alt={`${visitor.name || visitor.firstName + ' ' + visitor.lastName}`}
+                          src={
+                            visitor.image || visitor.imageUrl || visitor.photo
+                          }
+                          alt={`${
+                            visitor.name ||
+                            visitor.firstName + " " + visitor.lastName
+                          }`}
                           className="w-16 h-16 rounded-full object-cover border-2 border-gray-200"
                           onError={(e) => {
-                            e.target.style.display = 'none';
-                            const fallback = e.target.parentElement.querySelector('.fallback-avatar');
-                            if (fallback) fallback.style.display = 'flex';
+                            e.target.style.display = "none";
+                            const fallback =
+                              e.target.parentElement.querySelector(
+                                ".fallback-avatar"
+                              );
+                            if (fallback) fallback.style.display = "flex";
                           }}
                           onLoad={(e) => {
-                            const fallback = e.target.parentElement.querySelector('.fallback-avatar');
-                            if (fallback) fallback.style.display = 'none';
+                            const fallback =
+                              e.target.parentElement.querySelector(
+                                ".fallback-avatar"
+                              );
+                            if (fallback) fallback.style.display = "none";
                           }}
                         />
                       ) : null}
-                      <div 
-                        className={`fallback-avatar w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-xl absolute top-0 left-0 ${(visitor.image || visitor.imageUrl || visitor.photo) ? 'hidden' : 'flex'}`}
+                      <div
+                        className={`fallback-avatar w-16 h-16 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-xl absolute top-0 left-0 ${
+                          visitor.image || visitor.imageUrl || visitor.photo
+                            ? "hidden"
+                            : "flex"
+                        }`}
                       >
-                        {(visitor.name || visitor.firstName || 'V').charAt(0).toUpperCase()}{(visitor.lastName || '').charAt(0).toUpperCase()}
+                        {(visitor.name || visitor.firstName || "V")
+                          .charAt(0)
+                          .toUpperCase()}
+                        {(visitor.lastName || "").charAt(0).toUpperCase()}
                       </div>
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between">
                         <div className="min-w-0 flex-1">
                           <h3 className="text-lg font-bold text-gray-900 truncate">
-                            {visitor.name || `${visitor.firstName || ''} ${visitor.lastName || ''}`.trim()}
+                            {visitor.name ||
+                              `${visitor.firstName || ""} ${
+                                visitor.lastName || ""
+                              }`.trim()}
                           </h3>
-                          <p className="text-sm text-gray-600 truncate">{visitor.email}</p>
-                          <p className="text-sm text-gray-500 truncate">{visitor.phone}</p>
+                          <p className="text-sm text-gray-600 truncate">
+                            {visitor.email}
+                          </p>
+                          <p className="text-sm text-gray-500 truncate">
+                            {visitor.phone}
+                          </p>
                         </div>
                         <div className="ml-2 flex-shrink-0">
                           {getStatusBadge(visitor.status)}
                         </div>
                       </div>
-                      
+
                       <div className="mt-3 grid grid-cols-1 gap-2 text-sm">
                         {/* <div className="flex justify-between">
                           <span className="text-gray-500">Company:</span>
@@ -1049,37 +1391,50 @@ function Visitors() {
                         </div> */}
                         <div className="flex justify-between">
                           <span className="text-gray-500">Purpose:</span>
-                          <span className="text-gray-900 font-medium">{visitor.purpose || 'N/A'}</span>
+                          <span className="text-gray-900 font-medium">
+                            {visitor.purpose || "N/A"}
+                          </span>
                         </div>
                         <div className="flex justify-between">
                           <span className="text-gray-500">Host:</span>
-                          <span className="text-gray-900 font-medium">{visitor.host || visitor.hostName || 'N/A'}</span>
+                          <span className="text-gray-900 font-medium">
+                            {visitor.host || visitor.hostName || "N/A"}
+                          </span>
                         </div>
                         <div className="space-y-1">
                           <div className="flex justify-between">
                             <span className="text-gray-500">Check In:</span>
                             <span className="text-gray-900 font-medium">
-                              {visitor.checkInTime 
-                                ? `${new Date(visitor.checkInTime).toLocaleDateString()} ${new Date(visitor.checkInTime).toLocaleTimeString()}`
-                                : 'Not checked in'
-                              }
+                              {visitor.checkInTime
+                                ? `${new Date(
+                                    visitor.checkInTime
+                                  ).toLocaleDateString()} ${new Date(
+                                    visitor.checkInTime
+                                  ).toLocaleTimeString()}`
+                                : "Not checked in"}
                             </span>
                           </div>
                           {visitor.checkOutTime && (
                             <div className="flex justify-between pt-2 border-t border-gray-100">
                               <span className="text-gray-500">Check Out:</span>
                               <span className="text-gray-900 font-medium">
-                                {`${new Date(visitor.checkOutTime).toLocaleDateString()} ${new Date(visitor.checkOutTime).toLocaleTimeString()}`}
+                                {`${new Date(
+                                  visitor.checkOutTime
+                                ).toLocaleDateString()} ${new Date(
+                                  visitor.checkOutTime
+                                ).toLocaleTimeString()}`}
                               </span>
                             </div>
                           )}
                         </div>
                       </div>
-                      
+
                       <div className="mt-4 flex items-center justify-between space-x-2">
                         <select
-                          value={visitor.status || 'pending'}
-                          onChange={(e) => handleStatusUpdate(visitor.id, e.target.value)}
+                          value={visitor.status || "pending"}
+                          onChange={(e) =>
+                            handleStatusUpdate(visitor.id, e.target.value)
+                          }
                           className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white"
                           disabled={updating}
                         >
@@ -1089,11 +1444,13 @@ function Visitors() {
                           <option value="checked_in">Checked In</option>
                           <option value="checked_out">Checked Out</option>
                         </select>
-                        
-                        {visitor.status === 'pending' && (
+
+                        {visitor.status === "pending" && (
                           <>
                             <button
-                              onClick={() => handleStatusUpdate(visitor.id, 'approved')}
+                              onClick={() =>
+                                handleStatusUpdate(visitor.id, "approved")
+                              }
                               disabled={updating}
                               className="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors duration-200 disabled:opacity-50"
                               title="Approve"
@@ -1101,7 +1458,9 @@ function Visitors() {
                               <ThumbsUp className="w-4 h-4" />
                             </button>
                             <button
-                              onClick={() => handleStatusUpdate(visitor.id, 'rejected')}
+                              onClick={() =>
+                                handleStatusUpdate(visitor.id, "rejected")
+                              }
                               disabled={updating}
                               className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors duration-200 disabled:opacity-50"
                               title="Reject"
@@ -1110,22 +1469,23 @@ function Visitors() {
                             </button>
                           </>
                         )}
-                        
-                        {visitor.status === 'approved' && !visitor.pass_generated && (
-                          <button
-                            onClick={() => handleGeneratePass(visitor.id)}
-                            disabled={updating}
-                            className="px-3 py-1 bg-blue-100 text-blue-800 rounded-lg hover:bg-blue-200 transition-colors duration-200 text-sm disabled:opacity-50"
-                          >
-                            Generate Pass
-                          </button>
-                        )}
-                        
+
+                        {visitor.status === "approved" &&
+                          !visitor.pass_generated && (
+                            <button
+                              onClick={() => handleGeneratePass(visitor.id)}
+                              disabled={updating}
+                              className="px-3 py-1 bg-blue-100 text-blue-800 rounded-lg hover:bg-blue-200 transition-colors duration-200 text-sm disabled:opacity-50"
+                            >
+                              Generate Pass
+                            </button>
+                          )}
+
                         {visitor.pass_generated && (
                           <Check className="w-4 h-4 text-green-600" />
                         )}
-                        
-                        <button 
+
+                        <button
                           onClick={() => setSelectedVisitor(visitor)}
                           className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200"
                         >
@@ -1144,8 +1504,10 @@ function Visitors() {
             <div className="px-6 py-4 border-t border-gray-200 bg-gray-50/50">
               <div className="flex items-center justify-between">
                 <div className="text-sm text-gray-600">
-                  Showing {Math.min((currentPage - 1) * itemsPerPage + 1, totalItems)} to{' '}
-                  {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} visitors
+                  Showing{" "}
+                  {Math.min((currentPage - 1) * itemsPerPage + 1, totalItems)}{" "}
+                  to {Math.min(currentPage * itemsPerPage, totalItems)} of{" "}
+                  {totalItems} visitors
                 </div>
                 <div className="flex items-center space-x-2">
                   <button
@@ -1156,43 +1518,54 @@ function Visitors() {
                     <ChevronLeft className="w-4 h-4" />
                     <span>Previous</span>
                   </button>
-                  
+
                   {/* Page Numbers */}
                   <div className="flex items-center space-x-1">
-                    {Array.from({ length: Math.min(5, Math.ceil(totalItems / itemsPerPage)) }, (_, i) => {
-                      const totalPages = Math.ceil(totalItems / itemsPerPage);
-                      let pageNumber;
-                      
-                      if (totalPages <= 5) {
-                        pageNumber = i + 1;
-                      } else if (currentPage <= 3) {
-                        pageNumber = i + 1;
-                      } else if (currentPage >= totalPages - 2) {
-                        pageNumber = totalPages - 4 + i;
-                      } else {
-                        pageNumber = currentPage - 2 + i;
+                    {Array.from(
+                      {
+                        length: Math.min(
+                          5,
+                          Math.ceil(totalItems / itemsPerPage)
+                        ),
+                      },
+                      (_, i) => {
+                        const totalPages = Math.ceil(totalItems / itemsPerPage);
+                        let pageNumber;
+
+                        if (totalPages <= 5) {
+                          pageNumber = i + 1;
+                        } else if (currentPage <= 3) {
+                          pageNumber = i + 1;
+                        } else if (currentPage >= totalPages - 2) {
+                          pageNumber = totalPages - 4 + i;
+                        } else {
+                          pageNumber = currentPage - 2 + i;
+                        }
+
+                        return (
+                          <button
+                            key={pageNumber}
+                            onClick={() => handlePageChange(pageNumber)}
+                            disabled={loading}
+                            className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
+                              currentPage === pageNumber
+                                ? "bg-blue-600 text-white"
+                                : "text-gray-500 bg-white border border-gray-300 hover:bg-gray-50 hover:text-gray-700"
+                            } disabled:opacity-50 disabled:cursor-not-allowed`}
+                          >
+                            {pageNumber}
+                          </button>
+                        );
                       }
-                      
-                      return (
-                        <button
-                          key={pageNumber}
-                          onClick={() => handlePageChange(pageNumber)}
-                          disabled={loading}
-                          className={`px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-                            currentPage === pageNumber
-                              ? 'bg-blue-600 text-white'
-                              : 'text-gray-500 bg-white border border-gray-300 hover:bg-gray-50 hover:text-gray-700'
-                          } disabled:opacity-50 disabled:cursor-not-allowed`}
-                        >
-                          {pageNumber}
-                        </button>
-                      );
-                    })}
+                    )}
                   </div>
-                  
+
                   <button
                     onClick={() => handlePageChange(currentPage + 1)}
-                    disabled={currentPage >= Math.ceil(totalItems / itemsPerPage) || loading}
+                    disabled={
+                      currentPage >= Math.ceil(totalItems / itemsPerPage) ||
+                      loading
+                    }
                     className="flex items-center space-x-1 px-3 py-2 text-sm font-medium text-gray-500 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 hover:text-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
                     <span>Next</span>
@@ -1223,8 +1596,12 @@ function Visitors() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="text-center mb-6">
-                <h3 className="text-2xl font-bold text-gray-900 mb-2">Visitor Pass Generated!</h3>
-                <p className="text-gray-600">Pass has been created successfully</p>
+                <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                  Visitor Pass Generated!
+                </h3>
+                <p className="text-gray-600">
+                  Pass has been created successfully
+                </p>
               </div>
 
               {/* Pass Preview */}
@@ -1232,16 +1609,24 @@ function Visitors() {
                 <div className="bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl p-6 text-white shadow-2xl">
                   <div className="text-center mb-4">
                     <h4 className="text-lg font-bold">VISITOR PASS</h4>
-                    <p className="text-blue-100 text-sm">Wish Geeks Techserve</p>
+                    <p className="text-blue-100 text-sm">
+                      Wish Geeks Techserve
+                    </p>
                   </div>
-                  
+
                   <div className="flex items-center space-x-4 mb-4">
                     <div className="w-20 h-20 rounded-xl overflow-hidden bg-white/20">
-                      {(passVisitor.image || passVisitor.imageUrl || passVisitor.photo) ? (
-                        <img 
-                          src={passVisitor.image || passVisitor.imageUrl || passVisitor.photo} 
-                          alt="Visitor" 
-                          className="w-full h-full object-cover" 
+                      {passVisitor.image ||
+                      passVisitor.imageUrl ||
+                      passVisitor.photo ? (
+                        <img
+                          src={
+                            passVisitor.image ||
+                            passVisitor.imageUrl ||
+                            passVisitor.photo
+                          }
+                          alt="Visitor"
+                          className="w-full h-full object-cover"
                         />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center">
@@ -1251,9 +1636,14 @@ function Visitors() {
                     </div>
                     <div className="flex-1">
                       <h5 className="font-bold text-lg">
-                        {passVisitor.name || `${passVisitor.firstName || ''} ${passVisitor.lastName || ''}`.trim()}
+                        {passVisitor.name ||
+                          `${passVisitor.firstName || ""} ${
+                            passVisitor.lastName || ""
+                          }`.trim()}
                       </h5>
-                      <p className="text-blue-100 text-sm">{passVisitor.email}</p>
+                      <p className="text-blue-100 text-sm">
+                        {passVisitor.email}
+                      </p>
                     </div>
                   </div>
 
@@ -1264,15 +1654,21 @@ function Visitors() {
                     </div>
                     <div className="flex justify-between">
                       <span className="text-blue-100">Purpose:</span>
-                      <span className="text-right">{passVisitor.purpose || 'General Visit'}</span>
+                      <span className="text-right">
+                        {passVisitor.purpose || "General Visit"}
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-blue-100">Status:</span>
-                      <span className="text-right">{passVisitor.status || 'Approved'}</span>
+                      <span className="text-right">
+                        {passVisitor.status || "Approved"}
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-blue-100">ID:</span>
-                      <span className="text-right font-mono text-xs">#{passVisitor.id}</span>
+                      <span className="text-right font-mono text-xs">
+                        #{passVisitor.id}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -1280,14 +1676,14 @@ function Visitors() {
 
               {/* Action Buttons */}
               <div className="space-y-3">
-                <button 
+                <button
                   onClick={handleDownloadPass}
                   className="w-full py-3 bg-gradient-to-r from-green-600 to-blue-600 text-white font-medium rounded-xl hover:from-green-700 hover:to-blue-700 transition-all duration-200 flex items-center justify-center space-x-2"
                 >
                   <Download className="w-5 h-5" />
                   <span>Download Pass</span>
                 </button>
-                <button 
+                <button
                   onClick={() => setShowPassModal(false)}
                   className="w-full py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200"
                 >
@@ -1317,57 +1713,100 @@ function Visitors() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="text-center mb-6">
-                {(selectedVisitor.image || selectedVisitor.imageUrl || selectedVisitor.photo) ? (
-                  <img 
-                    src={selectedVisitor.image || selectedVisitor.imageUrl || selectedVisitor.photo} 
-                    alt={selectedVisitor.name || `${selectedVisitor.firstName || ''} ${selectedVisitor.lastName || ''}`.trim()}
+                {selectedVisitor.image ||
+                selectedVisitor.imageUrl ||
+                selectedVisitor.photo ? (
+                  <img
+                    src={
+                      selectedVisitor.image ||
+                      selectedVisitor.imageUrl ||
+                      selectedVisitor.photo
+                    }
+                    alt={
+                      selectedVisitor.name ||
+                      `${selectedVisitor.firstName || ""} ${
+                        selectedVisitor.lastName || ""
+                      }`.trim()
+                    }
                     className="w-20 h-20 rounded-full object-cover mx-auto mb-4 border-4 border-blue-100"
                     onError={(e) => {
-                      e.target.style.display = 'none';
-                      e.target.nextSibling.style.display = 'flex';
+                      e.target.style.display = "none";
+                      e.target.nextSibling.style.display = "flex";
                     }}
                   />
                 ) : null}
-                <div 
-                  className={`w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-2xl mx-auto mb-4 border-4 border-blue-100 ${(selectedVisitor.image || selectedVisitor.imageUrl || selectedVisitor.photo) ? 'hidden' : 'flex'}`}
+                <div
+                  className={`w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-2xl mx-auto mb-4 border-4 border-blue-100 ${
+                    selectedVisitor.image ||
+                    selectedVisitor.imageUrl ||
+                    selectedVisitor.photo
+                      ? "hidden"
+                      : "flex"
+                  }`}
                 >
-                  {(selectedVisitor.name || selectedVisitor.firstName || 'V').charAt(0).toUpperCase()}{(selectedVisitor.lastName || '').charAt(0).toUpperCase()}
+                  {(selectedVisitor.name || selectedVisitor.firstName || "V")
+                    .charAt(0)
+                    .toUpperCase()}
+                  {(selectedVisitor.lastName || "").charAt(0).toUpperCase()}
                 </div>
-                <h3 className="text-2xl font-bold text-gray-900">{selectedVisitor.name || `${selectedVisitor.firstName || ''} ${selectedVisitor.lastName || ''}`.trim()}</h3>
+                <h3 className="text-2xl font-bold text-gray-900">
+                  {selectedVisitor.name ||
+                    `${selectedVisitor.firstName || ""} ${
+                      selectedVisitor.lastName || ""
+                    }`.trim()}
+                </h3>
                 {/* <p className="text-gray-600">{selectedVisitor.company || 'No company'}</p> */}
               </div>
-              
+
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">Email</label>
-                  <p className="text-gray-900 font-medium">{selectedVisitor.email || 'N/A'}</p>
+                  <label className="block text-sm font-medium text-gray-500 mb-1">
+                    Email
+                  </label>
+                  <p className="text-gray-900 font-medium">
+                    {selectedVisitor.email || "N/A"}
+                  </p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">Phone</label>
-                  <p className="text-gray-900 font-medium">{selectedVisitor.phone || 'N/A'}</p>
+                  <label className="block text-sm font-medium text-gray-500 mb-1">
+                    Phone
+                  </label>
+                  <p className="text-gray-900 font-medium">
+                    {selectedVisitor.phone || "N/A"}
+                  </p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">Purpose</label>
-                  <p className="text-gray-900 font-medium">{selectedVisitor.purpose || 'N/A'}</p>
+                  <label className="block text-sm font-medium text-gray-500 mb-1">
+                    Purpose
+                  </label>
+                  <p className="text-gray-900 font-medium">
+                    {selectedVisitor.purpose || "N/A"}
+                  </p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">Host</label>
-                  <p className="text-gray-900 font-medium">{selectedVisitor.host || 'N/A'}</p>
+                  <label className="block text-sm font-medium text-gray-500 mb-1">
+                    Host
+                  </label>
+                  <p className="text-gray-900 font-medium">
+                    {selectedVisitor.host || "N/A"}
+                  </p>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">Status</label>
+                  <label className="block text-sm font-medium text-gray-500 mb-1">
+                    Status
+                  </label>
                   {getStatusBadge(selectedVisitor.status)}
                 </div>
               </div>
 
               <div className="flex space-x-3 mt-8">
-                <button 
+                <button
                   onClick={() => setSelectedVisitor(null)}
                   className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium"
                 >
                   Close
                 </button>
-                <button 
+                <button
                   onClick={() => {
                     setSelectedVisitor(null);
                     handleEditVisitor(selectedVisitor);
@@ -1400,7 +1839,9 @@ function Visitors() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-6">
-                <h3 className="text-2xl font-bold text-gray-900">Edit Visitor</h3>
+                <h3 className="text-2xl font-bold text-gray-900">
+                  Edit Visitor
+                </h3>
                 <button
                   onClick={handleCancelEdit}
                   className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200"
@@ -1411,33 +1852,39 @@ function Visitors() {
 
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Name</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Name
+                  </label>
                   <input
                     type="text"
                     value={editForm.name}
-                    onChange={(e) => handleFormChange('name', e.target.value)}
+                    onChange={(e) => handleFormChange("name", e.target.value)}
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Enter visitor name"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Email
+                  </label>
                   <input
                     type="email"
                     value={editForm.email}
-                    onChange={(e) => handleFormChange('email', e.target.value)}
+                    onChange={(e) => handleFormChange("email", e.target.value)}
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Enter email address"
                   />
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Phone</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Phone
+                  </label>
                   <input
                     type="tel"
                     value={editForm.phone}
-                    onChange={(e) => handleFormChange('phone', e.target.value)}
+                    onChange={(e) => handleFormChange("phone", e.target.value)}
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Enter phone number"
                   />
@@ -1455,10 +1902,14 @@ function Visitors() {
                 </div> */}
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Purpose</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Purpose
+                  </label>
                   <textarea
                     value={editForm.purpose}
-                    onChange={(e) => handleFormChange('purpose', e.target.value)}
+                    onChange={(e) =>
+                      handleFormChange("purpose", e.target.value)
+                    }
                     rows={3}
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
                     placeholder="Enter visit purpose"
@@ -1466,11 +1917,13 @@ function Visitors() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Host</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Host
+                  </label>
                   <input
                     type="text"
                     value={editForm.host}
-                    onChange={(e) => handleFormChange('host', e.target.value)}
+                    onChange={(e) => handleFormChange("host", e.target.value)}
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                     placeholder="Enter host name"
                   />

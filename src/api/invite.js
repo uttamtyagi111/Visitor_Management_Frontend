@@ -15,6 +15,9 @@ class InviteeAPI {
     const url = `${this.baseURL}${endpoint}`;
     const token = this.getAuthToken();
     
+    console.log('Making request to:', url);
+    console.log('Request method:', options.method || 'GET');
+    
     const config = {
       headers: {
         'Content-Type': 'application/json',
@@ -24,22 +27,61 @@ class InviteeAPI {
       ...options,
     };
 
-    // Remove Content-Type for FormData requests
-    if (options.body instanceof FormData) {
-      delete config.headers['Content-Type'];
+    // Log request headers and body
+    console.log('Request headers:', config.headers);
+    if (options.body) {
+      if (options.body instanceof FormData) {
+        console.log('Request body is FormData');
+        // Log FormData entries
+        for (let [key, value] of options.body.entries()) {
+          console.log(`FormData[${key}]:`, value);
+        }
+        delete config.headers['Content-Type']; // Let the browser set the correct boundary
+      } else {
+        console.log('Request body:', options.body);
+      }
     }
 
     try {
+      console.log('Sending request...');
       const response = await fetch(url, config);
       
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || errorData.message || `HTTP error! status: ${response.status}`);
+      console.log('Response status:', response.status, response.statusText);
+      
+      // Clone the response so we can read it multiple times
+      const responseClone = response.clone();
+      
+      try {
+        const data = await response.json();
+        console.log('Response data:', data);
+        
+        if (!response.ok) {
+          console.error('API error response:', data);
+          throw new Error(data.error || data.message || `HTTP error! status: ${response.status}`);
+        }
+        
+        return data;
+      } catch (jsonError) {
+        // If JSON parsing fails, try to get the response as text
+        console.error('Failed to parse JSON response:', jsonError);
+        const text = await responseClone.text();
+        console.log('Raw response text:', text);
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}, response: ${text}`);
+        }
+        
+        // If we get here, the response was successful but not valid JSON
+        return text;
       }
-
-      return await response.json();
     } catch (error) {
-      console.error('API request failed:', error);
+      console.error('API request failed:', {
+        error: error.message,
+        url,
+        method: options.method || 'GET',
+        headers: config.headers,
+        body: options.body,
+      });
       throw error;
     }
   }
@@ -104,17 +146,36 @@ class InviteeAPI {
     });
   }
 
-  // Capture visitor data (image upload)
-  async captureVisitorData(inviteCode, imageFile) {
+  // Capture visitor data (image upload and pass image)
+  async captureVisitorData(inviteCode, imageFile, passImageFile = null) {
+    console.log('captureVisitorData called with:', { inviteCode, imageFile, passImageFile });
+    
     const formData = new FormData();
     formData.append('invite_code', inviteCode);
     formData.append('image', imageFile);
+    
+    if (passImageFile) {
+      formData.append('pass_image', passImageFile);
+    }
 
-    return await this.makeRequest('/invites/capture/', {
-      method: 'POST',
-      body: formData,
-      headers: {} // No auth headers and no Content-Type (let browser set it for FormData)
-    });
+    // Log FormData contents
+    for (let [key, value] of formData.entries()) {
+      console.log('FormData:', key, value);
+    }
+
+    try {
+      const response = await this.makeRequest('/invites/capture/', {
+        method: 'POST',
+        body: formData,
+        headers: {}
+      });
+      
+      console.log('captureVisitorData response:', response);
+      return response;
+    } catch (error) {
+      console.error('Error in captureVisitorData:', error);
+      throw error;
+    }
   }
 }
 
