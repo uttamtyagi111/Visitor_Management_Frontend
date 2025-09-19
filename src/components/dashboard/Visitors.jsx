@@ -1398,7 +1398,7 @@ function Visitors() {
                         <div className="flex justify-between">
                           <span className="text-gray-500">Host:</span>
                           <span className="text-gray-900 font-medium">
-                            {visitor.host || visitor.hostName || "N/A"}
+                            {visitor.host || visitor.hostName || visitor.invitedBy || "N/A"}
                           </span>
                         </div>
                         <div className="space-y-1">
@@ -1709,10 +1709,12 @@ function Visitors() {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-2xl p-8 max-w-md w-full shadow-2xl max-h-[90vh] overflow-y-auto"
+              className="bg-white rounded-2xl p-8 max-w-6xl w-full shadow-2xl max-h-[90vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="text-center mb-6">
+              {/* Modal Header */}
+              <div className="flex items-center justify-between mb-6">
+                <div className="text-center flex-1">
                 {selectedVisitor.image ||
                 selectedVisitor.imageUrl ||
                 selectedVisitor.photo ? (
@@ -1755,9 +1757,20 @@ function Visitors() {
                       selectedVisitor.lastName || ""
                     }`.trim()}
                 </h3>
-                {/* <p className="text-gray-600">{selectedVisitor.company || 'No company'}</p> */}
+                </div>
+                <button
+                  onClick={() => setSelectedVisitor(null)}
+                  className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200"
+                >
+                  <X className="w-5 h-5 text-gray-400" />
+                </button>
               </div>
 
+              {/* Two Column Layout */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Left Column - Visitor Information */}
+                <div className="space-y-4">
+                  <h4 className="text-lg font-semibold text-gray-900 mb-4">Visitor Information</h4>
               <div className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-500 mb-1">
@@ -1788,7 +1801,7 @@ function Visitors() {
                     Host
                   </label>
                   <p className="text-gray-900 font-medium">
-                    {selectedVisitor.host || "N/A"}
+                        {selectedVisitor.host || selectedVisitor.hostName || (selectedVisitor.issued_by == user.id ? user.name || selectedVisitor.user.name || "N/A" : "N/A")}
                   </p>
                 </div>
                 <div>
@@ -1796,10 +1809,160 @@ function Visitors() {
                     Status
                   </label>
                   {getStatusBadge(selectedVisitor.status)}
+                    </div>
                 </div>
               </div>
 
-              <div className="flex space-x-3 mt-8">
+                {/* Right Column - Timeline */}
+                <div className="space-y-4">
+                  <h4 className="text-lg font-semibold text-gray-900 mb-4">Timeline</h4>
+                  <div className="relative">
+                    {/* Timeline Line */}
+                    <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200"></div>
+                    
+                    {/* Timeline Items - Ordered by time */}
+                    <div className="space-y-6">
+                      {(() => {
+                        // Create timeline events array
+                        const events = [];
+                        
+                        // Registration event (always first)
+                        if (selectedVisitor.created_at) {
+                          events.push({
+                            type: 'registration',
+                            title: 'Registration',
+                            description: 'Visitor registration completed',
+                            timestamp: selectedVisitor.created_at,
+                            icon: <User className="w-4 h-4 text-blue-600" />,
+                            bgColor: 'bg-blue-100',
+                            textColor: 'text-blue-800',
+                            badgeText: 'Created'
+                          });
+                        }
+                        
+                        // Pending event (always show)
+                        if (selectedVisitor.created_at) {
+                          events.push({
+                            type: 'pending',
+                            title: 'Pending Review',
+                            description: 'Visitor request is awaiting approval',
+                            timestamp: selectedVisitor.created_at,
+                            icon: <Clock className="w-4 h-4 text-yellow-600" />,
+                            bgColor: 'bg-yellow-100',
+                            textColor: 'text-yellow-800',
+                            badgeText: 'Pending'
+                          });
+                        }
+                        
+                        // Status change events
+                        if (selectedVisitor.status === "approved" && selectedVisitor.updated_at) {
+                          events.push({
+                            type: 'approved',
+                            title: 'Approved',
+                            description: 'Visitor request has been approved',
+                            timestamp: selectedVisitor.updated_at,
+                            icon: <CheckCircle className="w-4 h-4 text-green-600" />,
+                            bgColor: 'bg-green-100',
+                            textColor: 'text-green-800',
+                            badgeText: 'Approved'
+                          });
+                        }
+                        
+                        if (selectedVisitor.status === "rejected" && selectedVisitor.updated_at) {
+                          events.push({
+                            type: 'rejected',
+                            title: 'Rejected',
+                            description: 'Visitor request has been rejected',
+                            timestamp: selectedVisitor.updated_at,
+                            icon: <XCircle className="w-4 h-4 text-red-600" />,
+                            bgColor: 'bg-red-100',
+                            textColor: 'text-red-800',
+                            badgeText: 'Rejected'
+                          });
+                        }
+                        
+                        // Pass generation event
+                        if (selectedVisitor.pass_generated && (selectedVisitor.checkInTime || selectedVisitor.check_in)) {
+                          events.push({
+                            type: 'pass_generated',
+                            title: 'Pass Generated',
+                            description: 'Visitor pass has been generated and issued',
+                            timestamp: selectedVisitor.checkInTime || selectedVisitor.check_in,
+                            icon: <Download className="w-4 h-4 text-purple-600" />,
+                            bgColor: 'bg-purple-100',
+                            textColor: 'text-purple-800',
+                            badgeText: 'Pass Created'
+                          });
+                        }
+                        
+                        // Check in event - show if there's a check-in timestamp (regardless of current status)
+                        if (selectedVisitor.checkInTime || selectedVisitor.check_in) {
+                          events.push({
+                            type: 'checked_in',
+                            title: 'Checked In',
+                            description: 'Visitor has checked in to the facility',
+                            timestamp: selectedVisitor.checkInTime || selectedVisitor.check_in,
+                            icon: <CheckCircle className="w-4 h-4 text-green-600" />,
+                            bgColor: 'bg-green-100',
+                            textColor: 'text-green-800',
+                            badgeText: 'Checked In',
+                            additionalInfo: selectedVisitor.checkedInBy ? `By: ${selectedVisitor.checkedInBy}` : null
+                          });
+                        }
+                        
+                        // Check out event - show if there's a check-out timestamp (regardless of current status)
+                        if (selectedVisitor.checkOutTime || selectedVisitor.check_out) {
+                          events.push({
+                            type: 'checked_out',
+                            title: 'Checked Out',
+                            description: 'Visitor has checked out of the facility',
+                            timestamp: selectedVisitor.checkOutTime || selectedVisitor.check_out,
+                            icon: <XCircle className="w-4 h-4 text-gray-600" />,
+                            bgColor: 'bg-gray-100',
+                            textColor: 'text-gray-800',
+                            badgeText: 'Checked Out',
+                            additionalInfo: selectedVisitor.checkedOutBy ? `By: ${selectedVisitor.checkedOutBy}` : null
+                          });
+                        }
+                        
+                        // Sort events by timestamp
+                        events.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+                        
+                        // Render events
+                        return events.map((event, index) => (
+                          <div key={`${event.type}-${index}`} className="relative flex items-start space-x-4">
+                            <div className={`flex-shrink-0 w-8 h-8 ${event.bgColor} rounded-full flex items-center justify-center relative z-10`}>
+                              {event.icon}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center space-x-2 mb-1">
+                                <h5 className="text-sm font-medium text-gray-900">{event.title}</h5>
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${event.bgColor} ${event.textColor}`}>
+                                  {event.badgeText}
+                                </span>
+                              </div>
+                              <p className="text-sm text-gray-600">
+                                {event.description}
+                              </p>
+                              <p className="text-xs text-gray-500 mt-1">
+                                {new Date(event.timestamp).toLocaleString()}
+                              </p>
+                              {event.additionalInfo && (
+                                <p className="text-xs text-gray-500">
+                                  {event.additionalInfo}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        ));
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex space-x-3 mt-8 pt-6 border-t border-gray-200">
                 <button
                   onClick={() => setSelectedVisitor(null)}
                   className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium"

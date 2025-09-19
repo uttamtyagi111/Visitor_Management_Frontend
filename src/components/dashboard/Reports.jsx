@@ -167,7 +167,7 @@ function Reports() {
             </div>
 
             <div className="flex space-x-3">
-              <div className="flex items-center space-x-2 text-sm text-gray-600">
+              <div className="flex items-center space-x-2 px-4 py-2 bg-white/70 border border-gray-200 rounded-xl hover:bg-white hover:shadow-lg transition-all duration-200">
                 <span>{filteredReports.length} {activeTab} reports</span>
                 <RefreshCw
                   className="w-4 h-4 cursor-pointer hover:text-blue-600"

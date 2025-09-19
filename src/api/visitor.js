@@ -241,9 +241,26 @@ export const visitorAPI = {
     });
   },
 
+  // Get visitor timeline
+  async getVisitorTimeline(visitorId) {
+    const response = await apiRequest(`${API_BASE_URL}/visitors/${visitorId}/timeline/`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.detail || 'Failed to fetch visitor timeline');
+    }
+    
+    return await response.json();
+  },
+
   // Check if user is authenticated
   isAuthenticated: () => {
-    const token = localStorage.getItem("access_token");
+    const token = localStorage.getItem('access_token');
     const user = localStorage.getItem("user");
     return !!(token && user);
   },

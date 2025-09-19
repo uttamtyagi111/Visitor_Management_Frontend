@@ -177,6 +177,11 @@ class InviteeAPI {
       throw error;
     }
   }
+
+  // Get invite timeline data
+  async getInviteTimeline(inviteId) {
+    return await this.makeRequest(`/invites/${inviteId}/timeline/`);
+  }
 }
 
 // Create and export a singleton instance
@@ -186,6 +191,7 @@ const inviteeAPI = new InviteeAPI();
 export const inviteeHelpers = {
   // Status options that match your Django choices
   statusOptions: [
+    { value: 'created', label: 'Created' },
     { value: 'pending', label: 'Pending' },
     // { value: 'sent', label: 'Sent' },
     // { value: 'confirmed', label: 'Confirmed' },
@@ -200,6 +206,7 @@ export const inviteeHelpers = {
   // Get status color classes
   getStatusColor: (status) => {
     const colors = {
+      'created': 'bg-gray-100 text-gray-800 border-gray-200',
       'pending': 'bg-yellow-100 text-yellow-800 border-yellow-200',
       'expired': 'bg-red-100 text-red-800 border-red-200',
       'confirmed': 'bg-green-100 text-green-800 border-green-200',
