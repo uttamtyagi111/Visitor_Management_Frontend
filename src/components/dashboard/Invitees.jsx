@@ -26,6 +26,57 @@ import {
   ThumbsDown,
   MoreVertical,
   RefreshCw,
+  Eye,
+  User as UserIcon,
+  Calendar as CalendarIcon,
+  Clock as ClockIcon,
+  Hash,
+  Info,
+  XCircle,
+  CheckCircle,
+  Clock as ClockIcon2,
+  UserCheck,
+  UserX,
+  ExternalLink,
+  Copy,
+  Share2,
+  Printer,
+  Mail as MailIcon,
+  Smartphone,
+  MapPin,
+  Home,
+  Briefcase,
+  Tag,
+  FileText,
+  Hash as HashIcon,
+  CheckCircle2,
+  XCircle as XCircleIcon,
+  Clock as ClockIcon3,
+  Calendar as CalendarIcon2,
+  User as UserIcon2,
+  Mail as MailIcon2,
+  Phone as PhoneIcon,
+  Building as BuildingIcon,
+  MapPin as MapPinIcon,
+  Clock as ClockIcon4,
+  Calendar as CalendarIcon3,
+  File as FileIcon,
+  User as UserIcon3,
+  Mail as MailIcon3,
+  Phone as PhoneIcon2,
+  Building as BuildingIcon2,
+  MapPin as MapPinIcon2,
+  Clock as ClockIcon5,
+  Calendar as CalendarIcon4,
+  File as FileIcon2,
+  User as UserIcon4,
+  Mail as MailIcon4,
+  Phone as PhoneIcon3,
+  Building as BuildingIcon3,
+  MapPin as MapPinIcon3,
+  Clock as ClockIcon6,
+  Calendar as CalendarIcon5,
+  File as FileIcon3,
 } from "lucide-react";
 
 // Import the API service
@@ -57,18 +108,106 @@ function Invitees() {
   const [selectedInvite, setSelectedInvite] = useState(null);
   const [showPassModal, setShowPassModal] = useState(false);
   const [showPassPreview, setShowPassPreview] = useState(false);
-  
-  // Edit functionality state
+
+  // View/Edit modal state
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [currentInvite, setCurrentInvite] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
-  const [editingInvite, setEditingInvite] = useState(null);
-  const [editForm, setEditForm] = useState({
+  const [formData, setFormData] = useState({
     visitor_name: "",
     visitor_email: "",
     visitor_phone: "",
     purpose: "",
     visit_time: "",
-    expiry_time: ""
+    expiry_time: "",
+    invited_by: "",
+    status: "pending",
   });
+  const [formErrors, setFormErrors] = useState({});
+  
+  const closeModal = () => {
+    setIsModalOpen(false);
+    setShowInviteCodeModal(false);
+    setShowInviteForm(false);
+    setCurrentInvite(null);
+    setFormErrors({});
+    setIsEditing(false);
+    resetForm();
+  };
+  
+  const openInviteModal = (invite) => {
+    setCurrentInvite(invite);
+    setFormData({
+      visitor_name: invite.visitor_name || "",
+      visitor_email: invite.visitor_email || "",
+      visitor_phone: invite.visitor_phone || "",
+      purpose: invite.purpose || "",
+      visit_time: invite.visit_time ? invite.visit_time.slice(0, 16) : "",
+      expiry_time: invite.expiry_time ? invite.expiry_time.slice(0, 16) : "",
+      invited_by: invite.invited_by || "",
+      status: invite.status || "pending",
+    });
+    setFormErrors({});
+    setIsModalOpen(true);
+    setIsEditing(false);
+  };
+
+
+  const handleEditInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
+
+  const validateForm = () => {
+    const errors = {};
+    if (!formData.visitor_name.trim()) errors.visitor_name = "Name is required";
+    if (!formData.visitor_email.trim()) {
+      errors.visitor_email = "Email is required";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.visitor_email)) {
+      errors.visitor_email = "Please enter a valid email";
+    }
+    if (!formData.purpose.trim()) errors.purpose = "Purpose is required";
+    if (!formData.visit_time) errors.visit_time = "Visit time is required";
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleUpdateInvite = async (e) => {
+    e.preventDefault();
+    if (!currentInvite) return;
+
+    if (!validateForm()) {
+      return;
+    }
+
+    try {
+      setLoading(true);
+      setError("");
+
+      // Prepare the data to send
+      const updateData = {
+        ...formData,
+        visitor_phone: formData.visitor_phone || null,
+        expiry_time: formData.expiry_time || null,
+      };
+
+      await inviteeAPI.updateInvite(currentInvite.id, updateData);
+
+      setSuccess("Invitation updated successfully");
+      setTimeout(() => setSuccess(""), 3000);
+      closeModal();
+      loadInvites();
+    } catch (error) {
+      console.error("Error updating invite:", error);
+      setError(inviteeHelpers.handleApiError(error));
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Load invites on component mount
   useEffect(() => {
@@ -208,10 +347,6 @@ function Invitees() {
     setSuccess("");
   };
 
-  const closeModal = () => {
-    setShowInviteCodeModal(false);
-    resetForm();
-  };
 
   const handleGenerateInvitePass = useCallback(
     async (invite) => {
@@ -291,7 +426,7 @@ function Invitees() {
       ctx.fillStyle = "white";
       ctx.font = "bold 24px Arial";
       ctx.textAlign = "center";
-      ctx.fillText("VISITOR PASS", 200, 50);
+      ctx.fillText("INVITE PASS", 200, 50);
 
       ctx.font = "16px Arial";
       ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
@@ -485,62 +620,7 @@ function Invitees() {
     return date.toISOString().slice(0, 16);
   };
 
-  const handleEditInvite = (invite) => {
-    setEditingInvite(invite);
-    setEditForm({
-      visitor_name: invite.visitor_name || "",
-      visitor_email: invite.visitor_email || "",
-      visitor_phone: invite.visitor_phone || "",
-      purpose: invite.purpose || "",
-      visit_time: invite.visit_time ? invite.visit_time.slice(0, 16) : "",
-      expiry_time: invite.expiry_time ? invite.expiry_time.slice(0, 16) : ""
-    });
-    setIsEditing(true);
-  };
-
-  const handleUpdateInvite = async (e) => {
-    e.preventDefault();
-    if (!editingInvite) return;
-
-    try {
-      setLoading(true);
-      setError("");
-
-      // Validate required fields
-      if (!editForm.visitor_name || !editForm.visitor_email || !editForm.purpose) {
-        throw new Error("Please fill in all required fields");
-      }
-
-      // Validate email format
-      if (!inviteeHelpers.validateEmail(editForm.visitor_email)) {
-        throw new Error("Please enter a valid email address");
-      }
-
-      // Validate phone if provided
-      if (editForm.visitor_phone && !inviteeHelpers.validatePhone(editForm.visitor_phone)) {
-        throw new Error("Please enter a valid phone number");
-      }
-
-      await inviteeAPI.updateInvite(editingInvite.id, editForm);
-
-      setSuccess("Invitation updated successfully");
-      setTimeout(() => setSuccess(""), 3000);
-      setIsEditing(false);
-      loadInvites();
-    } catch (error) {
-      setError(inviteeHelpers.handleApiError(error));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleEditInputChange = (e) => {
-    const { name, value } = e.target;
-    setEditForm(prev => ({
-      ...prev,
-      [name]: value
-    }));
-  };
+  // handleUpdateInvite function is already defined above
 
   return (
     <div className="p-8 overflow-y-auto bg-gradient-to-br from-gray-50 to-blue-50 min-h-full">
@@ -827,7 +907,7 @@ function Invitees() {
                             onChange={(e) =>
                               handleStatusUpdate(invite.id, e.target.value)
                             }
-                            className="px-2 py-1 text-sm border border-gray-200 rounded bg-white min-w-[100px]"
+                            className="px-2 py-1 text-sm border border-gray-200 rounded-lg bg-white min-w-[100px]"
                             disabled={loading}
                           >
                             {inviteeHelpers.statusOptions.map((option) => (
@@ -915,19 +995,18 @@ function Invitees() {
                             <Trash2 className="w-4 h-4" />
                           </button>
 
-                          <button
-                            onClick={() => handleEditInvite(invite)}
-                            className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200"
-                          >
-                            <Edit className="w-4 h-4 text-blue-500" />
-                          </button>
-
-                          <button
-                            onClick={() => invite}
-                            className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200"
-                          >
-                            <MoreVertical className="w-4 h-4 text-gray-400" />
-                          </button>
+                            <div className="relative">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openInviteModal(invite);
+                                }}
+                                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                                title="View Details"
+                              >
+                                <MoreVertical className="w-4 h-4" />
+                              </button>
+                            </div>
                         </div>
                       </td>
                     </motion.tr>
@@ -1344,6 +1423,382 @@ function Invitees() {
                   </button>
                 </div>
               </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Combined View/Edit Invite Modal */}
+      <AnimatePresence>
+        {isModalOpen && currentInvite && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+            onClick={closeModal}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="bg-white rounded-2xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">
+                  {isEditing ? 'Edit Invitation' : 'Invitation Details'}
+                </h2>
+                <button
+                  onClick={closeModal}
+                  className="text-gray-400 hover:text-gray-500"
+                >
+                  <X className="w-6 h-6" />
+                </button>
+              </div>
+
+              {!isEditing ? (
+                // View Mode
+                <div className="space-y-6">
+                  <div className="flex flex-col md:flex-row gap-6">
+                    {/* Visitor Image */}
+                    <div className="flex-shrink-0">
+                      <div className="w-32 h-32 md:w-40 md:h-40 rounded-lg overflow-hidden border-2 border-gray-200">
+                        {currentInvite.image ? (
+                          <img
+                            src={currentInvite.image}
+                            alt={currentInvite.visitor_name || 'Visitor'}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                              e.target.nextElementSibling.style.display = 'flex';
+                            }}
+                          />
+                        ) : null}
+                        <div 
+                          className={`w-full h-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-4xl font-bold ${
+                            currentInvite.image ? 'hidden' : 'flex'
+                          }`}
+                        >
+                          {(currentInvite.visitor_name || 'V').charAt(0).toUpperCase()}
+                        </div>
+                      </div>
+                      
+                      {/* Status Badge */}
+                      <div className="mt-4">
+                        <p className="text-sm font-medium text-gray-500 mb-1">
+                          Status
+                        </p>
+                        {getStatusBadge(currentInvite.status)}
+                      </div>
+                    </div>
+                    
+                    <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <h3 className="text-lg font-medium text-gray-900 mb-4">
+                          Visitor Information
+                        </h3>
+                        <div className="space-y-4">
+                          <div>
+                            <p className="text-sm font-medium text-gray-500">
+                              Full Name
+                            </p>
+                            <p className="mt-1 text-gray-900 font-medium">
+                              {currentInvite.visitor_name || 'N/A'}
+                            </p>
+                          </div>
+                          
+                          <div>
+                            <p className="text-sm font-medium text-gray-500">
+                              Email
+                            </p>
+                            <p className="mt-1 text-blue-600">
+                              {currentInvite.visitor_email || 'N/A'}
+                            </p>
+                          </div>
+                          
+                          {currentInvite.visitor_phone && (
+                            <div>
+                              <p className="text-sm font-medium text-gray-500">
+                                Phone
+                              </p>
+                              <p className="mt-1 text-gray-900">
+                                {currentInvite.visitor_phone}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <h3 className="text-lg font-medium text-gray-900 mb-4">
+                          Visit Details
+                        </h3>
+                        <div className="space-y-4">
+                          <div>
+                            <p className="text-sm font-medium text-gray-500">
+                              Purpose
+                            </p>
+                            <p className="mt-1 text-gray-900">
+                              {currentInvite.purpose || 'N/A'}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-sm font-medium text-gray-500">
+                              Visit Time
+                            </p>
+                            <p className="mt-1 text-gray-900">
+                              {inviteeHelpers.formatDateTime(currentInvite.visit_time) || 'N/A'}
+                            </p>
+                          </div>
+                          
+                          {currentInvite.expiry_time && (
+                            <div>
+                              <p className="text-sm font-medium text-gray-500">
+                                Expiry Time
+                              </p>
+                              <p className="mt-1 text-gray-900">
+                                {inviteeHelpers.formatDateTime(currentInvite.expiry_time)}
+                              </p>
+                            </div>
+                          )}
+                          
+                          <div>
+                            <p className="text-sm font-medium text-gray-500">
+                              Invited By
+                            </p>
+                            <p className="mt-1 text-gray-900">
+                              {currentInvite.invited_by || 'N/A'}
+                            </p>
+                          </div>
+                          
+                          <div>
+                            <p className="text-sm font-medium text-gray-500">
+                              Invite Code
+                            </p>
+                            <p className="mt-1 font-mono text-gray-900">
+                              {currentInvite.invite_code || 'N/A'}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-6 border-t border-gray-200 flex justify-end space-x-3">
+                    <button
+                      type="button"
+                      onClick={closeModal}
+                      className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                    >
+                      Close
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setIsEditing(true)}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+                    >
+                      <Edit className="w-4 h-4" />
+                      <span>Edit Invitation</span>
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                // Edit Mode
+                <form onSubmit={handleUpdateInvite} className="space-y-6">
+                  {error && (
+                    <div className="p-3 bg-red-100 border border-red-200 text-red-700 rounded-lg flex items-center space-x-2">
+                      <AlertCircle className="w-4 h-4" />
+                      <span className="text-sm">{error}</span>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Full Name *
+                      </label>
+                      <input
+                        type="text"
+                        name="visitor_name"
+                        value={formData.visitor_name}
+                        onChange={handleEditInputChange}
+                        className={`w-full px-3 py-2 border ${
+                          formErrors.visitor_name ? 'border-red-500' : 'border-gray-300'
+                        } rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                        placeholder="Enter full name"
+                      />
+                      {formErrors.visitor_name && (
+                        <p className="mt-1 text-sm text-red-600">{formErrors.visitor_name}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Email *
+                      </label>
+                      <input
+                        type="email"
+                        name="visitor_email"
+                        value={formData.visitor_email}
+                        onChange={handleEditInputChange}
+                        className={`w-full px-3 py-2 border ${
+                          formErrors.visitor_email ? 'border-red-500' : 'border-gray-300'
+                        } rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                        placeholder="Enter email address"
+                      />
+                      {formErrors.visitor_email && (
+                        <p className="mt-1 text-sm text-red-600">{formErrors.visitor_email}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Phone
+                      </label>
+                      <input
+                        type="tel"
+                        name="visitor_phone"
+                        value={formData.visitor_phone}
+                        onChange={handleEditInputChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Enter phone number"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Invited By
+                      </label>
+                      <input
+                        type="text"
+                        name="invited_by"
+                        value={formData.invited_by}
+                        onChange={handleEditInputChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        placeholder="Enter who invited the visitor"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Visit Time *
+                      </label>
+                      <input
+                        type="datetime-local"
+                        name="visit_time"
+                        value={formData.visit_time}
+                        onChange={handleEditInputChange}
+                        className={`w-full px-3 py-2 border ${
+                          formErrors.visit_time ? 'border-red-500' : 'border-gray-300'
+                        } rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                      />
+                      {formErrors.visit_time && (
+                        <p className="mt-1 text-sm text-red-600">{formErrors.visit_time}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Expiry Time
+                      </label>
+                      <input
+                        type="datetime-local"
+                        name="expiry_time"
+                        value={formData.expiry_time}
+                        onChange={handleEditInputChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      />
+                    </div>
+
+                    <div className="md:col-span-2">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Purpose *
+                      </label>
+                      <input
+                        type="text"
+                        name="purpose"
+                        value={formData.purpose}
+                        onChange={handleEditInputChange}
+                        className={`w-full px-3 py-2 border ${
+                          formErrors.purpose ? 'border-red-500' : 'border-gray-300'
+                        } rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                        placeholder="e.g., Business meeting, Interview, Product demo"
+                      />
+                      {formErrors.purpose && (
+                        <p className="mt-1 text-sm text-red-600">{formErrors.purpose}</p>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        Status *
+                      </label>
+                      <select
+                        name="status"
+                        value={formData.status}
+                        onChange={handleEditInputChange}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      >
+                        <option value="pending">Pending</option>
+                        <option value="approved">Approved</option>
+                        <option value="checked_in">Checked_in</option>
+                        <option value="rejected">Rejected</option>
+                        <option value="expired">Expired</option>
+                        <option value="checked_out">Checked_out</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div className="pt-6 border-t border-gray-200 flex justify-end space-x-3">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsEditing(false);
+                        // Reset form data to original values
+                        setFormData({
+                          visitor_name: currentInvite.visitor_name,
+                          visitor_email: currentInvite.visitor_email,
+                          visitor_phone: currentInvite.visitor_phone || "",
+                          purpose: currentInvite.purpose,
+                          visit_time: currentInvite.visit_time
+                            ? currentInvite.visit_time.slice(0, 16)
+                            : "",
+                          expiry_time: currentInvite.expiry_time
+                            ? currentInvite.expiry_time.slice(0, 16)
+                            : "",
+                          invited_by: currentInvite.invited_by || "",
+                          status: currentInvite.status,
+                        });
+                        setFormErrors({});
+                      }}
+                      className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center space-x-2"
+                    >
+                      {loading ? (
+                        <>
+                          <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                          </svg>
+                          <span>Saving...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Check className="w-4 h-4" />
+                          <span>Save Changes</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              )}
             </motion.div>
           </motion.div>
         )}
