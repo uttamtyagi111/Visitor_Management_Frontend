@@ -28,6 +28,7 @@ function Reports() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("today");
   const [selectedReport, setSelectedReport] = useState(null);
+  const [activeTab, setActiveTab] = useState('visitors'); // 'visitors' or 'invitees'
 
   // Fetch reports on component mount
   useEffect(() => {
@@ -48,14 +49,52 @@ function Reports() {
     }
   };
 
-  const filteredReports = reports.filter((report) => {
-    const matchesSearch =
-      report.visitor_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      report.remarks?.toLowerCase().includes(searchTerm.toLowerCase());
+  // In your Reports.jsx, replace the filteredReports logic with:
 
+  const filteredReports = (reports || []).map(report => {
+    const isVisitor = !!report.visitor_data;
+    const isInvitee = !!report.invite_data;
+
+    return {
+      ...report,
+      visitor_type: isVisitor ? 'visitor' : 'invitee',
+      visitor_name: isVisitor
+        ? report.visitor_data?.name
+        : report.invite_data?.visitor_name,
+      email: isVisitor
+        ? report.visitor_data?.email
+        : report.invite_data?.visitor_email,
+      phone: isVisitor
+        ? report.visitor_data?.phone
+        : report.invite_data?.visitor_phone,
+      purpose: isVisitor
+        ? report.visitor_data?.purpose
+        : report.invite_data?.purpose,
+      status: isVisitor
+        ? report.visitor_data?.status
+        : report.invite_data?.status,
+      image: report.image ||
+        (isVisitor ? report.visitor_data?.image : report.invite_data?.image)
+    };
+  }).filter(report => {
+    // Filter by active tab
+    const matchesTab = (activeTab === 'visitors' && report.visitor_type === 'visitor') ||
+      (activeTab === 'invitees' && report.visitor_type === 'invitee');
+
+    if (!matchesTab) return false;
+
+    // Filter by search term
+    const searchLower = searchTerm.toLowerCase();
+    const matchesSearch =
+      (report.visitor_name || '').toLowerCase().includes(searchLower) ||
+      (report.email || '').toLowerCase().includes(searchLower) ||
+      (report.phone || '').toLowerCase().includes(searchLower) ||
+      (report.remarks || '').toLowerCase().includes(searchLower) ||
+      (report.purpose || '').toLowerCase().includes(searchLower);
+
+    // Filter by status
     const reportStatus = getReportStatus(report.check_in, report.check_out);
-    const matchesStatus =
-      statusFilter === "all" || reportStatus === statusFilter;
+    const matchesStatus = statusFilter === "all" || reportStatus === statusFilter;
 
     return matchesSearch && matchesStatus;
   });
@@ -66,6 +105,7 @@ function Reports() {
         search: searchTerm,
         status: statusFilter !== "all" ? statusFilter : null,
         date_filter: dateFilter !== "today" ? dateFilter : null,
+        report_type: activeTab, // Add report type to filters
       };
 
       const blob = await exportReports("csv", filters);
@@ -115,30 +155,54 @@ function Reports() {
         transition={{ duration: 0.6 }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">
-              Report Management
-            </h1>
-            <p className="text-gray-600 text-base">
-              Track and manage all Reports
-            </p>
+        <div className="flex flex-col space-y-4 mb-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 mb-1">
+                Report Management
+              </h1>
+              <p className="text-gray-600 text-base">
+                Track and manage all {activeTab} reports
+              </p>
+            </div>
+
+            <div className="flex space-x-3">
+              <div className="flex items-center space-x-2 text-sm text-gray-600">
+                <span>{filteredReports.length} {activeTab} reports</span>
+                <RefreshCw
+                  className="w-4 h-4 cursor-pointer hover:text-blue-600"
+                  onClick={fetchReports}
+                />
+              </div>
+              <button
+                onClick={handleExport}
+                className="flex items-center space-x-2 px-4 py-2 bg-white/70 border border-gray-200 rounded-xl hover:bg-white hover:shadow-lg transition-all duration-200"
+              >
+                <Download className="w-4 h-4" />
+                <span>Export</span>
+              </button>
+            </div>
           </div>
-          
-          <div className="flex space-x-3">
-            <div className="flex items-center space-x-2 text-sm text-gray-600">
-            <span>{filteredReports.length} reports</span>
-            <RefreshCw
-              className="w-4 h-4 cursor-pointer hover:text-blue-600"
-              onClick={fetchReports}
-            />
-          </div>
+
+          {/* Tabs */}
+          <div className="flex border-b border-gray-200">
             <button
-              onClick={handleExport}
-              className="flex items-center space-x-2 px-4 py-2 bg-white/70 border border-gray-200 rounded-xl hover:bg-white hover:shadow-lg transition-all duration-200"
+              className={`px-4 py-2 text-sm font-medium ${activeTab === 'visitors'
+                  ? 'border-b-2 border-blue-500 text-blue-600'
+                  : 'text-gray-500 hover:text-gray-700'
+                }`}
+              onClick={() => setActiveTab('visitors')}
             >
-              <Download className="w-4 h-4" />
-              <span>Export</span>
+              Visitors
+            </button>
+            <button
+              className={`px-4 py-2 text-sm font-medium ${activeTab === 'invitees'
+                  ? 'border-b-2 border-blue-500 text-blue-600'
+                  : 'text-gray-500 hover:text-gray-700'
+                }`}
+              onClick={() => setActiveTab('invitees')}
+            >
+              Invitees
             </button>
           </div>
         </div>
@@ -296,9 +360,8 @@ function Reports() {
                                 />
                               ) : null}
                               <div
-                                className={`w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-md ${
-                                  report.image ? "hidden" : ""
-                                }`}
+                                className={`w-10 h-10 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-md ${report.image ? "hidden" : ""
+                                  }`}
                               >
                                 {report.visitor_name
                                   ? report.visitor_name.charAt(0).toUpperCase()
@@ -418,9 +481,8 @@ function Reports() {
                             />
                           ) : null}
                           <div
-                            className={`w-12 h-12 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-md ${
-                              report.image ? "hidden" : ""
-                            }`}
+                            className={`w-12 h-12 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold shadow-md ${report.image ? "hidden" : ""
+                              }`}
                           >
                             {report.visitor_name
                               ? report.visitor_name.charAt(0).toUpperCase()
@@ -528,9 +590,8 @@ function Reports() {
                   />
                 ) : null}
                 <div
-                  className={`w-20 h-20 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-2xl mx-auto mb-4 shadow-lg ${
-                    selectedReport.image ? "hidden" : ""
-                  }`}
+                  className={`w-20 h-20 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-2xl mx-auto mb-4 shadow-lg ${selectedReport.image ? "hidden" : ""
+                    }`}
                 >
                   {selectedReport.visitor_name
                     ? selectedReport.visitor_name.charAt(0).toUpperCase()
