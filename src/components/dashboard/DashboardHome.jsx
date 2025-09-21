@@ -1,78 +1,126 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, LineChart, Line, PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
-import { TrendingUp, Users, UserCheck, Clock, Calendar, Eye, Activity, MapPin } from 'lucide-react';
+import { TrendingUp, Users, UserCheck, Clock, Calendar, Eye, Activity, MapPin, RefreshCw, AlertCircle } from 'lucide-react';
+import {
+  getDashboardDataWithFallback,
+  transformStatsForComponents,
+  transformVisitorTrendsForChart,
+  transformHourlyActivityForChart,
+  transformStatusDistributionForChart,
+  transformRecentActivityForFeed,
+} from '../../api/dashboard.js';
 
-const visitorData = [
-  { month: 'Jan', visitors: 120, checkedIn: 95 },
-  { month: 'Feb', visitors: 150, checkedIn: 125 },
-  { month: 'Mar', visitors: 180, checkedIn: 160 },
-  { month: 'Apr', visitors: 220, checkedIn: 200 },
-  { month: 'May', visitors: 280, checkedIn: 250 },
-  { month: 'Jun', visitors: 320, checkedIn: 290 },
-];
-
-const dailyTrends = [
-  { time: '9 AM', visitors: 12 },
-  { time: '10 AM', visitors: 28 },
-  { time: '11 AM', visitors: 45 },
-  { time: '12 PM', visitors: 38 },
-  { time: '1 PM', visitors: 52 },
-  { time: '2 PM', visitors: 41 },
-  { time: '3 PM', visitors: 35 },
-  { time: '4 PM', visitors: 29 },
-  { time: '5 PM', visitors: 18 },
-];
-
-const statusData = [
-  { name: 'Checked In', value: 68, color: '#10B981' },
-  { name: 'Scheduled', value: 22, color: '#3B82F6' },
-  { name: 'Completed', value: 10, color: '#8B5CF6' },
-];
-
-const stats = [
-  {
-    title: 'Total Visitors',
-    value: '1,284',
-    change: '+12%',
-    trend: 'up',
-    icon: Users,
-    color: 'from-blue-600 to-blue-700'
-  },
-  {
-    title: 'Active Visits',
-    value: '47',
-    change: '+8%',
-    trend: 'up',
-    icon: UserCheck,
-    color: 'from-green-600 to-green-700'
-  },
-  {
-    title: 'Avg. Duration',
-    value: '2.4h',
-    change: '-5%',
-    trend: 'down',
-    icon: Clock,
-    color: 'from-purple-600 to-purple-700'
-  },
-  {
-    title: 'Today Scheduled',
-    value: '23',
-    change: '+15%',
-    trend: 'up',
-    icon: Calendar,
-    color: 'from-orange-600 to-orange-700'
-  },
-];
-
-const recentActivities = [
-  { name: 'Alex Johnson', action: 'checked in', time: '2 min ago', avatar: 'https://images.pexels.com/photos/220453/pexels-photo-220453.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop', status: 'in' },
-  { name: 'Maria Garcia', action: 'scheduled visit', time: '15 min ago', avatar: 'https://images.pexels.com/photos/774909/pexels-photo-774909.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop', status: 'scheduled' },
-  { name: 'David Chen', action: 'checked out', time: '1 hour ago', avatar: 'https://images.pexels.com/photos/1222271/pexels-photo-1222271.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop', status: 'out' },
-  { name: 'Sophie Turner', action: 'invited guest', time: '2 hours ago', avatar: 'https://images.pexels.com/photos/1239291/pexels-photo-1239291.jpeg?auto=compress&cs=tinysrgb&w=100&h=100&fit=crop', status: 'invited' },
-];
+// Icon mapping for dynamic icon rendering
+const iconMap = {
+  Users,
+  UserCheck,
+  Clock,
+  Calendar,
+};
 
 function DashboardHome() {
+  const [dashboardData, setDashboardData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState(null);
+
+  // Fetch dashboard data
+  const fetchDashboardData = async (showRefreshLoader = false) => {
+    try {
+      if (showRefreshLoader) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+      setError(null);
+
+      const result = await getDashboardDataWithFallback({
+        trendDays: 7,
+        activityLimit: 10,
+      });
+
+      if (result.success || result.fromCache) {
+        setDashboardData(result.data);
+        setLastUpdated(new Date());
+        if (result.fromCache) {
+          console.info(`Using cached data (${result.cacheAge} minutes old)`);
+        }
+      } else {
+        throw new Error(result.error || 'Failed to fetch dashboard data');
+      }
+    } catch (err) {
+      console.error('Dashboard data fetch error:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  // Initial data fetch
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  // Auto-refresh every 5 minutes
+  useEffect(() => {
+    const interval = setInterval(() => {
+      fetchDashboardData(true);
+    }, 5 * 60 * 1000); // 5 minutes
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Manual refresh handler
+  const handleRefresh = () => {
+    fetchDashboardData(true);
+  };
+
+  // Transform API data for components
+  const stats = dashboardData ? transformStatsForComponents(dashboardData.stats) : [];
+  const visitorData = dashboardData ? transformVisitorTrendsForChart(dashboardData.charts.visitorTrends) : [];
+  const dailyTrends = dashboardData ? transformHourlyActivityForChart(dashboardData.charts.todaysActivity) : [];
+  const statusData = dashboardData ? transformStatusDistributionForChart(dashboardData.charts.statusDistribution) : [];
+  const recentActivities = dashboardData ? transformRecentActivityForFeed(dashboardData.recentActivity) : [];
+
+  // Loading state
+  if (loading && !dashboardData) {
+    return (
+      <div className="p-8 overflow-y-auto bg-gradient-to-br from-gray-50 to-blue-50 min-h-full">
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center">
+            <RefreshCw className="w-12 h-12 text-blue-500 animate-spin mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Loading Dashboard</h3>
+            <p className="text-gray-600">Fetching your visitor management analytics...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error && !dashboardData) {
+    return (
+      <div className="p-8 overflow-y-auto bg-gradient-to-br from-gray-50 to-blue-50 min-h-full">
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center">
+            <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Unable to Load Dashboard</h3>
+            <p className="text-gray-600 mb-4">{error}</p>
+            <button
+              onClick={() => fetchDashboardData()}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Try Again
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="p-8 overflow-y-auto bg-gradient-to-br from-gray-50 to-blue-50 min-h-full">
       <motion.div
@@ -81,15 +129,30 @@ function DashboardHome() {
         transition={{ duration: 0.6 }}
       >
         {/* Header */}
-        <div className="mb-4">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Dashboard Overview</h1>
-          <p className="text-gray-600 text-base">Monitor your visitor management analytics and real-time insights</p>
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Dashboard Overview</h1>
+            <p className="text-gray-600 text-base">Monitor your visitor management analytics and real-time insights</p>
+            {lastUpdated && (
+              <p className="text-xs text-gray-500 mt-1">
+                Last updated: {lastUpdated.toLocaleTimeString()}
+              </p>
+            )}
+          </div>
+          <button
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="flex items-center space-x-2 px-4 py-2 bg-white/70 backdrop-blur-sm rounded-lg shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50"
+          >
+            <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+            <span className="text-sm font-medium">{refreshing ? 'Refreshing...' : 'Refresh'}</span>
+          </button>
         </div>
 
         {/* Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-4">
           {stats.map((stat, index) => {
-            const Icon = stat.icon;
+            const Icon = iconMap[stat.icon] || Users;
             return (
               <motion.div
                 key={stat.title}
@@ -105,7 +168,9 @@ function DashboardHome() {
                   <span className={`text-sm font-bold px-3 py-1 rounded-full ${
                     stat.trend === 'up' 
                       ? 'text-green-700 bg-green-100' 
-                      : 'text-red-700 bg-red-100'
+                      : stat.trend === 'down'
+                      ? 'text-red-700 bg-red-100'
+                      : 'text-gray-700 bg-gray-100'
                   }`}>
                     {stat.change}
                   </span>
@@ -130,13 +195,13 @@ function DashboardHome() {
               <h3 className="text-2xl font-bold text-gray-900">Visitor Trends</h3>
               <div className="flex items-center space-x-2 text-sm text-gray-600 bg-gray-100 px-3 py-2 rounded-lg">
                 <TrendingUp className="w-4 h-4" />
-                <span>Last 6 months</span>
+                <span>Last 7 days</span>
               </div>
             </div>
             <ResponsiveContainer width="100%" height={300}>
               <BarChart data={visitorData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="month" stroke="#6b7280" fontSize={12} />
+                <XAxis dataKey="day" stroke="#6b7280" fontSize={12} />
                 <YAxis stroke="#6b7280" fontSize={12} />
                 <Tooltip 
                   contentStyle={{ 
@@ -145,9 +210,14 @@ function DashboardHome() {
                     borderRadius: '12px',
                     boxShadow: '0 10px 25px rgba(0,0,0,0.15)'
                   }}
+                  formatter={(value, name) => [
+                    value,
+                    name === 'visitors' ? 'Visitors' : name === 'invites' ? 'Invites' : name
+                  ]}
+                  labelFormatter={(label) => `Date: ${label}`}
                 />
-                <Bar dataKey="visitors" fill="#3B82F6" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="checkedIn" fill="#10B981" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="visitors" fill="#3B82F6" radius={[4, 4, 0, 0]} name="visitors" />
+                <Bar dataKey="invites" fill="#10B981" radius={[4, 4, 0, 0]} name="invites" />
               </BarChart>
             </ResponsiveContainer>
           </motion.div>
@@ -223,13 +293,27 @@ function DashboardHome() {
                     borderRadius: '12px',
                     boxShadow: '0 10px 25px rgba(0,0,0,0.15)'
                   }}
+                  formatter={(value) => [value, 'Visitors']}
+                  labelFormatter={(label) => `Time: ${label}`}
                 />
                 <Line 
                   type="monotone" 
                   dataKey="visitors" 
                   stroke="#8B5CF6" 
                   strokeWidth={3}
-                  dot={{ fill: '#8B5CF6', strokeWidth: 2, r: 4 }}
+                  dot={(props) => {
+                    const { cx, cy, payload } = props;
+                    return (
+                      <circle
+                        cx={cx}
+                        cy={cy}
+                        r={payload?.isPeak ? 6 : 4}
+                        fill={payload?.isCurrentHour ? '#F59E0B' : '#8B5CF6'}
+                        strokeWidth={2}
+                        stroke="white"
+                      />
+                    );
+                  }}
                 />
               </LineChart>
             </ResponsiveContainer>
@@ -256,6 +340,11 @@ function DashboardHome() {
                     src={activity.avatar} 
                     alt={activity.name}
                     className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-md"
+                    onError={(e) => {
+                      // Fallback to generated avatar if image fails to load
+                      e.target.src = activity.fallbackAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(activity.name)}&background=6B7280&color=fff&size=100&bold=true`;
+                    }}
+                    loading="lazy"
                   />
                   <div className="flex-1 min-w-0">
                     <p className="text-gray-900 font-bold truncate">{activity.name}</p>
@@ -264,9 +353,9 @@ function DashboardHome() {
                   <div className="flex flex-col items-end space-y-1">
                     <span className="text-gray-500 text-xs">{activity.time}</span>
                     <span className={`w-2 h-2 rounded-full ${
-                      activity.status === 'in' ? 'bg-green-500' :
-                      activity.status === 'scheduled' ? 'bg-blue-500' :
-                      activity.status === 'out' ? 'bg-gray-400' : 'bg-purple-500'
+                      activity.status === 'checkin' ? 'bg-green-500' :
+                      activity.status === 'checkout' ? 'bg-gray-400' :
+                      activity.status === 'scheduled' ? 'bg-blue-500' : 'bg-purple-500'
                     }`}></span>
                   </div>
                 </motion.div>
