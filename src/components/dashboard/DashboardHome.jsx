@@ -302,9 +302,10 @@ function DashboardHome() {
                   stroke="#8B5CF6" 
                   strokeWidth={3}
                   dot={(props) => {
-                    const { cx, cy, payload } = props;
+                    const { cx, cy, payload, index } = props;
                     return (
                       <circle
+                        key={`dot-${index}`}
                         cx={cx}
                         cy={cy}
                         r={payload?.isPeak ? 6 : 4}

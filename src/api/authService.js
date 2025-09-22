@@ -65,11 +65,19 @@ export const authAPI = {
       body: JSON.stringify({ email, password }),
     });
 
-    // Store tokens in localStorage
+    // Store tokens in localStorage with extended expiration (7 days)
     if (data.access) {
+      const expirationTime = Date.now() + (7 * 24 * 60 * 60 * 1000); // 7 days from now
+      
       localStorage.setItem('access_token', data.access);
       localStorage.setItem('refresh_token', data.refresh);
-      localStorage.setItem('user', JSON.stringify(data.user));
+      localStorage.setItem('token_expiration', expirationTime.toString());
+      localStorage.setItem('last_activity', Date.now().toString());
+      
+      // Only store user data if it exists, otherwise it will be fetched later
+      if (data.user) {
+        localStorage.setItem('user', JSON.stringify(data.user));
+      }
     }
 
     return data;
@@ -87,9 +95,12 @@ export const authAPI = {
       body: JSON.stringify({ refresh: refreshToken }),
     });
 
-    // Update access token
+    // Update access token and extend expiration
     if (data.access) {
+      const expirationTime = Date.now() + (7 * 24 * 60 * 60 * 1000); // 7 days from now
       localStorage.setItem('access_token', data.access);
+      localStorage.setItem('token_expiration', expirationTime.toString());
+      localStorage.setItem('last_activity', Date.now().toString());
     }
 
     return data;
@@ -117,6 +128,8 @@ export const authAPI = {
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
       localStorage.removeItem('user');
+      localStorage.removeItem('token_expiration');
+      localStorage.removeItem('last_activity');
     }
   },
 
@@ -138,11 +151,33 @@ export const authAPI = {
     return data;
   },
 
-  // Check if user is authenticated
+  // Check if user is authenticated and token hasn't expired
   isAuthenticated: () => {
     const token = localStorage.getItem('access_token');
-    const user = localStorage.getItem('user');
-    return !!(token && user);
+    const expirationTime = localStorage.getItem('token_expiration');
+    
+    if (!token || !expirationTime) {
+      return false;
+    }
+    
+    // Check if token has expired (7 days)
+    const now = Date.now();
+    const expiration = parseInt(expirationTime);
+    
+    if (now >= expiration) {
+      // Token expired, clear localStorage
+      localStorage.removeItem('access_token');
+      localStorage.removeItem('refresh_token');
+      localStorage.removeItem('user');
+      localStorage.removeItem('token_expiration');
+      localStorage.removeItem('last_activity');
+      return false;
+    }
+    
+    // Update last activity
+    localStorage.setItem('last_activity', now.toString());
+    
+    return true;
   },
 
   // Get stored user data
@@ -159,6 +194,63 @@ export const authAPI = {
   // Get refresh token
   getRefreshToken: () => {
     return localStorage.getItem('refresh_token');
+  },
+
+  // Check and clean expired tokens
+  checkTokenExpiration: () => {
+    const expirationTime = localStorage.getItem('token_expiration');
+    
+    if (expirationTime) {
+      const now = Date.now();
+      const expiration = parseInt(expirationTime);
+      
+      if (now >= expiration) {
+        // Token expired, clear localStorage
+        localStorage.removeItem('access_token');
+        localStorage.removeItem('refresh_token');
+        localStorage.removeItem('user');
+        localStorage.removeItem('token_expiration');
+        localStorage.removeItem('last_activity');
+        return false; // Token was expired and cleared
+      }
+      
+      // Update last activity if token is valid
+      localStorage.setItem('last_activity', now.toString());
+      return true; // Token is still valid
+    }
+    return false; // No expiration time found
+  },
+
+  // Get remaining time until token expires (in milliseconds)
+  getTokenTimeRemaining: () => {
+    const expirationTime = localStorage.getItem('token_expiration');
+    
+    if (expirationTime) {
+      const now = Date.now();
+      const expiration = parseInt(expirationTime);
+      const remaining = expiration - now;
+      
+      return remaining > 0 ? remaining : 0;
+    }
+    return 0;
+  },
+
+  // Check if token needs refresh (refresh if less than 1 day remaining)
+  shouldRefreshToken: () => {
+    const remaining = authAPI.getTokenTimeRemaining();
+    const oneDayInMs = 24 * 60 * 60 * 1000;
+    return remaining > 0 && remaining < oneDayInMs;
+  },
+
+  // Update user activity timestamp
+  updateActivity: () => {
+    localStorage.setItem('last_activity', Date.now().toString());
+  },
+
+  // Get last activity timestamp
+  getLastActivity: () => {
+    const lastActivity = localStorage.getItem('last_activity');
+    return lastActivity ? parseInt(lastActivity) : null;
   },
 };
 

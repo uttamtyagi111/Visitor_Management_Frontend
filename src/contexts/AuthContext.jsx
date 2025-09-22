@@ -24,14 +24,31 @@ function decodeJWTPayload(token) {
 export function AuthProvider({ children }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true); // Start with loading true
   const [error, setError] = useState(null);
+  const [initializing, setInitializing] = useState(true);
 
   // Check if user is already authenticated on app load
   useEffect(() => {
     const initializeAuth = async () => {
+      setInitializing(true);
+      setLoading(true);
+      
       try {
-        if (authAPI.isAuthenticated()) {
+        // Check token expiration first
+        const tokenValid = authAPI.checkTokenExpiration();
+        
+        if (tokenValid && authAPI.isAuthenticated()) {
+          // Check if token needs refresh
+          if (authAPI.shouldRefreshToken()) {
+            try {
+              console.log('Token needs refresh, refreshing...');
+              await authAPI.refreshToken();
+            } catch (refreshError) {
+              console.warn('Token refresh failed:', refreshError.message);
+              // If refresh fails, continue with existing token
+            }
+          }
           // Try to get current user, but handle potential JSON parse errors
           let userData = null;
           
@@ -39,12 +56,11 @@ export function AuthProvider({ children }) {
             userData = authAPI.getCurrentUser();
           } catch (parseError) {
             console.warn('Failed to parse stored user data:', parseError.message);
-            // Clear invalid stored data
-            await logout();
-            return;
+            // Don't logout, just fetch user data from API
+            userData = null;
           }
           
-          // Only proceed if we have valid user data
+          // If we have valid user data, use it; otherwise fetch from API
           if (userData && userData.id) {
             setUser(userData);
             setIsAuthenticated(true);
@@ -75,6 +91,8 @@ export function AuthProvider({ children }) {
                   updatedUser.avatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(fetchedData.username || fetchedData.name || updatedUser.name)}&background=6366f1&color=ffffff`;
                 }
                 
+                // Store updated user data
+                localStorage.setItem('user', JSON.stringify(updatedUser));
                 setUser(updatedUser);
               }
             } catch (error) {
@@ -83,19 +101,85 @@ export function AuthProvider({ children }) {
               await logout();
             }
           } else {
-            // No valid user data, clear everything
-            await logout();
+            // No stored user data, fetch from API
+            try {
+              const userDetails = await authAPI.getUserDetails();
+              if (userDetails) {
+                let fetchedData;
+                if (userDetails?.user) {
+                  fetchedData = userDetails.user;
+                } else if (userDetails?.data?.user) {
+                  fetchedData = userDetails.data.user;
+                } else if (userDetails?.data) {
+                  fetchedData = userDetails.data;
+                } else {
+                  fetchedData = userDetails;
+                }
+                
+                if (fetchedData && typeof fetchedData === 'object') {
+                  const newUserData = {
+                    id: fetchedData.id,
+                    email: fetchedData.email,
+                    name: fetchedData.username || fetchedData.name || fetchedData.email,
+                    role: fetchedData.role || 'Admin',
+                    avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(fetchedData.username || fetchedData.name || fetchedData.email)}&background=6366f1&color=ffffff`
+                  };
+                  
+                  // Store user data
+                  localStorage.setItem('user', JSON.stringify(newUserData));
+                  setUser(newUserData);
+                  setIsAuthenticated(true);
+                } else {
+                  await logout();
+                }
+              } else {
+                await logout();
+              }
+            } catch (error) {
+              console.warn('Failed to fetch user details:', error.message);
+              await logout();
+            }
           }
         }
       } catch (error) {
         console.warn('Failed to initialize auth:', error.message);
         // Clear everything on error
         await logout();
+      } finally {
+        setInitializing(false);
+        setLoading(false);
       }
     };
 
     initializeAuth();
-  }, []);
+    
+    // Set up periodic token expiration check and refresh (every 5 minutes)
+    const tokenCheckInterval = setInterval(async () => {
+      if (isAuthenticated) {
+        const tokenValid = authAPI.checkTokenExpiration();
+        if (!tokenValid) {
+          // Token expired, logout user
+          console.log('Token expired, logging out user');
+          logout();
+        } else if (authAPI.shouldRefreshToken()) {
+          // Token needs refresh
+          try {
+            console.log('Auto-refreshing token...');
+            await authAPI.refreshToken();
+          } catch (refreshError) {
+            console.warn('Auto token refresh failed:', refreshError.message);
+            // If refresh fails, logout user
+            logout();
+          }
+        }
+      }
+    }, 5 * 60 * 1000); // Check every 5 minutes
+    
+    // Cleanup interval on unmount
+    return () => {
+      clearInterval(tokenCheckInterval);
+    };
+  }, [isAuthenticated]);
 
   const login = async (email, password) => {
     setLoading(true);
@@ -161,6 +245,9 @@ export function AuthProvider({ children }) {
         }
         
         console.log('Final user data:', userData);
+        
+        // Store the complete user data in localStorage
+        localStorage.setItem('user', JSON.stringify(userData));
         
         setUser(userData);
         setIsAuthenticated(true);
@@ -331,6 +418,7 @@ export function AuthProvider({ children }) {
       verifyOTP,
       clearError,
       updateUser,
+      initializing,
     }}>
       {children}
     </AuthContext.Provider>
