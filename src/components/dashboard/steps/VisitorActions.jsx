@@ -240,7 +240,7 @@ export const useVisitorActions = ({
       phone: visitor.phone || "",
       // company: visitor.company || '',
       purpose: visitor.purpose || "",
-      // host: visitor.host || ''
+      host: visitor.host || visitor.hostName || user?.name || ""
     });
     setEditFormErrors({});
     setIsEditing(true);
@@ -260,21 +260,24 @@ export const useVisitorActions = ({
       // Call API to update visitor
       const updatedVisitor = await visitorAPI.updateVisitor(
         editingVisitor.id,
-        editForm
+        {
+          ...editForm,
+          hostName: editForm.host, // Ensure hostName is also updated
+        }
       );
 
       // Update local state
       setVisitors((prevVisitors) =>
         prevVisitors.map((visitor) =>
           visitor.id === editingVisitor.id
-            ? { ...visitor, ...editForm }
+            ? { ...visitor, ...editForm, hostName: editForm.host }
             : visitor
         )
       );
 
       // Update selected visitor if it's the same one
       if (selectedVisitor && selectedVisitor.id === editingVisitor.id) {
-        setSelectedVisitor((prev) => ({ ...prev, ...editForm }));
+        setSelectedVisitor((prev) => ({ ...prev, ...editForm, hostName: editForm.host }));
       }
 
       // Close edit mode

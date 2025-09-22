@@ -88,7 +88,19 @@ export function AuthProvider({ children }) {
                   updatedUser.email = fetchedData.email || updatedUser.email;
                   updatedUser.name = fetchedData.username || fetchedData.name || updatedUser.name;
                   updatedUser.role = fetchedData.role || updatedUser.role;
-                  updatedUser.avatar = `https://ui-avatars.com/api/?name=${encodeURIComponent(fetchedData.username || fetchedData.name || updatedUser.name)}&background=6366f1&color=ffffff`;
+                  updatedUser.phone = fetchedData.phone || updatedUser.phone;
+                  updatedUser.company = fetchedData.company || updatedUser.company;
+                  updatedUser.department = fetchedData.department || updatedUser.department;
+                  updatedUser.position = fetchedData.position || updatedUser.position;
+                  updatedUser.address = fetchedData.address || updatedUser.address;
+                  updatedUser.bio = fetchedData.bio || updatedUser.bio;
+                  // Use actual avatar from backend, fallback to generated avatar only if no avatar exists
+                  console.log('AuthContext: Fetched avatar from API:', fetchedData.avatar);
+                  console.log('AuthContext: Current user avatar:', updatedUser.avatar);
+                  updatedUser.avatar = fetchedData.avatar || updatedUser.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(fetchedData.username || fetchedData.name || updatedUser.name)}&background=6366f1&color=ffffff`;
+                  console.log('AuthContext: Final avatar URL:', updatedUser.avatar);
+                  updatedUser.created_at = fetchedData.created_at || fetchedData.date_joined || updatedUser.created_at;
+                  updatedUser.date_joined = fetchedData.date_joined || fetchedData.created_at || updatedUser.date_joined;
                 }
                 
                 // Store updated user data
@@ -352,8 +364,37 @@ export function AuthProvider({ children }) {
     setError(null);
   };
 
-  const updateUser = async () => {
+  const updateUser = async (updatedUserData = null) => {
     try {
+      // If updated user data is provided, use it directly
+      if (updatedUserData) {
+        console.log('AuthContext updateUser: Received updated user data:', updatedUserData);
+        console.log('AuthContext updateUser: Updated avatar field:', updatedUserData.avatar);
+        
+        const userData = {
+          id: updatedUserData.id || user?.id,
+          email: updatedUserData.email || user?.email,
+          name: updatedUserData.name || updatedUserData.username || user?.name,
+          role: updatedUserData.role || updatedUserData.user_type || user?.role || 'User',
+          phone: updatedUserData.phone || user?.phone,
+          company: updatedUserData.company || user?.company,
+          department: updatedUserData.department || user?.department,
+          position: updatedUserData.position || user?.position,
+          address: updatedUserData.address || user?.address,
+          bio: updatedUserData.bio || user?.bio,
+          avatar: updatedUserData.avatar || user?.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(updatedUserData.name || updatedUserData.username || updatedUserData.email || 'User')}&background=6366f1&color=ffffff`,
+          profile_image: updatedUserData.avatar || updatedUserData.profile_image || user?.profile_image,
+          created_at: updatedUserData.created_at || updatedUserData.date_joined || user?.created_at || user?.date_joined,
+          date_joined: updatedUserData.date_joined || updatedUserData.created_at || user?.date_joined || user?.created_at
+        };
+        
+        console.log('AuthContext updateUser: Final user data with avatar:', userData.avatar);
+        setUser(userData);
+        localStorage.setItem('user', JSON.stringify(userData));
+        return;
+      }
+      
+      // Otherwise fetch from API
       const userDetails = await authAPI.getUserDetails();
       console.log('User details response:', userDetails); // Debug log
       
@@ -365,7 +406,15 @@ export function AuthProvider({ children }) {
           email: userDetails.user.email,
           name: userDetails.user.username || userDetails.user.name || userDetails.user.email,
           role: userDetails.user.role || 'User',
-          avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(userDetails.user.username || userDetails.user.name || userDetails.user.email)}&background=6366f1&color=ffffff`
+          phone: userDetails.user.phone,
+          company: userDetails.user.company,
+          department: userDetails.user.department,
+          position: userDetails.user.position,
+          address: userDetails.user.address,
+          bio: userDetails.user.bio,
+          avatar: userDetails.user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(userDetails.user.username || userDetails.user.name || userDetails.user.email)}&background=6366f1&color=ffffff`,
+          created_at: userDetails.user.created_at || userDetails.user.date_joined,
+          date_joined: userDetails.user.date_joined || userDetails.user.created_at
         };
       } else if (userDetails?.data?.user) {
         userData = {
@@ -373,7 +422,15 @@ export function AuthProvider({ children }) {
           email: userDetails.data.user.email,
           name: userDetails.data.user.username || userDetails.data.user.name || userDetails.data.user.email,
           role: userDetails.data.user.role || 'User',
-          avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(userDetails.data.user.username || userDetails.data.user.name || userDetails.data.user.email)}&background=6366f1&color=ffffff`
+          phone: userDetails.data.user.phone,
+          company: userDetails.data.user.company,
+          department: userDetails.data.user.department,
+          position: userDetails.data.user.position,
+          address: userDetails.data.user.address,
+          bio: userDetails.data.user.bio,
+          avatar: userDetails.data.user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(userDetails.data.user.username || userDetails.data.user.name || userDetails.data.user.email)}&background=6366f1&color=ffffff`,
+          created_at: userDetails.data.user.created_at || userDetails.data.user.date_joined,
+          date_joined: userDetails.data.user.date_joined || userDetails.data.user.created_at
         };
       } else if (userDetails?.data) {
         userData = {
@@ -381,7 +438,15 @@ export function AuthProvider({ children }) {
           email: userDetails.data.email,
           name: userDetails.data.username || userDetails.data.name || userDetails.data.email,
           role: userDetails.data.role || 'User',
-          avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(userDetails.data.username || userDetails.data.name || userDetails.data.email)}&background=6366f1&color=ffffff`
+          phone: userDetails.data.phone,
+          company: userDetails.data.company,
+          department: userDetails.data.department,
+          position: userDetails.data.position,
+          address: userDetails.data.address,
+          bio: userDetails.data.bio,
+          avatar: userDetails.data.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(userDetails.data.username || userDetails.data.name || userDetails.data.email)}&background=6366f1&color=ffffff`,
+          created_at: userDetails.data.created_at || userDetails.data.date_joined,
+          date_joined: userDetails.data.date_joined || userDetails.data.created_at
         };
       } else {
         userData = {
@@ -389,7 +454,15 @@ export function AuthProvider({ children }) {
           email: userDetails.email,
           name: userDetails.username || userDetails.name || userDetails.email,
           role: userDetails.role || 'User',
-          avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(userDetails.username || userDetails.name || userDetails.email)}&background=6366f1&color=ffffff`
+          phone: userDetails.phone,
+          company: userDetails.company,
+          department: userDetails.department,
+          position: userDetails.position,
+          address: userDetails.address,
+          bio: userDetails.bio,
+          avatar: userDetails.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(userDetails.username || userDetails.name || userDetails.email)}&background=6366f1&color=ffffff`,
+          created_at: userDetails.created_at || userDetails.date_joined,
+          date_joined: userDetails.date_joined || userDetails.created_at
         };
       }
       
@@ -432,6 +505,8 @@ AuthProvider.propTypes = {
 export function useAuth() {
   const context = useContext(AuthContext);
   if (!context) {
+    console.error('useAuth called outside AuthProvider. Current context:', context);
+    console.error('AuthContext:', AuthContext);
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;

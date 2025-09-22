@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Routes, Route, Link, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { QrCode, Palette, Save, Download, Upload, Eye } from 'lucide-react';
+import { QrCode, Palette, Save, Download, Upload, Eye, User } from 'lucide-react';
 import GeneralQR from './settings/GeneralQR';
 import FormCustomization from './settings/FormCustomization';
+import Profile from './settings/Profile';
 
 function Settings() {
   const location = useLocation();
@@ -11,6 +12,7 @@ function Settings() {
 
   const tabs = [
     { name: 'General QR', href: '/dashboard/settings', icon: QrCode },
+    { name: 'Profile', href: '/dashboard/settings/profile', icon: User },
     // { name: 'Form Customization', href: '/dashboard/settings/form-customization', icon: Palette }
   ];
 
@@ -67,6 +69,7 @@ function Settings() {
         {/* Tab Content */}
         <Routes>
           <Route path="/" element={<GeneralQR />} />
+          <Route path="/profile" element={<Profile />} />
           {/* <Route path="/form-customization" element={<FormCustomization />} /> */}
         </Routes>
       </motion.div>

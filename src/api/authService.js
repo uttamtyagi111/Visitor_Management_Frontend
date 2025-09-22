@@ -4,11 +4,15 @@ import { API_BASE_URL } from './config';
 const apiRequest = async (url, options = {}) => {
   const config = {
     headers: {
-      'Content-Type': 'application/json',
       ...options.headers,
     },
     ...options,
   };
+
+  // Add Content-Type only if not FormData and not explicitly set
+  if (!config.headers['Content-Type'] && !(options.body instanceof FormData)) {
+    config.headers['Content-Type'] = 'application/json';
+  }
 
   // Add auth token if available
   const token = localStorage.getItem('access_token');
@@ -30,7 +34,18 @@ const apiRequest = async (url, options = {}) => {
     }
 
     if (!response.ok) {
-      throw new Error(data.error || data.detail || 'Request failed');
+      // Handle different error response formats
+      if (data && typeof data === 'object') {
+        // If data contains field-specific errors, throw the entire object
+        if (data.current_password || data.new_password || data.new_password2 || data.non_field_errors) {
+          const error = new Error('Validation failed');
+          error.message = data;
+          throw error;
+        }
+        // Otherwise, use the error message or detail
+        throw new Error(data.error || data.detail || data.message || 'Request failed');
+      }
+      throw new Error(data || 'Request failed');
     }
 
     return { data, response };
@@ -109,6 +124,33 @@ export const authAPI = {
   // Get current user details
   getUserDetails: async () => {
     const { data } = await apiRequest(`${API_BASE_URL}/auth/me/`);
+    return data;
+  },
+
+  // Update user profile
+  updateProfile: async (profileData) => {
+    const config = {
+      method: 'PATCH', // Using PATCH as per backend API
+      body: profileData instanceof FormData ? profileData : JSON.stringify(profileData),
+    };
+    
+    // Use /auth/me/ endpoint as per backend UserDetailView
+    const { data } = await apiRequest(`${API_BASE_URL}/auth/me/`, config);
+    
+    // Update stored user data
+    if (data) {
+      localStorage.setItem('user', JSON.stringify(data));
+    }
+    
+    return data;
+  },
+
+  // Change password
+  changePassword: async (passwordData) => {
+    const { data } = await apiRequest(`${API_BASE_URL}/auth/change-password/`, {
+      method: 'POST',
+      body: JSON.stringify(passwordData),
+    });
     return data;
   },
 

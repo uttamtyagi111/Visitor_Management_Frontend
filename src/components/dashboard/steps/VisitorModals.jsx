@@ -568,10 +568,13 @@ export const EditVisitorModal = ({
               <input
                 type="text"
                 value={editForm.host}
-                onChange={(e) => handleFormChange("host", e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Enter host name"
+                readOnly
+                className="w-full px-4 py-3 border border-gray-200 bg-gray-50 rounded-xl cursor-not-allowed text-gray-600"
+                placeholder="Auto-assigned host"
               />
+              <p className="text-xs text-gray-500 mt-1">
+                Host is automatically assigned to the logged-in user
+              </p>
             </div>
           </div>
 
