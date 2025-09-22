@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '../../contexts/AuthContext';
 import { 
   X, 
   QrCode, 
@@ -19,6 +20,7 @@ import inviteeAPI, { inviteeHelpers } from '../../api/invite.js';
 import CameraStep from './CameraStep';
 
 const InviteModal = ({ isOpen, onClose, isAdmin = false }) => {
+  const { user } = useAuth(); // Get logged-in user information
   const [currentStep, setCurrentStep] = useState(1);
   const [inviteCode, setInviteCode] = useState('');
   const [capturedImage, setCapturedImage] = useState(null);
@@ -26,6 +28,7 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false }) => {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [showCamera, setShowCamera] = useState(false);
+  const [formErrors, setFormErrors] = useState({});
   const fileInputRef = useRef(null);
   
   const [inviteFormData, setInviteFormData] = useState({
@@ -62,6 +65,7 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false }) => {
     setError('');
     setSuccess('');
     setShowCamera(false);
+    setFormErrors({});
   };
 
   const handleClose = () => {
@@ -339,6 +343,79 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false }) => {
     return date.toISOString().slice(0, 16);
   };
 
+  // Handle phone number input - only allow exactly 10 digits
+  const handlePhoneInput = (e) => {
+    const value = e.target.value;
+    // Remove all non-digit characters
+    const digitsOnly = value.replace(/\D/g, '');
+    
+    // Limit to 10 digits maximum
+    if (digitsOnly.length <= 10) {
+      setInviteFormData({
+        ...inviteFormData,
+        visitor_phone: digitsOnly,
+      });
+    }
+  };
+
+  // Validate email format
+  const validateEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  // Handle email input with validation
+  const handleEmailInput = (e) => {
+    const value = e.target.value;
+    setInviteFormData({
+      ...inviteFormData,
+      visitor_email: value,
+    });
+
+    // Clear previous email error
+    if (formErrors.visitor_email) {
+      setFormErrors({
+        ...formErrors,
+        visitor_email: ''
+      });
+    }
+
+    // Validate email if not empty
+    if (value && !validateEmail(value)) {
+      setFormErrors({
+        ...formErrors,
+        visitor_email: 'Please enter a valid email address'
+      });
+    }
+  };
+
+  // Validate form before proceeding to next step
+  const validateFormStep2 = () => {
+    const errors = {};
+    
+    if (!inviteFormData.visitor_name.trim()) {
+      errors.visitor_name = 'Name is required';
+    }
+    
+    if (!inviteFormData.visitor_email.trim()) {
+      errors.visitor_email = 'Email is required';
+    } else if (!validateEmail(inviteFormData.visitor_email)) {
+      errors.visitor_email = 'Please enter a valid email address';
+    }
+    
+    // Validate phone if provided - must be exactly 10 digits
+    if (inviteFormData.visitor_phone) {
+      if (inviteFormData.visitor_phone.length !== 10) {
+        errors.visitor_phone = 'Phone number must be exactly 10 digits';
+      } else if (!/^\d{10}$/.test(inviteFormData.visitor_phone)) {
+        errors.visitor_phone = 'Phone number must contain only digits';
+      }
+    }
+    
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const renderStepContent = () => {
     switch (currentStep) {
       case 1:
@@ -399,12 +476,23 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false }) => {
                     <input
                       type="text"
                       value={inviteFormData.visitor_name}
-                      onChange={(e) => setInviteFormData({...inviteFormData, visitor_name: e.target.value})}
-                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                      onChange={(e) => {
+                        setInviteFormData({...inviteFormData, visitor_name: e.target.value});
+                        // Clear name error if user starts typing
+                        if (formErrors.visitor_name) {
+                          setFormErrors({...formErrors, visitor_name: ''});
+                        }
+                      }}
+                      className={`w-full pl-10 pr-4 py-3 bg-gray-50 border ${
+                        formErrors.visitor_name ? 'border-red-500' : 'border-gray-200'
+                      } rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200`}
                       placeholder="Enter full name"
                       required
                     />
                   </div>
+                  {formErrors.visitor_name && (
+                    <p className="mt-1 text-sm text-red-600">{formErrors.visitor_name}</p>
+                  )}
                 </div>
 
                 <div>
@@ -414,12 +502,17 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false }) => {
                     <input
                       type="email"
                       value={inviteFormData.visitor_email}
-                      onChange={(e) => setInviteFormData({...inviteFormData, visitor_email: e.target.value})}
-                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                      onChange={handleEmailInput}
+                      className={`w-full pl-10 pr-4 py-3 bg-gray-50 border ${
+                        formErrors.visitor_email ? 'border-red-500' : 'border-gray-200'
+                      } rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200`}
                       placeholder="Enter email address"
                       required
                     />
                   </div>
+                  {formErrors.visitor_email && (
+                    <p className="mt-1 text-sm text-red-600">{formErrors.visitor_email}</p>
+                  )}
                 </div>
 
                 <div>
@@ -429,11 +522,24 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false }) => {
                     <input
                       type="tel"
                       value={inviteFormData.visitor_phone}
-                      onChange={(e) => setInviteFormData({...inviteFormData, visitor_phone: e.target.value})}
-                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                      placeholder="Enter phone number"
+                      onChange={handlePhoneInput}
+                      onKeyPress={(e) => {
+                        // Prevent non-numeric characters on keypress
+                        const char = String.fromCharCode(e.which);
+                        if (!/[0-9]/.test(char)) {
+                          e.preventDefault();
+                        }
+                      }}
+                      maxLength="10"
+                      className={`w-full pl-10 pr-4 py-3 bg-gray-50 border ${
+                        formErrors.visitor_phone ? 'border-red-500' : 'border-gray-200'
+                      } rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200`}
+                      placeholder="Enter 10-digit phone number"
                     />
                   </div>
+                  {formErrors.visitor_phone && (
+                    <p className="mt-1 text-sm text-red-600">{formErrors.visitor_phone}</p>
+                  )}
                 </div>
 
                 <div>
@@ -442,11 +548,10 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false }) => {
                     <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                     <input
                       type="text"
-                      value={inviteFormData.invited_by}
-                      onChange={(e) => setInviteFormData({...inviteFormData, invited_by: e.target.value})}
-                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                      placeholder="Who invited you"
+                      value={inviteFormData.invited_by || (isAdmin ? (user?.name || user?.email || "") : inviteFormData.invited_by)}
                       readOnly
+                      className="w-full pl-10 pr-4 py-3 bg-gray-100 border border-gray-200 rounded-xl cursor-not-allowed text-gray-600"
+                      placeholder="Auto-filled from invitation"
                     />
                   </div>
                 </div>
@@ -488,7 +593,11 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false }) => {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setCurrentStep(3)}
+                  onClick={() => {
+                    if (validateFormStep2()) {
+                      setCurrentStep(3);
+                    }
+                  }}
                   className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200"
                 >
                   Continue

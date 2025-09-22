@@ -14,6 +14,7 @@ export const useVisitorActions = ({
   setIsEditing,
   setEditingVisitor,
   setEditForm,
+  setEditFormErrors,
 }) => {
   // Fetch visitor details when selected visitor changes
   useEffect(() => {
@@ -125,6 +126,111 @@ export const useVisitorActions = ({
     [visitors, selectedVisitor, user?.name, fetchVisitors, setVisitors, setSelectedVisitor, setUpdating, setError]
   );
 
+  // Validation functions
+  const validateEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  const validateEditForm = (formData) => {
+    const errors = {};
+    
+    if (!formData.name?.trim()) {
+      errors.name = 'Name is required';
+    }
+    
+    if (!formData.email?.trim()) {
+      errors.email = 'Email is required';
+    } else if (!validateEmail(formData.email)) {
+      errors.email = 'Please enter a valid email address';
+    }
+    
+    // Validate phone if provided - must be exactly 10 digits
+    if (formData.phone) {
+      if (formData.phone.length !== 10) {
+        errors.phone = 'Phone number must be exactly 10 digits';
+      } else if (!/^\d{10}$/.test(formData.phone)) {
+        errors.phone = 'Phone number must contain only digits';
+      }
+    }
+    
+    if (!formData.purpose?.trim()) {
+      errors.purpose = 'Purpose is required';
+    }
+    
+    return errors;
+  };
+
+  // Handle phone number input - only allow exactly 10 digits
+  const handlePhoneInput = (value, setEditForm, setEditFormErrors) => {
+    // Remove all non-digit characters
+    const digitsOnly = value.replace(/\D/g, '');
+    
+    // Limit to 10 digits maximum
+    if (digitsOnly.length <= 10) {
+      setEditForm(prev => ({
+        ...prev,
+        phone: digitsOnly
+      }));
+      
+      // Clear phone error if user is typing
+      setEditFormErrors(prev => ({
+        ...prev,
+        phone: ''
+      }));
+    }
+  };
+
+  // Handle email input with validation
+  const handleEmailInput = (value, setEditForm, setEditFormErrors) => {
+    setEditForm(prev => ({
+      ...prev,
+      email: value
+    }));
+
+    // Clear previous email error
+    setEditFormErrors(prev => ({
+      ...prev,
+      email: ''
+    }));
+
+    // Validate email if not empty
+    if (value && !validateEmail(value)) {
+      setEditFormErrors(prev => ({
+        ...prev,
+        email: 'Please enter a valid email address'
+      }));
+    }
+  };
+
+  // Handle name input
+  const handleNameInput = (value, setEditForm, setEditFormErrors) => {
+    setEditForm(prev => ({
+      ...prev,
+      name: value
+    }));
+
+    // Clear name error if user starts typing
+    setEditFormErrors(prev => ({
+      ...prev,
+      name: ''
+    }));
+  };
+
+  // Handle purpose input
+  const handlePurposeInput = (value, setEditForm, setEditFormErrors) => {
+    setEditForm(prev => ({
+      ...prev,
+      purpose: value
+    }));
+
+    // Clear purpose error if user starts typing
+    setEditFormErrors(prev => ({
+      ...prev,
+      purpose: ''
+    }));
+  };
+
   // Edit functionality
   const handleEditVisitor = (visitor) => {
     setEditingVisitor(visitor);
@@ -136,10 +242,18 @@ export const useVisitorActions = ({
       purpose: visitor.purpose || "",
       // host: visitor.host || ''
     });
+    setEditFormErrors({});
     setIsEditing(true);
   };
 
   const handleSaveEdit = async (editingVisitor, editForm) => {
+    // Validate form before submission
+    const errors = validateEditForm(editForm);
+    if (Object.keys(errors).length > 0) {
+      setEditFormErrors(errors);
+      return;
+    }
+
     try {
       setUpdating(true);
 
@@ -179,6 +293,7 @@ export const useVisitorActions = ({
     setIsEditing(false);
     setEditingVisitor(null);
     setEditForm({});
+    setEditFormErrors({});
   };
 
   const handleFormChange = (field, value, setEditForm) => {
@@ -199,5 +314,10 @@ export const useVisitorActions = ({
     handleCancelEdit,
     handleFormChange,
     refreshData,
+    // Validation functions
+    handlePhoneInput,
+    handleEmailInput,
+    handleNameInput,
+    handlePurposeInput,
   };
 };

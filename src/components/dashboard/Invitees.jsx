@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "../../contexts/AuthContext";
 import {
   Search,
   Filter,
@@ -85,6 +86,7 @@ import inviteeAPI, { inviteeHelpers } from "../../api/invite.js";
 import InviteModal from "../invite/InviteModal";
 
 function Invitees() {
+  const { user } = useAuth(); // Get logged-in user information
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [showInviteForm, setShowInviteForm] = useState(false);
@@ -99,7 +101,7 @@ function Invitees() {
     visitor_name: "",
     visitor_email: "",
     visitor_phone: "",
-    invited_by: "",
+    invited_by: user?.name || user?.email || "",
     purpose: "",
     visit_time: "",
     expiry_time: "",
@@ -124,6 +126,7 @@ function Invitees() {
     status: "pending",
   });
   const [formErrors, setFormErrors] = useState({});
+  const [inviteFormErrors, setInviteFormErrors] = useState({});
   
   const closeModal = () => {
     setIsModalOpen(false);
@@ -169,6 +172,16 @@ function Invitees() {
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.visitor_email)) {
       errors.visitor_email = "Please enter a valid email";
     }
+    
+    // Validate phone if provided - must be exactly 10 digits
+    if (formData.visitor_phone) {
+      if (formData.visitor_phone.length !== 10) {
+        errors.visitor_phone = "Phone number must be exactly 10 digits";
+      } else if (!/^\d{10}$/.test(formData.visitor_phone)) {
+        errors.visitor_phone = "Phone number must contain only digits";
+      }
+    }
+    
     if (!formData.purpose.trim()) errors.purpose = "Purpose is required";
     if (!formData.visit_time) errors.visit_time = "Visit time is required";
 
@@ -242,35 +255,57 @@ function Invitees() {
     return matchesSearch && matchesStatus;
   });
 
+  // Validate create form
+  const validateCreateForm = () => {
+    const errors = {};
+    
+    if (!inviteFormData.visitor_name.trim()) {
+      errors.visitor_name = 'Name is required';
+    }
+    
+    if (!inviteFormData.visitor_email.trim()) {
+      errors.visitor_email = 'Email is required';
+    } else if (!validateEmail(inviteFormData.visitor_email)) {
+      errors.visitor_email = 'Please enter a valid email address';
+    }
+    
+    if (!inviteFormData.purpose.trim()) {
+      errors.purpose = 'Purpose is required';
+    }
+    
+    // Validate phone if provided - must be exactly 10 digits
+    if (inviteFormData.visitor_phone) {
+      if (inviteFormData.visitor_phone.length !== 10) {
+        errors.visitor_phone = 'Phone number must be exactly 10 digits';
+      } else if (!/^\d{10}$/.test(inviteFormData.visitor_phone)) {
+        errors.visitor_phone = 'Phone number must contain only digits';
+      }
+    }
+    
+    setInviteFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleSubmitInvite = async (e) => {
     e.preventDefault();
+    
+    // Validate form before submission
+    if (!validateCreateForm()) {
+      return;
+    }
+    
     setLoading(true);
     setError("");
 
     try {
-      // Validate required fields
-      if (
-        !inviteFormData.visitor_name ||
-        !inviteFormData.visitor_email ||
-        !inviteFormData.purpose
-      ) {
-        throw new Error("Please fill in all required fields");
-      }
 
-      // Validate email format
-      if (!inviteeHelpers.validateEmail(inviteFormData.visitor_email)) {
-        throw new Error("Please enter a valid email address");
-      }
-
-      // Validate phone if provided
-      if (
-        inviteFormData.visitor_phone &&
-        !inviteeHelpers.validatePhone(inviteFormData.visitor_phone)
-      ) {
-        throw new Error("Please enter a valid phone number");
-      }
-
-      const response = await inviteeAPI.createInvite(inviteFormData);
+      // Ensure invited_by is set to logged-in user
+      const inviteData = {
+        ...inviteFormData,
+        invited_by: user?.name || user?.email || inviteFormData.invited_by
+      };
+      
+      const response = await inviteeAPI.createInvite(inviteData);
 
       // Backend returns the invite data with generated invite_code
       if (response && response.invite_code) {
@@ -338,13 +373,14 @@ function Invitees() {
       visitor_name: "",
       visitor_email: "",
       visitor_phone: "",
-      invited_by: "",
+      invited_by: user?.name || user?.email || "",
       purpose: "",
       visit_time: "",
       expiry_time: "",
     });
     setError("");
     setSuccess("");
+    setInviteFormErrors({});
   };
 
 
@@ -612,12 +648,109 @@ function Invitees() {
     );
   };
 
-  // Helper function
+  // Helper functions
   const formatDateTimeLocal = (datetimeString) => {
     if (!datetimeString) return "";
     const date = new Date(datetimeString);
     // Return in YYYY-MM-DDTHH:mm format
     return date.toISOString().slice(0, 16);
+  };
+
+  // Get current date and time in YYYY-MM-DDTHH:mm format
+  const getCurrentDateTime = () => {
+    const now = new Date();
+    return now.toISOString().slice(0, 16);
+  };
+
+  // Get minimum expiry time (current visit time or current time if no visit time)
+  const getMinExpiryTime = () => {
+    if (inviteFormData.visit_time) {
+      return inviteFormData.visit_time;
+    }
+    return getCurrentDateTime();
+  };
+
+  // Get minimum expiry time for edit form
+  const getMinExpiryTimeEdit = () => {
+    if (formData.visit_time) {
+      return formData.visit_time;
+    }
+    return getCurrentDateTime();
+  };
+
+  // Handle phone number input - only allow exactly 10 digits
+  const handlePhoneInput = (e, formType = 'create') => {
+    const value = e.target.value;
+    // Remove all non-digit characters
+    const digitsOnly = value.replace(/\D/g, '');
+    
+    // Limit to 10 digits maximum
+    if (digitsOnly.length <= 10) {
+      if (formType === 'create') {
+        setInviteFormData({
+          ...inviteFormData,
+          visitor_phone: digitsOnly,
+        });
+        // Clear phone error if user is typing
+        if (inviteFormErrors.visitor_phone) {
+          setInviteFormErrors({...inviteFormErrors, visitor_phone: ''});
+        }
+      } else {
+        setFormData(prev => ({
+          ...prev,
+          visitor_phone: digitsOnly
+        }));
+        // Clear phone error if user is typing
+        if (formErrors.visitor_phone) {
+          setFormErrors({...formErrors, visitor_phone: ''});
+        }
+      }
+    }
+  };
+
+  // Validate email format
+  const validateEmail = (email) => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
+  // Handle email input with validation for create form
+  const handleEmailInputCreate = (e) => {
+    const value = e.target.value;
+    setInviteFormData({
+      ...inviteFormData,
+      visitor_email: value,
+    });
+
+    // Clear previous email error
+    if (inviteFormErrors.visitor_email) {
+      setInviteFormErrors({
+        ...inviteFormErrors,
+        visitor_email: ''
+      });
+    }
+
+    // Validate email if not empty
+    if (value && !validateEmail(value)) {
+      setInviteFormErrors({
+        ...inviteFormErrors,
+        visitor_email: 'Please enter a valid email address'
+      });
+    }
+  };
+
+  // Handle name input for create form
+  const handleNameInputCreate = (e) => {
+    const value = e.target.value;
+    setInviteFormData({
+      ...inviteFormData,
+      visitor_name: value,
+    });
+
+    // Clear name error if user starts typing
+    if (inviteFormErrors.visitor_name) {
+      setInviteFormErrors({...inviteFormErrors, visitor_name: ''});
+    }
   };
 
   // handleUpdateInvite function is already defined above
@@ -1269,17 +1402,17 @@ function Invitees() {
                       <input
                         type="text"
                         value={inviteFormData.visitor_name}
-                        onChange={(e) =>
-                          setInviteFormData({
-                            ...inviteFormData,
-                            visitor_name: e.target.value,
-                          })
-                        }
-                        className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                        onChange={handleNameInputCreate}
+                        className={`w-full pl-10 pr-4 py-3 bg-gray-50 border ${
+                          inviteFormErrors.visitor_name ? 'border-red-500' : 'border-gray-200'
+                        } rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200`}
                         placeholder="Enter full name"
                         required
                       />
                     </div>
+                    {inviteFormErrors.visitor_name && (
+                      <p className="mt-1 text-sm text-red-600">{inviteFormErrors.visitor_name}</p>
+                    )}
                   </div>
 
                   <div>
@@ -1291,17 +1424,17 @@ function Invitees() {
                       <input
                         type="email"
                         value={inviteFormData.visitor_email}
-                        onChange={(e) =>
-                          setInviteFormData({
-                            ...inviteFormData,
-                            visitor_email: e.target.value,
-                          })
-                        }
-                        className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                        onChange={handleEmailInputCreate}
+                        className={`w-full pl-10 pr-4 py-3 bg-gray-50 border ${
+                          inviteFormErrors.visitor_email ? 'border-red-500' : 'border-gray-200'
+                        } rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200`}
                         placeholder="Enter email address"
                         required
                       />
                     </div>
+                    {inviteFormErrors.visitor_email && (
+                      <p className="mt-1 text-sm text-red-600">{inviteFormErrors.visitor_email}</p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -1311,16 +1444,10 @@ function Invitees() {
                       <User className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
                       <input
                         type="text"
-                        value={inviteFormData.invited_by}
-                        onChange={(e) =>
-                          setInviteFormData({
-                            ...inviteFormData,
-                            invited_by: e.target.value,
-                          })
-                        }
-                        className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                        placeholder="Enter who invited the visitor"
-                        required
+                        value={user?.name || user?.email || ""}
+                        readOnly
+                        className="w-full pl-10 pr-4 py-3 bg-gray-100 border border-gray-200 rounded-xl cursor-not-allowed text-gray-600"
+                        placeholder="Auto-filled with logged-in user"
                       />
                     </div>
                   </div>
@@ -1334,16 +1461,22 @@ function Invitees() {
                       <input
                         type="tel"
                         value={inviteFormData.visitor_phone}
-                        onChange={(e) =>
-                          setInviteFormData({
-                            ...inviteFormData,
-                            visitor_phone: e.target.value,
-                          })
-                        }
+                        onChange={(e) => handlePhoneInput(e, 'create')}
+                        onKeyPress={(e) => {
+                          // Prevent non-numeric characters on keypress
+                          const char = String.fromCharCode(e.which);
+                          if (!/[0-9]/.test(char)) {
+                            e.preventDefault();
+                          }
+                        }}
+                        maxLength="10"
                         className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                        placeholder="Enter phone number"
+                        placeholder="Enter 10-digit phone number"
                       />
                     </div>
+                    {inviteFormErrors.visitor_phone && (
+                      <p className="mt-1 text-sm text-red-600">{inviteFormErrors.visitor_phone}</p>
+                    )}
                   </div>
 
                   <div>
@@ -1355,6 +1488,7 @@ function Invitees() {
                       <input
                         type="datetime-local"
                         value={inviteFormData.visit_time}
+                        min={getCurrentDateTime()}
                         onChange={(e) =>
                           setInviteFormData({
                             ...inviteFormData,
@@ -1374,6 +1508,7 @@ function Invitees() {
                       <input
                         type="datetime-local"
                         value={inviteFormData.expiry_time}
+                        min={getMinExpiryTime()}
                         onChange={(e) =>
                           setInviteFormData({
                             ...inviteFormData,
@@ -1393,16 +1528,25 @@ function Invitees() {
                   <input
                     type="text"
                     value={inviteFormData.purpose}
-                    onChange={(e) =>
+                    onChange={(e) => {
                       setInviteFormData({
                         ...inviteFormData,
                         purpose: e.target.value,
-                      })
-                    }
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                      });
+                      // Clear purpose error if user starts typing
+                      if (inviteFormErrors.purpose) {
+                        setInviteFormErrors({...inviteFormErrors, purpose: ''});
+                      }
+                    }}
+                    className={`w-full px-4 py-3 bg-gray-50 border ${
+                      inviteFormErrors.purpose ? 'border-red-500' : 'border-gray-200'
+                    } rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200`}
                     placeholder="e.g., Business meeting, Interview, Product demo"
                     required
                   />
+                  {inviteFormErrors.purpose && (
+                    <p className="mt-1 text-sm text-red-600">{inviteFormErrors.purpose}</p>
+                  )}
                 </div>
 
                 <div className="flex space-x-4 pt-4">
@@ -1442,7 +1586,7 @@ function Invitees() {
               initial={{ scale: 0.9, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-2xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+              className="bg-white rounded-2xl p-6 max-w-6xl w-full max-h-[90vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex justify-between items-center mb-6">
@@ -1458,149 +1602,298 @@ function Invitees() {
               </div>
 
               {!isEditing ? (
-                // View Mode
-                <div className="space-y-6">
-                  <div className="flex flex-col md:flex-row gap-6">
-                    {/* Visitor Image */}
-                    <div className="flex-shrink-0">
-                      <div className="w-32 h-32 md:w-40 md:h-40 rounded-lg overflow-hidden border-2 border-gray-200">
-                        {currentInvite.image ? (
-                          <img
-                            src={currentInvite.image}
-                            alt={currentInvite.visitor_name || 'Visitor'}
-                            className="w-full h-full object-cover"
-                            onError={(e) => {
-                              e.target.style.display = 'none';
-                              e.target.nextElementSibling.style.display = 'flex';
-                            }}
-                          />
-                        ) : null}
-                        <div 
-                          className={`w-full h-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-4xl font-bold ${
-                            currentInvite.image ? 'hidden' : 'flex'
-                          }`}
-                        >
-                          {(currentInvite.visitor_name || 'V').charAt(0).toUpperCase()}
+                // View Mode with Sidebar Layout
+                <div className="flex flex-col lg:flex-row gap-6 h-full">
+                  {/* Main Content */}
+                  <div className="flex-1 space-y-6">
+                    <div className="flex flex-col md:flex-row gap-6">
+                      {/* Visitor Image */}
+                      <div className="flex-shrink-0">
+                        <div className="w-32 h-32 md:w-40 md:h-40 rounded-lg overflow-hidden border-2 border-gray-200">
+                          {currentInvite.image ? (
+                            <img
+                              src={currentInvite.image}
+                              alt={currentInvite.visitor_name || 'Visitor'}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.target.style.display = 'none';
+                                e.target.nextElementSibling.style.display = 'flex';
+                              }}
+                            />
+                          ) : null}
+                          <div 
+                            className={`w-full h-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-4xl font-bold ${
+                              currentInvite.image ? 'hidden' : 'flex'
+                            }`}
+                          >
+                            {(currentInvite.visitor_name || 'V').charAt(0).toUpperCase()}
+                          </div>
+                        </div>
+                        
+                        {/* Status Badge */}
+                        <div className="mt-4">
+                          <p className="text-sm font-medium text-gray-500 mb-1">
+                            Status
+                          </p>
+                          {getStatusBadge(currentInvite.status)}
                         </div>
                       </div>
                       
-                      {/* Status Badge */}
-                      <div className="mt-4">
-                        <p className="text-sm font-medium text-gray-500 mb-1">
-                          Status
-                        </p>
-                        {getStatusBadge(currentInvite.status)}
+                      <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                          <h3 className="text-lg font-medium text-gray-900 mb-4">
+                            Visitor Information
+                          </h3>
+                          <div className="space-y-4">
+                            <div>
+                              <p className="text-sm font-medium text-gray-500">
+                                Full Name
+                              </p>
+                              <p className="mt-1 text-gray-900 font-medium">
+                                {currentInvite.visitor_name || 'N/A'}
+                              </p>
+                            </div>
+                            
+                            <div>
+                              <p className="text-sm font-medium text-gray-500">
+                                Email
+                              </p>
+                              <p className="mt-1 text-blue-600">
+                                {currentInvite.visitor_email || 'N/A'}
+                              </p>
+                            </div>
+                            
+                            {currentInvite.visitor_phone && (
+                              <div>
+                                <p className="text-sm font-medium text-gray-500">
+                                  Phone
+                                </p>
+                                <p className="mt-1 text-gray-900">
+                                  {currentInvite.visitor_phone}
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <div>
+                          <h3 className="text-lg font-medium text-gray-900 mb-4">
+                            Visit Details
+                          </h3>
+                          <div className="space-y-4">
+                            <div>
+                              <p className="text-sm font-medium text-gray-500">
+                                Purpose
+                              </p>
+                              <p className="mt-1 text-gray-900">
+                                {currentInvite.purpose || 'N/A'}
+                              </p>
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-gray-500">
+                                Visit Time
+                              </p>
+                              <p className="mt-1 text-gray-900">
+                                {inviteeHelpers.formatDateTime(currentInvite.visit_time) || 'N/A'}
+                              </p>
+                            </div>
+                            
+                            {currentInvite.expiry_time && (
+                              <div>
+                                <p className="text-sm font-medium text-gray-500">
+                                  Expiry Time
+                                </p>
+                                <p className="mt-1 text-gray-900">
+                                  {inviteeHelpers.formatDateTime(currentInvite.expiry_time)}
+                                </p>
+                              </div>
+                            )}
+                            
+                            <div>
+                              <p className="text-sm font-medium text-gray-500">
+                                Invited By
+                              </p>
+                              <p className="mt-1 text-gray-900">
+                                {currentInvite.invited_by || 'N/A'}
+                              </p>
+                            </div>
+                            
+                            <div>
+                              <p className="text-sm font-medium text-gray-500">
+                                Invite Code
+                              </p>
+                              <p className="mt-1 font-mono text-gray-900">
+                                {currentInvite.invite_code || 'N/A'}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                    
-                    <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6">
-                      <div>
-                        <h3 className="text-lg font-medium text-gray-900 mb-4">
-                          Visitor Information
-                        </h3>
-                        <div className="space-y-4">
-                          <div>
-                            <p className="text-sm font-medium text-gray-500">
-                              Full Name
-                            </p>
-                            <p className="mt-1 text-gray-900 font-medium">
-                              {currentInvite.visitor_name || 'N/A'}
-                            </p>
-                          </div>
-                          
-                          <div>
-                            <p className="text-sm font-medium text-gray-500">
-                              Email
-                            </p>
-                            <p className="mt-1 text-blue-600">
-                              {currentInvite.visitor_email || 'N/A'}
-                            </p>
-                          </div>
-                          
-                          {currentInvite.visitor_phone && (
-                            <div>
-                              <p className="text-sm font-medium text-gray-500">
-                                Phone
-                              </p>
-                              <p className="mt-1 text-gray-900">
-                                {currentInvite.visitor_phone}
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                      
-                      <div>
-                        <h3 className="text-lg font-medium text-gray-900 mb-4">
-                          Visit Details
-                        </h3>
-                        <div className="space-y-4">
-                          <div>
-                            <p className="text-sm font-medium text-gray-500">
-                              Purpose
-                            </p>
-                            <p className="mt-1 text-gray-900">
-                              {currentInvite.purpose || 'N/A'}
-                            </p>
-                          </div>
-                          <div>
-                            <p className="text-sm font-medium text-gray-500">
-                              Visit Time
-                            </p>
-                            <p className="mt-1 text-gray-900">
-                              {inviteeHelpers.formatDateTime(currentInvite.visit_time) || 'N/A'}
-                            </p>
-                          </div>
-                          
-                          {currentInvite.expiry_time && (
-                            <div>
-                              <p className="text-sm font-medium text-gray-500">
-                                Expiry Time
-                              </p>
-                              <p className="mt-1 text-gray-900">
-                                {inviteeHelpers.formatDateTime(currentInvite.expiry_time)}
-                              </p>
-                            </div>
-                          )}
-                          
-                          <div>
-                            <p className="text-sm font-medium text-gray-500">
-                              Invited By
-                            </p>
-                            <p className="mt-1 text-gray-900">
-                              {currentInvite.invited_by || 'N/A'}
-                            </p>
-                          </div>
-                          
-                          <div>
-                            <p className="text-sm font-medium text-gray-500">
-                              Invite Code
-                            </p>
-                            <p className="mt-1 font-mono text-gray-900">
-                              {currentInvite.invite_code || 'N/A'}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
+
+                    <div className="pt-6 border-t border-gray-200 flex justify-end space-x-3">
+                      <button
+                        type="button"
+                        onClick={closeModal}
+                        className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                      >
+                        Close
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIsEditing(true)}
+                        className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+                      >
+                        <Edit className="w-4 h-4" />
+                        <span>Edit Invitation</span>
+                      </button>
                     </div>
                   </div>
 
-                  <div className="pt-6 border-t border-gray-200 flex justify-end space-x-3">
-                    <button
-                      type="button"
-                      onClick={closeModal}
-                      className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
-                    >
-                      Close
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setIsEditing(true)}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center space-x-2"
-                    >
-                      <Edit className="w-4 h-4" />
-                      <span>Edit Invitation</span>
-                    </button>
+                  {/* Timeline Sidebar */}
+                  <div className="lg:w-80 lg:border-l lg:border-gray-200 lg:pl-6">
+                    <div className="bg-gray-50 rounded-lg p-4">
+                      <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
+                        <ClockIcon className="w-5 h-5 mr-2 text-blue-600" />
+                        Timeline
+                      </h3>
+                      
+                      {/* Timeline Component */}
+                      <div className="space-y-4">
+                        {(() => {
+                          const getTimelineSteps = (invite) => {
+                            const steps = [
+                              {
+                                status: 'pending',
+                                title: 'Invitation Sent',
+                                description: 'Invitation created and sent to visitor',
+                                timestamp: invite.created_at,
+                                icon: MailIcon,
+                                completed: true
+                              },
+                              {
+                                status: 'approved',
+                                title: 'Invitation Approved',
+                                description: 'Invitation approved by host',
+                                timestamp: invite.status === 'approved' || invite.status === 'checked_in' || invite.status === 'checked_out' ? invite.updated_at || invite.created_at : null,
+                                icon: CheckCircle,
+                                completed: ['approved', 'checked_in', 'checked_out'].includes(invite.status)
+                              },
+                              {
+                                status: 'checked_in',
+                                title: 'Visitor Checked In',
+                                description: 'Visitor arrived and checked in',
+                                timestamp: invite.status === 'checked_in' || invite.status === 'checked_out' ? invite.updated_at || invite.created_at : null,
+                                icon: UserCheck,
+                                completed: ['checked_in', 'checked_out'].includes(invite.status)
+                              },
+                              {
+                                status: 'checked_out',
+                                title: 'Visitor Checked Out',
+                                description: 'Visit completed and checked out',
+                                timestamp: invite.status === 'checked_out' ? invite.updated_at || invite.created_at : null,
+                                icon: UserX,
+                                completed: invite.status === 'checked_out'
+                              }
+                            ];
+
+                            // Handle rejected status
+                            if (invite.status === 'rejected') {
+                              steps[1] = {
+                                status: 'rejected',
+                                title: 'Invitation Rejected',
+                                description: 'Invitation was rejected',
+                                timestamp: invite.updated_at || invite.created_at,
+                                icon: XCircleIcon,
+                                completed: true,
+                                isRejected: true
+                              };
+                              // Mark subsequent steps as not completed
+                              steps[2].completed = false;
+                              steps[3].completed = false;
+                            }
+
+                            // Handle expired status
+                            if (invite.status === 'expired') {
+                              const expiredStep = {
+                                status: 'expired',
+                                title: 'Invitation Expired',
+                                description: 'Invitation has expired',
+                                timestamp: invite.expiry_time || invite.updated_at,
+                                icon: ClockIcon3,
+                                completed: true,
+                                isExpired: true
+                              };
+                              steps.push(expiredStep);
+                            }
+
+                            return steps;
+                          };
+
+                          const timelineSteps = getTimelineSteps(currentInvite);
+
+                          return timelineSteps.map((step, index) => {
+                            const IconComponent = step.icon;
+                            const isLast = index === timelineSteps.length - 1;
+                            
+                            return (
+                              <div key={step.status} className="relative">
+                                {/* Vertical Line */}
+                                {!isLast && (
+                                  <div className={`absolute left-4 top-8 w-0.5 h-16 ${
+                                    step.completed ? 'bg-green-400' : 'bg-gray-300'
+                                  }`} />
+                                )}
+                                
+                                {/* Step Content */}
+                                <div className="flex items-start space-x-3">
+                                  {/* Icon */}
+                                  <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                                    step.completed 
+                                      ? step.isRejected 
+                                        ? 'bg-red-100 text-red-600' 
+                                        : step.isExpired
+                                        ? 'bg-orange-100 text-orange-600'
+                                        : 'bg-green-100 text-green-600'
+                                      : 'bg-gray-100 text-gray-400'
+                                  }`}>
+                                    <IconComponent className="w-4 h-4" />
+                                  </div>
+                                  
+                                  {/* Content */}
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between">
+                                      <p className={`text-sm font-medium ${
+                                        step.completed ? 'text-gray-900' : 'text-gray-500'
+                                      }`}>
+                                        {step.title}
+                                      </p>
+                                      {step.completed && (
+                                        <div className={`w-2 h-2 rounded-full ${
+                                          step.isRejected 
+                                            ? 'bg-red-400' 
+                                            : step.isExpired
+                                            ? 'bg-orange-400'
+                                            : 'bg-green-400'
+                                        }`} />
+                                      )}
+                                    </div>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                      {step.description}
+                                    </p>
+                                    {step.timestamp && (
+                                      <p className="text-xs text-gray-400 mt-1">
+                                        {inviteeHelpers.formatDateTime(step.timestamp)}
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                            );
+                          });
+                        })()}
+                      </div>
+                    </div>
                   </div>
                 </div>
               ) : (
@@ -1660,10 +1953,23 @@ function Invitees() {
                         type="tel"
                         name="visitor_phone"
                         value={formData.visitor_phone}
-                        onChange={handleEditInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Enter phone number"
+                        onChange={(e) => handlePhoneInput(e, 'edit')}
+                        onKeyPress={(e) => {
+                          // Prevent non-numeric characters on keypress
+                          const char = String.fromCharCode(e.which);
+                          if (!/[0-9]/.test(char)) {
+                            e.preventDefault();
+                          }
+                        }}
+                        maxLength="10"
+                        className={`w-full px-3 py-2 border ${
+                          formErrors.visitor_phone ? 'border-red-500' : 'border-gray-300'
+                        } rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500`}
+                        placeholder="Enter 10-digit phone number"
                       />
+                      {formErrors.visitor_phone && (
+                        <p className="mt-1 text-sm text-red-600">{formErrors.visitor_phone}</p>
+                      )}
                     </div>
 
                     <div>
@@ -1674,9 +1980,9 @@ function Invitees() {
                         type="text"
                         name="invited_by"
                         value={formData.invited_by}
-                        onChange={handleEditInputChange}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        placeholder="Enter who invited the visitor"
+                        readOnly
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 cursor-not-allowed text-gray-600"
+                        placeholder="Auto-filled with logged-in user"
                       />
                     </div>
 
@@ -1688,6 +1994,7 @@ function Invitees() {
                         type="datetime-local"
                         name="visit_time"
                         value={formData.visit_time}
+                        min={getCurrentDateTime()}
                         onChange={handleEditInputChange}
                         className={`w-full px-3 py-2 border ${
                           formErrors.visit_time ? 'border-red-500' : 'border-gray-300'
@@ -1706,6 +2013,7 @@ function Invitees() {
                         type="datetime-local"
                         name="expiry_time"
                         value={formData.expiry_time}
+                        min={getMinExpiryTimeEdit()}
                         onChange={handleEditInputChange}
                         className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                       />

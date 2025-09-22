@@ -437,10 +437,12 @@ export const EditVisitorModal = ({
   isEditing,
   editingVisitor,
   editForm,
+  editFormErrors,
   handleFormChange,
   handleSaveEdit,
   handleCancelEdit,
   updating,
+  actions,
 }) => (
   <AnimatePresence>
     {isEditing && editingVisitor && (
@@ -473,28 +475,38 @@ export const EditVisitorModal = ({
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Name
+                Name *
               </label>
               <input
                 type="text"
                 value={editForm.name}
                 onChange={(e) => handleFormChange("name", e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className={`w-full px-4 py-3 border ${
+                  editFormErrors?.name ? 'border-red-500' : 'border-gray-300'
+                } rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
                 placeholder="Enter visitor name"
               />
+              {editFormErrors?.name && (
+                <p className="mt-1 text-sm text-red-600">{editFormErrors.name}</p>
+              )}
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Email
+                Email *
               </label>
               <input
                 type="email"
                 value={editForm.email}
                 onChange={(e) => handleFormChange("email", e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className={`w-full px-4 py-3 border ${
+                  editFormErrors?.email ? 'border-red-500' : 'border-gray-300'
+                } rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
                 placeholder="Enter email address"
               />
+              {editFormErrors?.email && (
+                <p className="mt-1 text-sm text-red-600">{editFormErrors.email}</p>
+              )}
             </div>
 
             <div>
@@ -504,15 +516,34 @@ export const EditVisitorModal = ({
               <input
                 type="tel"
                 value={editForm.phone}
-                onChange={(e) => handleFormChange("phone", e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Enter phone number"
+                onChange={(e) => {
+                  // Remove all non-digit characters and limit to 10 digits
+                  const digitsOnly = e.target.value.replace(/\D/g, '');
+                  if (digitsOnly.length <= 10) {
+                    handleFormChange("phone", digitsOnly);
+                  }
+                }}
+                onKeyPress={(e) => {
+                  // Prevent non-numeric characters on keypress
+                  const char = String.fromCharCode(e.which);
+                  if (!/[0-9]/.test(char)) {
+                    e.preventDefault();
+                  }
+                }}
+                maxLength="10"
+                className={`w-full px-4 py-3 border ${
+                  editFormErrors?.phone ? 'border-red-500' : 'border-gray-300'
+                } rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent`}
+                placeholder="Enter 10-digit phone number"
               />
+              {editFormErrors?.phone && (
+                <p className="mt-1 text-sm text-red-600">{editFormErrors.phone}</p>
+              )}
             </div>
 
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Purpose
+                Purpose *
               </label>
               <textarea
                 value={editForm.purpose}
@@ -520,9 +551,14 @@ export const EditVisitorModal = ({
                   handleFormChange("purpose", e.target.value)
                 }
                 rows={3}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                className={`w-full px-4 py-3 border ${
+                  editFormErrors?.purpose ? 'border-red-500' : 'border-gray-300'
+                } rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none`}
                 placeholder="Enter visit purpose"
               />
+              {editFormErrors?.purpose && (
+                <p className="mt-1 text-sm text-red-600">{editFormErrors.purpose}</p>
+              )}
             </div>
 
             <div>
@@ -549,7 +585,7 @@ export const EditVisitorModal = ({
             </button>
             <button
               onClick={handleSaveEdit}
-              disabled={updating || !editForm.name || !editForm.email}
+              disabled={updating || !editForm.name || !editForm.email || !editForm.purpose || Object.keys(editFormErrors || {}).length > 0}
               className="flex items-center justify-center space-x-2 flex-1 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {updating ? (

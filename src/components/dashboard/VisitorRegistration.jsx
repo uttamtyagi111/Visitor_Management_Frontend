@@ -1,8 +1,9 @@
-import React, { useState } from "react";
+import React, { useState, useCallback } from "react";
 import { visitorAPI } from "../../api/visitor";
 import CameraStep from "./steps/CameraStep";
 import FormStep from "./steps/FormStep";
 import SuccessStep from "./steps/SuccessStep";
+import { validationUtils, debounce } from "../../utils/validation";
 
 const VisitorRegistration = () => {
   const [currentStep, setCurrentStep] = useState("camera");
@@ -35,42 +36,63 @@ const VisitorRegistration = () => {
     setCurrentStep("form");
   };
 
-  // Handle form input changes
+  // Real-time validation with debouncing
+  const validateFieldRealTime = useCallback(
+    debounce((fieldName, value) => {
+      let validation;
+      switch (fieldName) {
+        case 'name':
+          validation = validationUtils.validateName(value);
+          break;
+        case 'email':
+          validation = validationUtils.validateEmail(value);
+          break;
+        case 'phone':
+          validation = validationUtils.validatePhone(value);
+          break;
+        case 'purpose':
+          validation = validationUtils.validatePurpose(value);
+          break;
+        default:
+          return;
+      }
+      
+      setValidationErrors((prev) => ({
+        ...prev,
+        [fieldName]: validation.isValid ? "" : validation.message
+      }));
+    }, 500),
+    []
+  );
+
+  // Handle form input changes with real-time validation
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
-    // Clear validation error for this field
+    
+    // Sanitize input based on field type
+    let sanitizedValue = value;
+    if (validationUtils.sanitizeInput[name]) {
+      sanitizedValue = validationUtils.sanitizeInput[name](value);
+    }
+    
+    setFormData((prev) => ({ ...prev, [name]: sanitizedValue }));
+    
+    // Clear validation error immediately for better UX
     if (validationErrors[name]) {
       setValidationErrors((prev) => ({ ...prev, [name]: "" }));
     }
+    
+    // Perform real-time validation with debouncing
+    if (sanitizedValue.trim()) {
+      validateFieldRealTime(name, sanitizedValue);
+    }
   };
 
-  // Validate form data
+  // Validate form data using validation utilities
   const validateForm = () => {
-    const errors = {};
-
-    if (!formData.name.trim()) {
-      errors.name = "Name is required";
-    }
-
-    if (!formData.email.trim()) {
-      errors.email = "Email is required";
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      errors.email = "Please enter a valid email address";
-    }
-
-    if (!formData.phone.trim()) {
-      errors.phone = "Phone number is required";
-    } else if (!/^[\d\s\-\+\(\)]+$/.test(formData.phone)) {
-      errors.phone = "Please enter a valid phone number";
-    }
-
-    if (!formData.purpose.trim()) {
-      errors.purpose = "Purpose of visit is required";
-    }
-
-    setValidationErrors(errors);
-    return Object.keys(errors).length === 0;
+    const validation = validationUtils.validateForm(formData);
+    setValidationErrors(validation.errors);
+    return validation.isValid;
   };
 
   // Submit form

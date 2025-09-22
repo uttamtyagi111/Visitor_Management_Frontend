@@ -56,6 +56,7 @@ function Visitors() {
     setIsEditing: state.setIsEditing,
     setEditingVisitor: state.setEditingVisitor,
     setEditForm: state.setEditForm,
+    setEditFormErrors: state.setEditFormErrors,
   });
 
   // Initialize pass generator with state dependencies
@@ -241,10 +242,12 @@ function Visitors() {
         isEditing={state.isEditing}
         editingVisitor={state.editingVisitor}
         editForm={state.editForm}
+        editFormErrors={state.editFormErrors}
         handleFormChange={handleFormChange}
         handleSaveEdit={handleSaveEdit}
         handleCancelEdit={actions.handleCancelEdit}
         updating={state.updating}
+        actions={actions}
       />
     </div>
   );

@@ -18,6 +18,7 @@ export const useVisitorState = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [editingVisitor, setEditingVisitor] = useState(null);
   const [editForm, setEditForm] = useState({});
+  const [editFormErrors, setEditFormErrors] = useState({});
 
   // Pass modal state
   const [showPassModal, setShowPassModal] = useState(false);
@@ -82,6 +83,8 @@ export const useVisitorState = () => {
     setEditingVisitor,
     editForm,
     setEditForm,
+    editFormErrors,
+    setEditFormErrors,
 
     // Pass modal state
     showPassModal,
