@@ -290,29 +290,38 @@ function Profile() {
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6 }}
-      className="space-y-8"
+      className="container-responsive space-y-6 sm:space-y-8"
     >
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Profile Settings</h2>
-          <p className="text-gray-600 mt-1">Manage your personal information and preferences</p>
+          <h2 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900">Profile Settings</h2>
+          <p className="text-gray-600 mt-1 text-sm sm:text-base">Manage your personal information and preferences</p>
         </div>
         
         {!isEditing ? (
-          <button
-            onClick={() => setIsEditing(true)}
-            className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg"
-          >
-            <Edit3 className="w-4 h-4" />
-            <span>Edit Profile</span>
-          </button>
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
+            <button
+              onClick={() => setIsEditing(true)}
+              className="flex items-center justify-center space-x-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 shadow-lg text-sm sm:text-base"
+            >
+              <Edit3 className="w-4 h-4" />
+              <span>Edit Profile</span>
+            </button>
+            <button
+              onClick={() => setShowChangePassword(true)}
+              className="flex items-center justify-center space-x-2 px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 shadow-lg text-sm sm:text-base"
+            >
+              <Key className="w-4 h-4" />
+              <span>Change Password</span>
+            </button>
+          </div>
         ) : (
-          <div className="flex space-x-3">
+          <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
             <button
               onClick={handleCancel}
               disabled={loading}
-              className="flex items-center space-x-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-colors disabled:opacity-50"
+              className="flex items-center justify-center space-x-2 px-4 py-2 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-colors disabled:opacity-50 text-sm sm:text-base"
             >
               <X className="w-4 h-4" />
               <span>Cancel</span>
@@ -320,7 +329,7 @@ function Profile() {
             <button
               onClick={handleSave}
               disabled={loading}
-              className="flex items-center space-x-2 px-4 py-2 bg-gradient-to-r from-green-600 to-blue-600 text-white rounded-xl hover:from-green-700 hover:to-blue-700 transition-all duration-200 shadow-lg disabled:opacity-50"
+              className="flex items-center justify-center space-x-2 px-4 py-2 bg-gradient-to-r from-green-600 to-blue-600 text-white rounded-xl hover:from-green-700 hover:to-blue-700 transition-all duration-200 shadow-lg disabled:opacity-50 text-sm sm:text-base"
             >
               {loading ? (
                 <Loader className="w-4 h-4 animate-spin" />
@@ -357,7 +366,7 @@ function Profile() {
       )}
 
       {/* Profile Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
         {/* Profile Image Section */}
         <motion.div
           initial={{ opacity: 0, x: -20 }}
@@ -407,18 +416,6 @@ function Profile() {
                   </p>
                 </div>
               )}
-              
-              {/* Change Password Button */}
-              <motion.button
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4, duration: 0.6 }}
-                onClick={() => setShowChangePassword(true)}
-                className="mt-6 flex items-center justify-center space-x-2 w-full py-3 px-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-medium rounded-xl hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition-all duration-200 shadow-lg hover:shadow-xl"
-              >
-                <Key className="w-5 h-5" />
-                <span>Change Password</span>
-              </motion.button>
             </div>
           </div>
         </motion.div>

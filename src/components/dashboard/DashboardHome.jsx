@@ -122,17 +122,17 @@ function DashboardHome() {
   }
 
   return (
-    <div className="p-8 overflow-y-auto bg-gradient-to-br from-gray-50 to-blue-50 min-h-full">
+    <div className="container-responsive py-4 sm:py-6 lg:py-8 overflow-y-auto bg-gradient-to-br from-gray-50 to-blue-50 min-h-full">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
       >
         {/* Header */}
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">Dashboard Overview</h1>
-            <p className="text-gray-600 text-base">Monitor your visitor management analytics and real-time insights</p>
+            <h1 className="text-xl sm:text-2xl lg:text-3xl font-bold text-gray-900 mb-2">Dashboard Overview</h1>
+            <p className="text-gray-600 text-sm sm:text-base">Monitor your visitor management analytics and real-time insights</p>
             {lastUpdated && (
               <p className="text-xs text-gray-500 mt-1">
                 Last updated: {lastUpdated.toLocaleTimeString()}
@@ -142,7 +142,7 @@ function DashboardHome() {
           <button
             onClick={handleRefresh}
             disabled={refreshing}
-            className="flex items-center space-x-2 px-4 py-2 bg-white/70 backdrop-blur-sm rounded-lg shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50"
+            className="flex items-center justify-center space-x-2 px-4 py-2 bg-white/70 backdrop-blur-sm rounded-lg shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 w-full sm:w-auto"
           >
             <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
             <span className="text-sm font-medium">{refreshing ? 'Refreshing...' : 'Refresh'}</span>
@@ -150,7 +150,7 @@ function DashboardHome() {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6">
           {stats.map((stat, index) => {
             const Icon = iconMap[stat.icon] || Users;
             return (
@@ -159,13 +159,13 @@ function DashboardHome() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1, duration: 0.5 }}
-                className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 shadow-xl border border-white/50 hover:shadow-2xl hover:scale-105 transition-all duration-300"
+                className="bg-white/70 backdrop-blur-sm rounded-2xl p-4 sm:p-6 shadow-xl border border-white/50 hover:shadow-2xl hover:scale-105 transition-all duration-300"
               >
-                <div className="flex items-center justify-between mb-4">
-                  <div className={`w-12 h-12 bg-gradient-to-r ${stat.color} rounded-xl flex items-center justify-center shadow-lg`}>
-                    <Icon className="w-6 h-6 text-white" />
+                <div className="flex items-center justify-between mb-3 sm:mb-4">
+                  <div className={`w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r ${stat.color} rounded-xl flex items-center justify-center shadow-lg`}>
+                    <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
                   </div>
-                  <span className={`text-sm font-bold px-3 py-1 rounded-full ${
+                  <span className={`text-xs sm:text-sm font-bold px-2 sm:px-3 py-1 rounded-full ${
                     stat.trend === 'up' 
                       ? 'text-green-700 bg-green-100' 
                       : stat.trend === 'down'
@@ -175,40 +175,41 @@ function DashboardHome() {
                     {stat.change}
                   </span>
                 </div>
-                <h3 className="text-1xl font-bold text-gray-900 mb-1">{stat.value}</h3>
-                <p className="text-gray-500 font-medium">{stat.title}</p>
+                <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-1">{stat.value}</h3>
+                <p className="text-gray-500 font-medium text-sm sm:text-base">{stat.title}</p>
               </motion.div>
             );
           })}
         </div>
 
         {/* Charts Grid */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8 mb-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 mb-6">
           {/* Visitor Trends */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.5, duration: 0.6 }}
-            className="xl:col-span-2 bg-white/70 backdrop-blur-sm rounded-2xl p-6 shadow-xl border border-white/50"
+            className="lg:col-span-2 xl:col-span-2 bg-white/70 backdrop-blur-sm rounded-2xl p-4 sm:p-6 shadow-xl border border-white/50"
           >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-2xl font-bold text-gray-900">Visitor Trends</h3>
-              <div className="flex items-center space-x-2 text-sm text-gray-600 bg-gray-100 px-3 py-2 rounded-lg">
-                <TrendingUp className="w-4 h-4" />
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-2">
+              <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900">Visitor Trends</h3>
+              <div className="flex items-center space-x-2 text-xs sm:text-sm text-gray-600 bg-gray-100 px-2 sm:px-3 py-1 sm:py-2 rounded-lg w-fit">
+                <TrendingUp className="w-3 h-3 sm:w-4 sm:h-4" />
                 <span>Last 7 days</span>
               </div>
             </div>
-            <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={visitorData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+            <ResponsiveContainer width="100%" height={250} className="sm:h-[300px]">
+              <BarChart data={visitorData} margin={{ top: 20, right: 10, left: 10, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="day" stroke="#6b7280" fontSize={12} />
-                <YAxis stroke="#6b7280" fontSize={12} />
+                <XAxis dataKey="day" stroke="#6b7280" fontSize={10} />
+                <YAxis stroke="#6b7280" fontSize={10} />
                 <Tooltip 
                   contentStyle={{ 
                     backgroundColor: 'white',
                     border: '1px solid #e5e7eb',
                     borderRadius: '12px',
-                    boxShadow: '0 10px 25px rgba(0,0,0,0.15)'
+                    boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
+                    fontSize: '12px'
                   }}
                   formatter={(value, name) => [
                     value,
@@ -227,13 +228,13 @@ function DashboardHome() {
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.6, duration: 0.6 }}
-            className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 shadow-xl border border-white/50"
+            className="bg-white/70 backdrop-blur-sm rounded-2xl p-4 sm:p-6 shadow-xl border border-white/50"
           >
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold text-gray-900">Today's Status</h3>
-              <Activity className="w-5 h-5 text-gray-600" />
+              <h3 className="text-lg sm:text-xl font-bold text-gray-900">Today's Status</h3>
+              <Activity className="w-4 h-4 sm:w-5 sm:h-5 text-gray-600" />
             </div>
-            <ResponsiveContainer width="100%" height={200}>
+            <ResponsiveContainer width="100%" height={180} className="sm:h-[200px]">
               <PieChart>
                 <Pie
                   data={statusData}
@@ -272,26 +273,27 @@ function DashboardHome() {
         </div>
 
         {/* Bottom Grid */}
-        <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
           {/* Daily Activity */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.7, duration: 0.6 }}
-            className="xl:col-span-2 bg-white/70 backdrop-blur-sm rounded-2xl p-6 shadow-xl border border-white/50"
+            className="lg:col-span-2 xl:col-span-2 bg-white/70 backdrop-blur-sm rounded-2xl p-4 sm:p-6 shadow-xl border border-white/50"
           >
-            <h3 className="text-2xl font-bold text-gray-900 mb-6">Today's Activity</h3>
-            <ResponsiveContainer width="100%" height={250}>
-              <LineChart data={dailyTrends} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+            <h3 className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-900 mb-4 sm:mb-6">Today's Activity</h3>
+            <ResponsiveContainer width="100%" height={200} className="sm:h-[250px]">
+              <LineChart data={dailyTrends} margin={{ top: 5, right: 10, left: 10, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                <XAxis dataKey="time" stroke="#6b7280" fontSize={12} />
-                <YAxis stroke="#6b7280" fontSize={12} />
+                <XAxis dataKey="time" stroke="#6b7280" fontSize={10} />
+                <YAxis stroke="#6b7280" fontSize={10} />
                 <Tooltip 
                   contentStyle={{ 
                     backgroundColor: 'white',
                     border: '1px solid #e5e7eb',
                     borderRadius: '12px',
-                    boxShadow: '0 10px 25px rgba(0,0,0,0.15)'
+                    boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
+                    fontSize: '12px'
                   }}
                   formatter={(value) => [value, 'Visitors']}
                   labelFormatter={(label) => `Time: ${label}`}
@@ -300,7 +302,7 @@ function DashboardHome() {
                   type="monotone" 
                   dataKey="visitors" 
                   stroke="#8B5CF6" 
-                  strokeWidth={3}
+                  strokeWidth={2}
                   dot={(props) => {
                     const { cx, cy, payload, index } = props;
                     return (
@@ -308,9 +310,9 @@ function DashboardHome() {
                         key={`dot-${index}`}
                         cx={cx}
                         cy={cy}
-                        r={payload?.isPeak ? 6 : 4}
+                        r={payload?.isPeak ? 5 : 3}
                         fill={payload?.isCurrentHour ? '#F59E0B' : '#8B5CF6'}
-                        strokeWidth={2}
+                        strokeWidth={1}
                         stroke="white"
                       />
                     );
@@ -325,22 +327,22 @@ function DashboardHome() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.8, duration: 0.6 }}
-            className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 shadow-xl border border-white/50"
+            className="bg-white/70 backdrop-blur-sm rounded-2xl p-4 sm:p-6 shadow-xl border border-white/50"
           >
-            <h3 className="text-xl font-bold text-gray-900 mb-6">Recent Activity</h3>
-            <div className="space-y-4">
+            <h3 className="text-lg sm:text-xl font-bold text-gray-900 mb-4 sm:mb-6">Recent Activity</h3>
+            <div className="space-y-3 sm:space-y-4 max-h-64 sm:max-h-80 overflow-y-auto scrollbar-thin">
               {recentActivities.map((activity, index) => (
                 <motion.div
                   key={index}
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.9 + index * 0.1, duration: 0.4 }}
-                  className="flex items-center space-x-4 p-3 rounded-xl hover:bg-white/50 transition-all duration-200 border border-transparent hover:border-blue-200"
+                  className="flex items-center space-x-3 sm:space-x-4 p-2 sm:p-3 rounded-xl hover:bg-white/50 transition-all duration-200 border border-transparent hover:border-blue-200"
                 >
                   <img 
                     src={activity.avatar} 
                     alt={activity.name}
-                    className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-md"
+                    className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover border-2 border-white shadow-md flex-shrink-0"
                     onError={(e) => {
                       // Fallback to generated avatar if image fails to load
                       e.target.src = activity.fallbackAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(activity.name)}&background=6B7280&color=fff&size=100&bold=true`;
@@ -348,10 +350,10 @@ function DashboardHome() {
                     loading="lazy"
                   />
                   <div className="flex-1 min-w-0">
-                    <p className="text-gray-900 font-bold truncate">{activity.name}</p>
-                    <p className="text-gray-600 text-sm">{activity.action}</p>
+                    <p className="text-gray-900 font-bold truncate text-sm sm:text-base">{activity.name}</p>
+                    <p className="text-gray-600 text-xs sm:text-sm truncate">{activity.action}</p>
                   </div>
-                  <div className="flex flex-col items-end space-y-1">
+                  <div className="flex flex-col items-end space-y-1 flex-shrink-0">
                     <span className="text-gray-500 text-xs">{activity.time}</span>
                     <span className={`w-2 h-2 rounded-full ${
                       activity.status === 'checkin' ? 'bg-green-500' :
