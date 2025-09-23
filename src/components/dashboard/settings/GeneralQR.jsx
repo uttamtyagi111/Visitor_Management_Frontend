@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { QrCode, Download, RefreshCw, Settings, Eye, Upload, Check, X, Copy, Share2 } from 'lucide-react';
+import { QrCode, Download, RefreshCw, Settings, Eye, Copy, Share2 } from 'lucide-react';
 import { qrCodeService } from '../../../api/qrCodeService';
 import { useAuth } from '../../../contexts/AuthContext';
 import { toast, ToastContainer } from "react-toastify";
@@ -12,7 +12,6 @@ function GeneralQR() {
     errorCorrection: 'M',
     backgroundColor: '#ffffff',
     foregroundColor: '#000000',
-    logo: null,
     customText: 'Visitor Check-in System',
     borderSize: 4,
     cornerRadius: 8
@@ -20,7 +19,7 @@ function GeneralQR() {
 
   const [generating, setGenerating] = useState(false);
   const [qrData, setQrData] = useState(null);
-  const [logoFile, setLogoFile] = useState(null);
+  const [previewQR, setPreviewQR] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const { user } = useAuth();
@@ -44,17 +43,8 @@ function GeneralQR() {
             customText: latestQR.text || 'Visitor Check-in System'
           });
         } else {
-          // Auto-generate a default QR code if none exist
-          const defaultFormData = {
-            text: qrSettings.customText,
-            size: qrSettings.size,
-            error_correction: qrSettings.errorCorrection,
-            background: qrSettings.backgroundColor,
-            foreground: qrSettings.foregroundColor,
-            logo: null
-          };
-          const defaultQR = await qrCodeService.generateQRCode(defaultFormData);
-          setQrData(defaultQR);
+          // Generate initial preview
+          generatePreview();
         }
       } catch (err) {
         console.error('Error loading QR codes:', err);
@@ -67,6 +57,34 @@ function GeneralQR() {
 
     loadQRCodes();
   }, []);
+
+  // Generate live preview when settings change
+  const generatePreview = () => {
+    if (!qrSettings.customText.trim()) return;
+    
+    const size = qrSettings.size || 256;
+    const backgroundColor = qrSettings.backgroundColor.replace('#', '');
+    const foregroundColor = qrSettings.foregroundColor.replace('#', '');
+    
+    // QR Server API URL with proper parameters
+    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(qrSettings.customText)}&bgcolor=${backgroundColor}&color=${foregroundColor}&ecc=${qrSettings.errorCorrection.toLowerCase()}`;
+    
+    setPreviewQR({
+      id: 'preview',
+      image: qrUrl,
+      text: qrSettings.customText,
+      size: qrSettings.size,
+      error_correction: qrSettings.errorCorrection,
+      background: qrSettings.backgroundColor,
+      foreground: qrSettings.foregroundColor,
+      isPreview: true
+    });
+  };
+
+  // Update preview when settings change
+  useEffect(() => {
+    generatePreview();
+  }, [qrSettings.customText, qrSettings.size, qrSettings.backgroundColor, qrSettings.foregroundColor, qrSettings.errorCorrection]);
 
   const handleGenerateQR = async () => {
     if (!qrSettings.customText.trim()) {
@@ -84,8 +102,7 @@ function GeneralQR() {
         size: qrSettings.size,
         error_correction: qrSettings.errorCorrection,
         background: qrSettings.backgroundColor,
-        foreground: qrSettings.foregroundColor,
-        logo: logoFile
+        foreground: qrSettings.foregroundColor
       };
 
       const response = await qrCodeService.generateQRCode(formData);
@@ -101,88 +118,153 @@ function GeneralQR() {
     }
   };
 
-  const handleDownloadQR = () => {
-    if (!qrData?.image) {
+  const handleDownloadQR = async () => {
+    const currentQR = qrData || previewQR;
+    if (!currentQR?.image) {
       toast.error('No QR code available to download');
       return;
     }
 
-    const link = document.createElement('a');
-    link.href = qrData.image;
-    link.download = `qr-code-${new Date().toISOString().split('T')[0]}.png`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    toast.success('QR code downloaded successfully!');
+    try {
+      // Use canvas method for all downloads to avoid redirect issues
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      const img = new Image();
+      
+      // Create a promise to handle the download
+      const downloadPromise = new Promise((resolve, reject) => {
+        img.onload = () => {
+          try {
+            const size = currentQR.size || 256;
+            canvas.width = size;
+            canvas.height = size;
+            
+            // Draw image on canvas
+            ctx.drawImage(img, 0, 0, size, size);
+            
+            // Convert to blob and download
+            canvas.toBlob((blob) => {
+              const url = URL.createObjectURL(blob);
+              const link = document.createElement('a');
+              link.href = url;
+              link.download = `qr-code-${new Date().toISOString().split('T')[0]}.png`;
+              link.style.display = 'none';
+              
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+              
+              URL.revokeObjectURL(url);
+              resolve();
+            }, 'image/png', 1.0);
+          } catch (error) {
+            reject(error);
+          }
+        };
+        
+        img.onerror = () => {
+          reject(new Error('Failed to load image'));
+        };
+      });
+      
+      // Set image source - try without CORS first for S3 URLs
+      if (currentQR.image.includes('amazonaws.com') || currentQR.image.includes('s3.')) {
+        img.src = currentQR.image;
+      } else {
+        img.crossOrigin = 'anonymous';
+        img.src = currentQR.image;
+      }
+      
+      await downloadPromise;
+      toast.success('QR code downloaded successfully!');
+      
+    } catch (error) {
+      console.error('Error downloading QR code:', error);
+      
+      // Final fallback - try direct download
+      try {
+        const link = document.createElement('a');
+        link.href = currentQR.image;
+        link.download = `qr-code-${new Date().toISOString().split('T')[0]}.png`;
+        link.setAttribute('download', '');
+        link.click();
+        toast.info('Download initiated - check your downloads folder');
+      } catch (fallbackError) {
+        toast.error('Failed to download QR code');
+      }
+    }
   };
 
   const handleCopyText = async () => {
-    if (!qrData?.text) {
-      toast.error('No QR code text to copy');
+    const currentQR = qrData || previewQR;
+    if (!currentQR?.image) {
+      toast.error('No QR code available to copy');
       return;
     }
 
     try {
-      await navigator.clipboard.writeText(qrData.text);
-      toast.success('QR code text copied to clipboard!');
+      // Convert image URL to blob
+      const response = await fetch(currentQR.image);
+      const blob = await response.blob();
+      
+      // Copy image to clipboard
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          [blob.type]: blob
+        })
+      ]);
+      
+      toast.success(`QR code ${currentQR.isPreview ? 'preview' : ''} image copied to clipboard!`);
     } catch (err) {
-      console.error('Failed to copy text:', err);
-      toast.error('Failed to copy text to clipboard');
+      console.error('Failed to copy image:', err);
+      // Fallback: copy text instead
+      try {
+        await navigator.clipboard.writeText(currentQR.text);
+        toast.success('QR code text copied to clipboard!');
+      } catch (textErr) {
+        console.error('Failed to copy text:', textErr);
+        toast.error('Failed to copy to clipboard');
+      }
     }
   };
 
   const handleShareQR = async () => {
-    if (!qrData?.image || !qrData?.text) {
+    const currentQR = qrData || previewQR;
+    if (!currentQR?.image || !currentQR?.text) {
       toast.error('No QR code available to share');
       return;
     }
 
-    if (navigator.share) {
-      try {
+    try {
+      // Convert image URL to blob for sharing
+      const response = await fetch(currentQR.image);
+      const blob = await response.blob();
+      const file = new File([blob], `qr-code-${new Date().toISOString().split('T')[0]}.png`, { type: 'image/png' });
+
+      if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
         await navigator.share({
           title: 'QR Code',
-          text: `QR Code for: ${qrData.text}`,
-          url: qrData.text
+          text: `QR Code for: ${currentQR.text}`,
+          files: [file]
         });
-      } catch (err) {
-        console.error('Error sharing:', err);
+      } else if (navigator.share) {
+        // Fallback to sharing without file
+        await navigator.share({
+          title: 'QR Code',
+          text: `QR Code for: ${currentQR.text}`,
+          url: currentQR.text
+        });
+      } else {
+        // Fallback: copy to clipboard
+        handleCopyText();
       }
-    } else {
+    } catch (err) {
+      console.error('Error sharing:', err);
       // Fallback: copy to clipboard
       handleCopyText();
     }
   };
 
-  const handleLogoUpload = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      // Check file type
-      if (!file.type.match('image/(png|jpg|jpeg)')) {
-        toast.error('Only PNG, JPG, and JPEG files are allowed');
-        return;
-      }
-
-      // Check file size (5MB max)
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error('Logo size should be less than 5MB');
-        return;
-      }
-
-      setLogoFile(file);
-      
-      // Create preview
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setQrSettings({...qrSettings, logo: e.target.result});
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const removeLogo = () => {
-    setLogoFile(null);
-    setQrSettings({...qrSettings, logo: null});
-  };
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -289,51 +371,18 @@ function GeneralQR() {
               </div>
             </div>
 
-            {/* Logo Upload */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Center Logo (Optional)</label>
-              <div className="space-y-4">
-                {qrSettings.logo ? (
-                  <div className="relative group">
-                    <div className="relative w-24 h-24 mx-auto rounded-lg overflow-hidden border-2 border-gray-200">
-                      <img 
-                        src={qrSettings.logo} 
-                        alt="Logo preview" 
-                        className="w-full h-full object-cover"
-                      />
-                      <button
-                        onClick={removeLogo}
-                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
-                        title="Remove logo"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
-                    </div>
-                    <p className="text-xs text-center text-gray-500 mt-2">Logo preview</p>
-                  </div>
-                ) : (
-                  <div className="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:border-blue-400 transition-colors cursor-pointer">
-                    <input
-                      type="file"
-                      accept="image/png, image/jpeg, image/jpg"
-                      onChange={handleLogoUpload}
-                      className="hidden"
-                      id="logo-upload"
-                    />
-                    <label htmlFor="logo-upload" className="cursor-pointer">
-                      <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                      <p className="text-gray-600">Click to upload logo</p>
-                      <p className="text-gray-500 text-xs">PNG, JPG up to 5MB</p>
-                    </label>
-                  </div>
-                )}
-                {logoFile && (
-                  <div className="text-xs text-center text-gray-500">
-                    {logoFile.name} ({(logoFile.size / 1024).toFixed(1)} KB)
-                  </div>
-                )}
-              </div>
+            {/* Generate Button */}
+            <div className="pt-4">
+              <button
+                onClick={handleGenerateQR}
+                disabled={generating || !qrSettings.customText.trim()}
+                className="w-full flex items-center justify-center space-x-2 py-3 px-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium rounded-xl hover:from-blue-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-all duration-200 shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <RefreshCw className={`w-5 h-5 ${generating ? 'animate-spin' : ''}`} />
+                <span>{generating ? 'Generating...' : 'Generate QR Code'}</span>
+              </button>
             </div>
+
             </div>
           </div>
 
@@ -357,26 +406,20 @@ function GeneralQR() {
                 <div className="w-64 h-64 bg-gray-200 rounded-lg mb-4"></div>
                 <div className="h-4 bg-gray-200 rounded w-3/4"></div>
               </div>
-            ) : qrData?.image ? (
+            ) : (qrData?.image || previewQR?.image) ? (
               <div className="relative">
                 <img 
-                  src={qrData.image} 
-                  alt="Generated QR Code"
+                  src={qrData?.image || previewQR?.image} 
+                  alt={qrData?.image ? "Generated QR Code" : "QR Code Preview"}
                   className="w-64 h-64 object-contain p-4 rounded-xl"
                   style={{
                     backgroundColor: qrSettings.backgroundColor,
                     border: `1px solid ${qrSettings.foregroundColor}20`
                   }}
                 />
-                {qrData.logo && (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <div className="w-16 h-16 bg-white rounded-full p-1">
-                      <img 
-                        src={qrData.logo} 
-                        alt="Logo" 
-                        className="w-full h-full object-contain"
-                      />
-                    </div>
+                {!qrData?.image && previewQR?.image && (
+                  <div className="absolute top-2 right-2 bg-blue-500 text-white text-xs px-2 py-1 rounded-full">
+                    Preview
                   </div>
                 )}
               </div>
@@ -395,16 +438,16 @@ function GeneralQR() {
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div className="text-left">
                 <span className="text-gray-600 block">Size:</span>
-                <span className="font-medium">{qrData?.size || qrSettings.size}px</span>
+                <span className="font-medium">{(qrData || previewQR)?.size || qrSettings.size}px</span>
               </div>
               <div className="text-left">
                 <span className="text-gray-600 block">Error Level:</span>
                 <span className="font-medium">
-                  {qrData?.error_correction || qrSettings.errorCorrection}
-                  {qrData?.error_correction === 'L' && ' (7% recovery)'}
-                  {qrData?.error_correction === 'M' && ' (15% recovery)'}
-                  {qrData?.error_correction === 'Q' && ' (25% recovery)'}
-                  {qrData?.error_correction === 'H' && ' (30% recovery)'}
+                  {(qrData || previewQR)?.error_correction || qrSettings.errorCorrection}
+                  {((qrData || previewQR)?.error_correction || qrSettings.errorCorrection) === 'L' && ' (7% recovery)'}
+                  {((qrData || previewQR)?.error_correction || qrSettings.errorCorrection) === 'M' && ' (15% recovery)'}
+                  {((qrData || previewQR)?.error_correction || qrSettings.errorCorrection) === 'Q' && ' (25% recovery)'}
+                  {((qrData || previewQR)?.error_correction || qrSettings.errorCorrection) === 'H' && ' (30% recovery)'}
                 </span>
               </div>
               {qrData?.created_at && (
@@ -415,13 +458,19 @@ function GeneralQR() {
                   </span>
                 </div>
               )}
+              {!qrData?.created_at && previewQR && (
+                <div className="col-span-2 text-left">
+                  <span className="text-gray-600 block">Status:</span>
+                  <span className="font-medium text-blue-600">Live Preview - Click Generate to Save</span>
+                </div>
+              )}
             </div>
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             <button 
               onClick={handleDownloadQR}
-              disabled={!qrData?.image}
+              disabled={!(qrData?.image || previewQR?.image)}
               className="flex items-center justify-center space-x-2 py-3 bg-white border-2 border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Download className="w-4 h-4" />
@@ -429,7 +478,7 @@ function GeneralQR() {
             </button>
             <button 
               onClick={handleCopyText}
-              disabled={!qrData?.text}
+              disabled={!(qrData?.image || previewQR?.image)}
               className="flex items-center justify-center space-x-2 py-3 bg-white border-2 border-blue-200 text-blue-700 rounded-xl hover:bg-blue-50 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Copy className="w-4 h-4" />
@@ -437,7 +486,7 @@ function GeneralQR() {
             </button>
             <button 
               onClick={handleShareQR}
-              disabled={!qrData?.text}
+              disabled={!(qrData?.image || previewQR?.image)}
               className="flex items-center justify-center space-x-2 py-3 bg-white border-2 border-purple-200 text-purple-700 rounded-xl hover:bg-purple-50 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Share2 className="w-4 h-4" />
@@ -446,8 +495,8 @@ function GeneralQR() {
             <button 
               className="flex items-center justify-center space-x-2 py-3 bg-gradient-to-r from-green-600 to-blue-600 text-white rounded-xl hover:from-green-700 hover:to-blue-700 transition-all duration-200 font-medium"
               onClick={() => {
-                if (qrData?.text) {
-                  window.open(qrData.text, '_blank', 'noopener,noreferrer');
+                if ((qrData || previewQR)?.text) {
+                  window.open((qrData || previewQR).text, '_blank', 'noopener,noreferrer');
                 } else {
                   toast.info('Generate a QR code first to view details');
                 }
