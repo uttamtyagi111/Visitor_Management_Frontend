@@ -18,7 +18,6 @@ const ReinviteModal = ({
   invite,
   onReinvite,
   loading = false,
-  error = "",
 }) => {
   const [formData, setFormData] = useState({
     visit_time: "",
@@ -187,18 +186,6 @@ const ReinviteModal = ({
               >
                 <CheckCircle className="w-5 h-5" />
                 <span>{success}</span>
-              </motion.div>
-            )}
-
-            {/* Error Message */}
-            {error && (
-              <motion.div
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mb-6 p-4 bg-red-100 border border-red-200 text-red-700 rounded-lg flex items-center space-x-2"
-              >
-                <AlertCircle className="w-5 h-5" />
-                <span>{error}</span>
               </motion.div>
             )}
 

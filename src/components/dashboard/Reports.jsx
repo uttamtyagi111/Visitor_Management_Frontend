@@ -55,7 +55,7 @@ function Reports() {
     const isVisitor = !!report.visitor_data;
     const isInvitee = !!report.invite_data;
 
-    return {
+    const normalized = {
       ...report,
       visitor_type: isVisitor ? 'visitor' : 'invitee',
       visitor_name: isVisitor
@@ -70,12 +70,18 @@ function Reports() {
       purpose: isVisitor
         ? report.visitor_data?.purpose
         : report.invite_data?.purpose,
+      // Prefer explicit status from backend if present; otherwise derive from timestamps later
       status: isVisitor
-        ? report.visitor_data?.status
-        : report.invite_data?.status,
+        ? (report.visitor_data?.status || report.status)
+        : (report.invite_data?.status || report.status),
       image: report.image ||
-        (isVisitor ? report.visitor_data?.image : report.invite_data?.image)
+        (isVisitor ? report.visitor_data?.image : report.invite_data?.image),
+      // Ensure check-in/out exist at top level for consistent rendering and filtering
+      check_in: report.check_in || (isVisitor ? report.visitor_data?.check_in : report.invite_data?.check_in),
+      check_out: report.check_out || (isVisitor ? report.visitor_data?.check_out : report.invite_data?.check_out),
     };
+
+    return normalized;
   }).filter(report => {
     // Filter by active tab
     const matchesTab = (activeTab === 'visitors' && report.visitor_type === 'visitor') ||
