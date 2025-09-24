@@ -88,7 +88,10 @@ class InviteeAPI {
 
   // Get all invites (Admin usage)
   async getInvites() {
-    return await this.makeRequest('/invites/');
+    console.log('API: Getting invites from /invites/');
+    const result = await this.makeRequest('/invites/');
+    console.log('API: getInvites result:', result);
+    return result;
   }
 
   // Create new invite (Admin usage)
@@ -182,6 +185,14 @@ class InviteeAPI {
   async getInviteTimeline(inviteId) {
     return await this.makeRequest(`/invites/${inviteId}/timeline/`);
   }
+
+  // Reinvite with updated details
+  async reinviteInvite(id, reinviteData) {
+    return await this.makeRequest(`/invites/${id}/reinvite/`, {
+      method: 'POST',
+      body: JSON.stringify(reinviteData),
+    });
+  }
 }
 
 // Create and export a singleton instance
@@ -194,7 +205,7 @@ export const inviteeHelpers = {
     { value: 'created', label: 'Created' },
     { value: 'pending', label: 'Pending' },
     // { value: 'sent', label: 'Sent' },
-    // { value: 'confirmed', label: 'Confirmed' },
+    { value: 'reinvited', label: 'Re-invited' },
     { value: 'approved', label: 'Approved' },
     { value: 'rejected', label: 'Rejected' },
     { value: 'checked_in', label: 'Checked In' },
@@ -208,8 +219,9 @@ export const inviteeHelpers = {
     const colors = {
       'created': 'bg-gray-100 text-gray-800 border-gray-200',
       'pending': 'bg-yellow-100 text-yellow-800 border-yellow-200',
+      'reinvited': 'bg-purple-100 text-purple-800 border-purple-200',
+      'approved': 'bg-green-100 text-green-800 border-green-200',
       'expired': 'bg-red-100 text-red-800 border-red-200',
-      'confirmed': 'bg-green-100 text-green-800 border-green-200',
       'checked_in': 'bg-blue-100 text-blue-800 border-blue-200',
       'rejected': 'bg-red-100 text-red-800 border-red-200',
       'checked_out': 'bg-gray-100 text-gray-800 border-gray-200',

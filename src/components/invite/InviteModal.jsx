@@ -23,6 +23,7 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false }) => {
   const { user } = useAuth(); // Get logged-in user information
   const [currentStep, setCurrentStep] = useState(1);
   const [inviteCode, setInviteCode] = useState('');
+  const [inviteId, setInviteId] = useState(null); // Store invite ID for status updates
   const [capturedImage, setCapturedImage] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -60,6 +61,7 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false }) => {
       expiry_time: ''
     });
     setInviteCode('');
+    setInviteId(null); // Reset invite ID
     setCapturedImage(null);
     setCurrentStep(1);
     setError('');
@@ -88,6 +90,9 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false }) => {
       }
 
       const inviteData = await inviteeAPI.verifyInvite(inviteCode);
+      
+      // Store the invite ID for status updates
+      setInviteId(inviteData.id);
       
       setInviteFormData({
         visitor_name: inviteData.visitor_name || '',
@@ -184,13 +189,23 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false }) => {
     }
   };
 
-  const handlePrintPass = () => {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    
-    // Set canvas size for the pass
-    canvas.width = 400;
-    canvas.height = 600;
+  const handlePrintPass = async () => {
+    setLoading(true);
+    setError('');
+
+    try {
+      // First, update the invite status to checked_in
+      if (inviteId) {
+        await inviteeAPI.updateInviteStatus(inviteId, "checked_in");
+      }
+      
+      // Then generate and download the pass
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      // Set canvas size for the pass
+      canvas.width = 400;
+      canvas.height = 600;
     
     // Create gradient background
     const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
@@ -334,6 +349,15 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false }) => {
       };
     } else {
       drawPass();
+    }
+    
+    // Show success message
+    setSuccess('Pass generated and downloaded successfully! Visitor status updated to checked-in.');
+    
+    } catch (error) {
+      setError(inviteeHelpers.handleApiError(error));
+    } finally {
+      setLoading(false);
     }
   };
 

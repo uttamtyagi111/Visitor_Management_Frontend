@@ -84,6 +84,7 @@ import {
 import inviteeAPI, { inviteeHelpers } from "../../api/invite.js";
 // Import the invite modal component
 import InviteModal from "../invite/InviteModal";
+import ReinviteModal from "../invite/ReinviteModal";
 
 function Invitees() {
   const { user } = useAuth(); // Get logged-in user information
@@ -115,6 +116,16 @@ function Invitees() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentInvite, setCurrentInvite] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
+
+  // Reinvite modal state
+  const [showReinviteModal, setShowReinviteModal] = useState(false);
+  const [reinviteTarget, setReinviteTarget] = useState(null);
+  const [reinviteLoading, setReinviteLoading] = useState(false);
+  const [reinviteError, setReinviteError] = useState("");
+
+  // Timeline data state
+  const [timelineData, setTimelineData] = useState([]);
+  const [timelineLoading, setTimelineLoading] = useState(false);
   const [formData, setFormData] = useState({
     visitor_name: "",
     visitor_email: "",
@@ -135,10 +146,32 @@ function Invitees() {
     setCurrentInvite(null);
     setFormErrors({});
     setIsEditing(false);
+    setTimelineData([]); // Reset timeline data
+    setTimelineLoading(false);
     resetForm();
   };
+  const closeReinviteModal = () => {
+    setShowReinviteModal(false);
+    setReinviteTarget(null);
+    setReinviteError("");
+  };
+
+  // Fetch timeline data for an invite
+  const fetchTimelineData = async (inviteId) => {
+    try {
+      setTimelineLoading(true);
+      const timeline = await inviteeAPI.getInviteTimeline(inviteId);
+      console.log('Timeline data fetched:', timeline);
+      setTimelineData(timeline || []);
+    } catch (error) {
+      console.error('Error fetching timeline:', error);
+      setTimelineData([]);
+    } finally {
+      setTimelineLoading(false);
+    }
+  };
   
-  const openInviteModal = (invite) => {
+  const openInviteModal = async (invite) => {
     setCurrentInvite(invite);
     setFormData({
       visitor_name: invite.visitor_name || "",
@@ -150,18 +183,29 @@ function Invitees() {
       invited_by: invite.invited_by || "",
       status: invite.status || "pending",
     });
-    setFormErrors({});
     setIsModalOpen(true);
-    setIsEditing(false);
+    
+    // Fetch timeline data for this invite
+    if (invite.id) {
+      await fetchTimelineData(invite.id);
+    }
   };
 
-
+  // Handle input changes for edit form
   const handleEditInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({
       ...prev,
       [name]: value
     }));
+
+    // Clear specific field error when user starts typing
+    if (formErrors[name]) {
+      setFormErrors(prev => ({
+        ...prev,
+        [name]: ""
+      }));
+    }
   };
 
   const validateForm = () => {
@@ -350,6 +394,46 @@ function Invitees() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Handle reinvite
+  const handleReinvite = async (inviteId, reinviteData) => {
+    try {
+      setReinviteLoading(true);
+      setReinviteError("");
+      
+      const response = await inviteeAPI.reinviteInvite(inviteId, reinviteData);
+      
+      setSuccess("Invitation reinvited successfully! New invite code generated.");
+      setTimeout(() => {
+        setSuccess("");
+      }, 3000);
+      
+      closeReinviteModal();
+      loadInvites(); // Reload the invites list
+      
+      // Refresh timeline data if modal is open for the same invite
+      if (currentInvite && currentInvite.id === inviteId) {
+        await fetchTimelineData(inviteId);
+      }
+    } catch (error) {
+      console.error("Error reinviting:", error);
+      setReinviteError(inviteeHelpers.handleApiError(error));
+    } finally {
+      setReinviteLoading(false);
+    }
+  };
+
+  // Open reinvite modal
+  const openReinviteModal = (invite) => {
+    setReinviteTarget(invite);
+    setReinviteError("");
+    setShowReinviteModal(true);
+  };
+
+  // Check if invite can be reinvited
+  const canReinvite = (status) => {
+    return ['expired', 'rejected', 'checked_out'].includes(status);
   };
 
   const handleStatusUpdate = async (id, newStatus) => {
@@ -762,39 +846,39 @@ function Invitees() {
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 mb-2">
+        {/* Enhanced Responsive Header */}
+        <div className="flex flex-col space-y-4 sm:space-y-0 sm:flex-row sm:items-center sm:justify-between mb-6">
+          <div className="flex-1">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1 sm:mb-2">
               Invite Management
             </h1>
-            <p className="text-gray-600 text-base">
+            <p className="text-sm sm:text-base text-gray-600">
               Send invitations and manage upcoming visits
             </p>
           </div>
-          <div className="flex items-center space-x-4">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
             <button
               onClick={refreshData}
               disabled={loading}
-              className="flex items-center space-x-2 px-4 py-2 bg-white/70 border border-gray-200 rounded-xl hover:bg-white hover:shadow-lg transition-all duration-200 disabled:opacity-50"
+              className="flex items-center justify-center space-x-2 px-3 sm:px-4 py-2 sm:py-2.5 bg-white/70 border border-gray-200 rounded-xl hover:bg-white hover:shadow-lg transition-all duration-200 disabled:opacity-50 text-sm sm:text-base"
             >
               <RefreshCw
                 className={`w-4 h-4 ${loading ? "animate-spin" : ""}`}
               />
-              <span>Refresh</span>
+              <span className="hidden sm:inline">Refresh</span>
             </button>
             <button
               onClick={() => setShowInviteCodeModal(true)}
-              className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-green-600 to-blue-600 text-white rounded-xl hover:from-green-700 hover:to-blue-700 shadow-lg hover:shadow-xl transition-all duration-200"
+              className="flex items-center justify-center space-x-2 px-4 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-green-600 to-blue-600 text-white rounded-xl hover:from-green-700 hover:to-blue-700 shadow-lg hover:shadow-xl transition-all duration-200 text-sm sm:text-base"
             >
-              <QrCode className="w-5 h-5" />
+              <QrCode className="w-4 h-4 sm:w-5 sm:h-5" />
               <span>Invite Code</span>
             </button>
             <button
               onClick={() => setShowInviteForm(true)}
-              className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 shadow-lg hover:shadow-xl transition-all duration-200"
+              className="flex items-center justify-center space-x-2 px-4 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 shadow-lg hover:shadow-xl transition-all duration-200 text-sm sm:text-base font-medium"
             >
-              <Plus className="w-5 h-5" />
+              <Plus className="w-4 h-4 sm:w-5 sm:h-5" />
               <span>Send Invitation</span>
             </button>
           </div>
@@ -835,58 +919,61 @@ function Invitees() {
           </motion.div>
         )}
 
-        {/* Filters */}
+        {/* Enhanced Responsive Filters */}
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, duration: 0.5 }}
-          className="bg-white/70 backdrop-blur-sm rounded-xl p-3 sm:p-4 shadow-lg border border-white/50 mb-4"
+          className="bg-white/70 backdrop-blur-sm rounded-xl p-3 sm:p-4 shadow-lg border border-white/50 mb-6"
         >
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+          <div className="flex flex-col space-y-3 sm:space-y-0 sm:flex-row sm:items-center sm:space-x-4">
             {/* Search */}
-            <div className="lg:col-span-2">
+            <div className="flex-1 sm:max-w-md">
               <div className="relative">
-                <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
                 <input
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-8 pr-3 py-2 text-sm bg-white/50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                  placeholder="Search invitees..."
+                  className="w-full pl-9 sm:pl-10 pr-4 py-2.5 sm:py-3 text-sm sm:text-base bg-white/50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                  placeholder="Search by name, email, or purpose..."
                 />
               </div>
             </div>
 
-            {/* Status Filter */}
-            <div className="relative">
-              <Filter className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <select
-                value={statusFilter}
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full pl-8 pr-3 py-2 text-sm bg-white/50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 appearance-none"
-              >
-                <option value="all">All Status</option>
-                {inviteeHelpers.statusOptions.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </select>
-            </div>
+            {/* Filter Controls */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
+              {/* Status Filter */}
+              <div className="relative min-w-0 sm:min-w-[140px]">
+                <Filter className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <select
+                  value={statusFilter}
+                  onChange={(e) => setStatusFilter(e.target.value)}
+                  className="w-full pl-8 pr-3 py-2.5 text-sm bg-white/50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 appearance-none"
+                >
+                  <option value="all">All Status</option>
+                  {inviteeHelpers.statusOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
 
-            {/* Date Filter */}
-            <div className="relative">
-              <Calendar className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <select
-                value={dateFilter}
-                onChange={(e) => setDateFilter(e.target.value)}
-                className="w-full pl-8 pr-3 py-2 text-sm bg-white/50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 appearance-none"
-              >
-                <option value="today">Today</option>
-                <option value="yesterday">Yesterday</option>
-                <option value="week">This Week</option>
-                <option value="month">This Month</option>
-              </select>
+              {/* Date Filter */}
+              <div className="relative min-w-0 sm:min-w-[120px]">
+                <Calendar className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                <select
+                  value={dateFilter}
+                  onChange={(e) => setDateFilter(e.target.value)}
+                  className="w-full pl-8 pr-3 py-2.5 text-sm bg-white/50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 appearance-none"
+                >
+                  <option value="today">Today</option>
+                  <option value="yesterday">Yesterday</option>
+                  <option value="week">This Week</option>
+                  <option value="month">This Month</option>
+                </select>
+              </div>
             </div>
           </div>
         </motion.div>
@@ -1123,6 +1210,19 @@ function Invitees() {
                             </button>
                           )}
 
+                          {/* Reinvite button for expired, rejected, or checked_out invites */}
+                          {canReinvite(invite.status) && (
+                            <button
+                              onClick={() => openReinviteModal(invite)}
+                              disabled={loading}
+                              className="px-3 py-1 bg-orange-100 text-orange-800 rounded-lg hover:bg-orange-200 transition-colors duration-200 text-sm disabled:opacity-50 flex items-center space-x-1"
+                              title="Reinvite"
+                            >
+                              <RefreshCw className="w-4 h-4" />
+                              <span>Reinvite</span>
+                            </button>
+                          )}
+
                           <button
                             onClick={() => handleDeleteInvite(invite.id)}
                             className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
@@ -1263,77 +1363,115 @@ function Invitees() {
                     )}
                   </div>
 
-                  <div className="flex items-center justify-between space-x-2">
-                    <select
-                      value={invite.status}
-                      onChange={(e) =>
-                        handleStatusUpdate(invite.id, e.target.value)
-                      }
-                      className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white"
-                      disabled={loading}
-                    >
-                      {inviteeHelpers.statusOptions.map((option) => (
-                        <option key={option.value} value={option.value}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-
-                    {/* Approve/Reject buttons for pending invites */}
-                    {invite.status === "pending" && (
-                      <>
-                        <button
-                          onClick={() =>
-                            handleStatusUpdate(invite.id, "approved")
-                          }
-                          disabled={loading}
-                          className="p-2 bg-green-100 text-green-600 rounded-lg hover:bg-green-200 transition-colors duration-200 disabled:opacity-50"
-                          title="Approve"
-                        >
-                          <ThumbsUp className="w-4 h-4" />
-                        </button>
-                        <button
-                          onClick={() =>
-                            handleStatusUpdate(invite.id, "rejected")
-                          }
-                          disabled={loading}
-                          className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition-colors duration-200 disabled:opacity-50"
-                          title="Reject"
-                        >
-                          <ThumbsDown className="w-4 h-4" />
-                        </button>
-                      </>
-                    )}
-
-                    {/* Pass generation button for approved invites */}
-                    {invite.status === "approved" && !invite.pass_generated && (
-                      <button
-                        onClick={() => handleGenerateInvitePass(invite)}
+                  {/* Enhanced Mobile Actions Section */}
+                  <div className="space-y-3">
+                    {/* Status Selector */}
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm font-medium text-gray-700 min-w-[60px]">Status:</span>
+                      <select
+                        value={invite.status}
+                        onChange={(e) =>
+                          handleStatusUpdate(invite.id, e.target.value)
+                        }
+                        className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                         disabled={loading}
-                        className="px-3 py-1 bg-blue-100 text-blue-800 rounded-lg hover:bg-blue-200 transition-colors duration-200 text-sm disabled:opacity-50"
                       >
-                        Generate Pass
-                      </button>
-                    )}
+                        {inviteeHelpers.statusOptions.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
 
-                    {/* Download pass button for generated passes */}
-                    {invite.pass_generated && (
+                    {/* Action Buttons */}
+                    <div className="flex flex-wrap items-center gap-2">
+                      {/* Approve/Reject buttons for pending invites */}
+                      {invite.status === "pending" && (
+                        <>
+                          <button
+                            onClick={() =>
+                              handleStatusUpdate(invite.id, "approved")
+                            }
+                            disabled={loading}
+                            className="flex items-center space-x-1 px-3 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors duration-200 disabled:opacity-50 text-sm font-medium"
+                            title="Approve"
+                          >
+                            <ThumbsUp className="w-4 h-4" />
+                            <span>Approve</span>
+                          </button>
+                          <button
+                            onClick={() =>
+                              handleStatusUpdate(invite.id, "rejected")
+                            }
+                            disabled={loading}
+                            className="flex items-center space-x-1 px-3 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors duration-200 disabled:opacity-50 text-sm font-medium"
+                            title="Reject"
+                          >
+                            <ThumbsDown className="w-4 h-4" />
+                            <span>Reject</span>
+                          </button>
+                        </>
+                      )}
+
+                      {/* Pass generation button for approved invites */}
+                      {invite.status === "approved" && !invite.pass_generated && (
+                        <button
+                          onClick={() => handleGenerateInvitePass(invite)}
+                          disabled={loading}
+                          className="flex items-center space-x-1 px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors duration-200 text-sm disabled:opacity-50 font-medium"
+                        >
+                          <FileText className="w-4 h-4" />
+                          <span>Generate Pass</span>
+                        </button>
+                      )}
+
+                      {/* Download pass button for generated passes */}
+                      {invite.pass_generated && (
+                        <button
+                          onClick={() => handleDownloadPass(invite.id, "image")}
+                          disabled={loading}
+                          className="flex items-center space-x-1 px-3 py-2 bg-green-100 text-green-700 rounded-lg hover:bg-green-200 transition-colors duration-200 text-sm disabled:opacity-50 font-medium"
+                        >
+                          <Download className="w-4 h-4" />
+                          <span>Download Pass</span>
+                        </button>
+                      )}
+
+                      {/* Reinvite button for expired, rejected, or checked_out invites */}
+                      {canReinvite(invite.status) && (
+                        <button
+                          onClick={() => openReinviteModal(invite)}
+                          disabled={loading}
+                          className="flex items-center space-x-1 px-3 py-2 bg-orange-100 text-orange-700 rounded-lg hover:bg-orange-200 transition-colors duration-200 text-sm disabled:opacity-50 font-medium"
+                          title="Reinvite"
+                        >
+                          <RefreshCw className="w-4 h-4" />
+                          <span>Reinvite</span>
+                        </button>
+                      )}
+
+                      {/* View Details Button */}
                       <button
-                        onClick={() => handleDownloadPass(invite.id, "image")}
-                        disabled={loading}
-                        className="px-3 py-1 bg-green-100 text-green-800 rounded-lg hover:bg-green-200 transition-colors duration-200 text-sm disabled:opacity-50"
+                        onClick={() => openInviteModal(invite)}
+                        className="flex items-center space-x-1 px-3 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors duration-200 text-sm font-medium"
+                        title="View Details"
                       >
-                        Download Pass
+                        <Eye className="w-4 h-4" />
+                        <span>Details</span>
                       </button>
-                    )}
 
-                    <button
-                      onClick={() => handleDeleteInvite(invite.id)}
-                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                      disabled={loading}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                      {/* Delete Button */}
+                      <button
+                        onClick={() => handleDeleteInvite(invite.id)}
+                        className="flex items-center space-x-1 px-3 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors duration-200 text-sm font-medium"
+                        disabled={loading}
+                        title="Delete"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        <span>Delete</span>
+                      </button>
+                    </div>
                   </div>
                 </motion.div>
               ))}
@@ -1761,79 +1899,80 @@ function Invitees() {
                         Timeline
                       </h3>
                       
-                      {/* Timeline Component */}
-                      <div className="space-y-4">
-                        {(() => {
-                          const getTimelineSteps = (invite) => {
-                            const steps = [
-                              {
-                                status: 'pending',
-                                title: 'Invitation Sent',
-                                description: 'Invitation created and sent to visitor',
-                                timestamp: invite.created_at,
-                                icon: MailIcon,
-                                completed: true
-                              },
-                              {
-                                status: 'approved',
-                                title: 'Invitation Approved',
-                                description: 'Invitation approved by host',
-                                timestamp: invite.status === 'approved' || invite.status === 'checked_in' || invite.status === 'checked_out' ? invite.updated_at || invite.created_at : null,
-                                icon: CheckCircle,
-                                completed: ['approved', 'checked_in', 'checked_out'].includes(invite.status)
-                              },
-                              {
-                                status: 'checked_in',
-                                title: 'Visitor Checked In',
-                                description: 'Visitor arrived and checked in',
-                                timestamp: invite.status === 'checked_in' || invite.status === 'checked_out' ? invite.updated_at || invite.created_at : null,
-                                icon: UserCheck,
-                                completed: ['checked_in', 'checked_out'].includes(invite.status)
-                              },
-                              {
-                                status: 'checked_out',
-                                title: 'Visitor Checked Out',
-                                description: 'Visit completed and checked out',
-                                timestamp: invite.status === 'checked_out' ? invite.updated_at || invite.created_at : null,
-                                icon: UserX,
-                                completed: invite.status === 'checked_out'
+                      {/* Enhanced Timeline Component with Real API Data */}
+                      <div className="max-h-96 overflow-y-auto space-y-4 pr-2">
+                        {timelineLoading ? (
+                          <div className="flex items-center justify-center py-8">
+                            <div className="animate-spin w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full"></div>
+                            <span className="ml-2 text-sm text-gray-600">Loading timeline...</span>
+                          </div>
+                        ) : (
+                          (() => {
+                            const getTimelineSteps = () => {
+                              // Map status to display information
+                              const statusMap = {
+                                'pending': { title: 'Invitation Sent', description: 'Invitation created and sent to visitor', icon: MailIcon, color: 'green' },
+                                'approved': { title: 'Invitation Approved', description: 'Invitation approved by host', icon: CheckCircle, color: 'green' },
+                                'rejected': { title: 'Invitation Rejected', description: 'Invitation was rejected', icon: XCircleIcon, color: 'red' },
+                                'checked_in': { title: 'Visitor Checked In', description: 'Visitor arrived and checked in', icon: UserCheck, color: 'green' },
+                                'checked_out': { title: 'Visitor Checked Out', description: 'Visit completed and checked out', icon: UserX, color: 'green' },
+                                'expired': { title: 'Invitation Expired', description: 'Invitation has expired', icon: ClockIcon3, color: 'orange' },
+                                'reinvited': { title: 'Invitation Re-Sent', description: 'Invitation re-sent to visitor with updated details', icon: RefreshCw, color: 'blue' }
+                              };
+
+                              // Use API timeline data if available, otherwise fallback to current invite data
+                              if (timelineData && timelineData.length > 0) {
+                                return timelineData.map((timelineItem, index) => {
+                                  const statusInfo = statusMap[timelineItem.status] || statusMap['pending'];
+                                  return {
+                                    status: timelineItem.status,
+                                    title: statusInfo.title,
+                                    description: timelineItem.notes || statusInfo.description,
+                                    timestamp: timelineItem.created_at || timelineItem.timestamp,
+                                    icon: statusInfo.icon,
+                                    completed: true,
+                                    isRejected: timelineItem.status === 'rejected',
+                                    isExpired: timelineItem.status === 'expired',
+                                    isReinvited: timelineItem.status === 'reinvited',
+                                    updatedBy: timelineItem.updated_by,
+                                    order: index + 1
+                                  };
+                                }).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+                              } else {
+                                // Fallback to basic timeline based on current invite status
+                                const fallbackSteps = [
+                                  {
+                                    status: 'pending',
+                                    title: 'Invitation Sent',
+                                    description: 'Invitation created and sent to visitor',
+                                    timestamp: currentInvite.created_at,
+                                    icon: MailIcon,
+                                    completed: true,
+                                    order: 1
+                                  }
+                                ];
+
+                                if (currentInvite.status !== 'pending') {
+                                  const statusInfo = statusMap[currentInvite.status] || statusMap['pending'];
+                                  fallbackSteps.push({
+                                    status: currentInvite.status,
+                                    title: statusInfo.title,
+                                    description: statusInfo.description,
+                                    timestamp: currentInvite.updated_at || currentInvite.created_at,
+                                    icon: statusInfo.icon,
+                                    completed: true,
+                                    isRejected: currentInvite.status === 'rejected',
+                                    isExpired: currentInvite.status === 'expired',
+                                    isReinvited: currentInvite.status === 'reinvited',
+                                    order: 2
+                                  });
+                                }
+
+                                return fallbackSteps;
                               }
-                            ];
+                            };
 
-                            // Handle rejected status
-                            if (invite.status === 'rejected') {
-                              steps[1] = {
-                                status: 'rejected',
-                                title: 'Invitation Rejected',
-                                description: 'Invitation was rejected',
-                                timestamp: invite.updated_at || invite.created_at,
-                                icon: XCircleIcon,
-                                completed: true,
-                                isRejected: true
-                              };
-                              // Mark subsequent steps as not completed
-                              steps[2].completed = false;
-                              steps[3].completed = false;
-                            }
-
-                            // Handle expired status
-                            if (invite.status === 'expired') {
-                              const expiredStep = {
-                                status: 'expired',
-                                title: 'Invitation Expired',
-                                description: 'Invitation has expired',
-                                timestamp: invite.expiry_time || invite.updated_at,
-                                icon: ClockIcon3,
-                                completed: true,
-                                isExpired: true
-                              };
-                              steps.push(expiredStep);
-                            }
-
-                            return steps;
-                          };
-
-                          const timelineSteps = getTimelineSteps(currentInvite);
+                            const timelineSteps = getTimelineSteps();
 
                           return timelineSteps.map((step, index) => {
                             const IconComponent = step.icon;
@@ -1844,7 +1983,15 @@ function Invitees() {
                                 {/* Vertical Line */}
                                 {!isLast && (
                                   <div className={`absolute left-4 top-8 w-0.5 h-16 ${
-                                    step.completed ? 'bg-green-400' : 'bg-gray-300'
+                                    step.completed 
+                                      ? step.isRejected 
+                                        ? 'bg-red-400'
+                                        : step.isExpired
+                                        ? 'bg-orange-400'
+                                        : step.isReinvited
+                                        ? 'bg-blue-400'
+                                        : 'bg-green-400'
+                                      : 'bg-gray-300'
                                   }`} />
                                 )}
                                 
@@ -1857,6 +2004,8 @@ function Invitees() {
                                         ? 'bg-red-100 text-red-600' 
                                         : step.isExpired
                                         ? 'bg-orange-100 text-orange-600'
+                                        : step.isReinvited
+                                        ? 'bg-blue-100 text-blue-600'
                                         : 'bg-green-100 text-green-600'
                                       : 'bg-gray-100 text-gray-400'
                                   }`}>
@@ -1877,6 +2026,8 @@ function Invitees() {
                                             ? 'bg-red-400' 
                                             : step.isExpired
                                             ? 'bg-orange-400'
+                                            : step.isReinvited
+                                            ? 'bg-blue-400'
                                             : 'bg-green-400'
                                         }`} />
                                       )}
@@ -1889,12 +2040,18 @@ function Invitees() {
                                         {inviteeHelpers.formatDateTime(step.timestamp)}
                                       </p>
                                     )}
+                                    {step.updatedBy && (
+                                      <p className="text-xs text-gray-400 mt-1">
+                                        Updated by: {step.updatedBy}
+                                      </p>
+                                    )}
                                   </div>
                                 </div>
                               </div>
                             );
                           });
-                        })()}
+                        })()
+                        )}
                       </div>
                     </div>
                   </div>
@@ -2053,6 +2210,7 @@ function Invitees() {
                       >
                         <option value="pending">Pending</option>
                         <option value="approved">Approved</option>
+                        <option value="reinvited">Reinvited</option>
                         <option value="checked_in">Checked_in</option>
                         <option value="rejected">Rejected</option>
                         <option value="expired">Expired</option>
@@ -2214,6 +2372,16 @@ function Invitees() {
           </motion.div>
         </motion.div>
       )}
+
+      {/* Reinvite Modal */}
+      <ReinviteModal
+        isOpen={showReinviteModal}
+        onClose={closeReinviteModal}
+        invite={reinviteTarget}
+        onReinvite={handleReinvite}
+        loading={reinviteLoading}
+        error={reinviteError}
+      />
     </div>
   );
 }
