@@ -178,6 +178,8 @@ export const VisitorDesktopTable = ({
                     className="px-2 py-1 text-sm border border-gray-200 rounded bg-white min-w-[100px]"
                     disabled={updating}
                   >
+                    <option value="created">Created</option>
+                    <option value="revisit">Revisit</option>
                     <option value="pending">Pending</option>
                     <option value="approved">Approved</option>
                     <option value="rejected">Rejected</option>
@@ -392,6 +394,8 @@ export const VisitorMobileCards = ({
                   className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white"
                   disabled={updating}
                 >
+                  <option value="pending">Created</option>
+                  <option value="revisit">Revisit</option>
                   <option value="pending">Pending</option>
                   <option value="approved">Approved</option>
                   <option value="rejected">Rejected</option>

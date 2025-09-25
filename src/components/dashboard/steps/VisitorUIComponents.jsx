@@ -3,6 +3,8 @@ import {
   CheckCircle,
   XCircle,
   Clock,
+  RotateCcw,
+  FileText,
 } from "lucide-react";
 
 // UI utility components for visitor management
@@ -14,6 +16,8 @@ export const getStatusBadge = (status) => {
     approved: "bg-blue-100 text-blue-800 border-blue-200",
     rejected: "bg-red-100 text-red-800 border-red-200",
     pending: "bg-yellow-100 text-yellow-800 border-yellow-200",
+    created: "bg-indigo-100 text-indigo-800 border-indigo-200",
+    revisit: "bg-purple-100 text-purple-800 border-purple-200",
   };
 
   const icons = {
@@ -23,6 +27,8 @@ export const getStatusBadge = (status) => {
     approved: <CheckCircle className="w-4 h-4" />,
     rejected: <XCircle className="w-4 h-4" />,
     pending: <Clock className="w-4 h-4" />,
+    created: <FileText className="w-4 h-4" />,
+    revisit: <RotateCcw className="w-4 h-4" />,
   };
 
   return (

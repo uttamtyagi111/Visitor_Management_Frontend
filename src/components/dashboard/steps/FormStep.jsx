@@ -1,17 +1,18 @@
 import React from "react";
-import { User, AlertCircle, Loader, ArrowLeft, CheckCircle, Phone, Mail } from "lucide-react";
+import { User, AlertCircle, Loader, ArrowLeft, CheckCircle, Phone, Mail, RotateCcw } from "lucide-react";
 import { validationUtils } from "../../../utils/validation";
 
 const FormStep = ({ 
   formData, 
   validationErrors, 
-  error, 
   isSubmitting, 
-  capturedImage,
-  imagePreview, 
   onInputChange, 
   onSubmit, 
-  onBack 
+  onBack,
+  isCheckingVisitor,
+  existingVisitor,
+  existingImage,
+  capturedImage
 }) => {
   return (
     <div className="space-y-6">
@@ -45,13 +46,44 @@ const FormStep = ({
         </div>
       </div>
 
-      {imagePreview && (
-        <div className="flex justify-center">
-          <img
-            src={imagePreview}
-            alt="Your photo"
-            className="w-20 h-20 rounded-full object-cover border-4 border-blue-200 shadow-md"
-          />
+      {/* Existing Visitor Preview */}
+      {existingVisitor && (
+        <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 sm:p-4">
+          <div className="flex items-center space-x-3 sm:space-x-4">
+            {/* Existing Image Preview */}
+            <div className="flex-shrink-0">
+              {existingImage ? (
+                <img
+                  src={existingImage}
+                  alt="Your previous photo"
+                  className="w-12 h-12 sm:w-16 sm:h-16 rounded-full object-cover border-2 border-purple-300 shadow-md"
+                  crossOrigin="anonymous"
+                  onError={(e) => {
+                    console.error('Failed to load existing visitor image in form:', existingImage);
+                    e.target.style.display = 'none';
+                  }}
+                />
+              ) : (
+                <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-full bg-purple-200 border-2 border-purple-300 flex items-center justify-center">
+                  <User className="w-6 h-6 sm:w-8 sm:h-8 text-purple-600" />
+                </div>
+              )}
+            </div>
+            
+            {/* Existing Visitor Info */}
+            <div className="flex-1">
+              <div className="flex items-center space-x-2 mb-1">
+                <RotateCcw className="w-4 h-4 text-purple-600" />
+                <span className="text-purple-800 font-medium text-sm">Returning Visitor</span>
+              </div>
+              <p className="text-purple-700 text-sm">
+                Welcome back, <strong>{existingVisitor.name}</strong>!
+              </p>
+              <p className="text-purple-600 text-xs">
+                We found your previous visit record. You can update your photo in the next step.
+              </p>
+            </div>
+          </div>
         </div>
       )}
 
@@ -68,7 +100,7 @@ const FormStep = ({
               value={formData.name}
               onChange={onInputChange}
               required
-              className={`w-full pl-10 pr-10 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
+              className={`w-full pl-10 pr-10 py-2 sm:py-3 text-sm sm:text-base border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
                 validationErrors.name 
                   ? 'border-red-300 bg-red-50' 
                   : formData.name && !validationErrors.name 
@@ -102,7 +134,7 @@ const FormStep = ({
               value={formData.phone ? validationUtils.formatPhoneNumber(formData.phone) : ''}
               onChange={onInputChange}
               required
-              className={`w-full pl-10 pr-10 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
+              className={`w-full pl-10 pr-10 py-2 sm:py-3 text-sm sm:text-base border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
                 validationErrors.phone 
                   ? 'border-red-300 bg-red-50' 
                   : formData.phone && !validationErrors.phone 
@@ -139,7 +171,7 @@ const FormStep = ({
               value={formData.email}
               onChange={onInputChange}
               required
-              className={`w-full pl-10 pr-10 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
+              className={`w-full pl-10 pr-10 py-2 sm:py-3 text-sm sm:text-base border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all ${
                 validationErrors.email 
                   ? 'border-red-300 bg-red-50' 
                   : formData.email && !validationErrors.email 
@@ -164,20 +196,6 @@ const FormStep = ({
           )}
         </div>
 
-        {/* <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Company
-          </label>
-          <input
-            type="text"
-            name="company"
-            value={formData.company}
-            onChange={onInputChange}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-            placeholder="Enter your company name (optional)"
-          />
-        </div> */}
-
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">
             Purpose of Visit *
@@ -188,7 +206,7 @@ const FormStep = ({
               value={formData.purpose}
               onChange={onInputChange}
               required
-              className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none bg-white ${
+              className={`w-full px-4 py-2 sm:py-3 text-sm sm:text-base border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all appearance-none bg-white ${
                 validationErrors.purpose 
                   ? 'border-red-300 bg-red-50' 
                   : formData.purpose && !validationErrors.purpose 
@@ -219,41 +237,22 @@ const FormStep = ({
           )}
         </div>
 
-        {/* <div>
-          <label className="flex items-center space-x-2 text-sm font-medium text-gray-700 mb-2">
-            <User className="w-4 h-4" />
-            <span>Host/Person to Meet</span>
-          </label>
-          <input
-            type="text"
-            name="host"
-            value={formData.host}
-            onChange={onInputChange}
-            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-            placeholder="Enter host name (optional)"
-          />
-        </div> */}
 
-        {error && (
-          <div className="flex items-center space-x-2 text-red-600 bg-red-50 p-3 rounded-lg border border-red-200">
-            <AlertCircle className="w-5 h-5 flex-shrink-0" />
-            <span className="text-sm">{error}</span>
-          </div>
-        )}
-
-        <div className="flex space-x-4 pt-4">
-          <button
-            type="button"
-            onClick={onBack}
-            className="flex items-center space-x-2 px-6 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-colors"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Back</span>
-          </button>
+        <div className="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4 pt-4">
+          {onBack && (
+            <button
+              type="button"
+              onClick={onBack}
+              className="flex items-center justify-center space-x-2 px-6 py-3 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 transition-colors w-full sm:w-auto"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              <span>Back</span>
+            </button>
+          )}
           <button
             type="submit"
             disabled={isSubmitting || Object.keys(validationErrors).some(key => validationErrors[key])}
-            className={`flex-1 flex items-center justify-center space-x-2 px-6 py-3 rounded-xl transition-all transform shadow-lg disabled:cursor-not-allowed ${
+            className={`flex-1 flex items-center justify-center space-x-2 px-6 py-3 rounded-xl transition-all transform shadow-lg disabled:cursor-not-allowed w-full ${
               isSubmitting || Object.keys(validationErrors).some(key => validationErrors[key])
                 ? 'bg-gray-400 text-gray-200 disabled:opacity-50'
                 : 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 hover:scale-105'
@@ -262,12 +261,12 @@ const FormStep = ({
             {isSubmitting ? (
               <>
                 <Loader className="w-4 h-4 animate-spin" />
-                <span>Registering...</span>
+                <span>{isCheckingVisitor ? "Checking visitor..." : "Registering..."}</span>
               </>
             ) : Object.keys(validationErrors).some(key => validationErrors[key]) ? (
               <span>Please fix errors above</span>
             ) : (
-              <span>Complete Registration</span>
+              <span>Continue</span>
             )}
           </button>
         </div>

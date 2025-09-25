@@ -5,9 +5,12 @@ import {
   Filter,
   Calendar,
   RefreshCw,
+  X,
+  RotateCcw,
+  Users,
 } from "lucide-react";
 
-// Filter UI Component for Visitors
+// Filter UI Component for Visitors - Matching Invitee Design
 export const VisitorFiltersUI = ({
   searchTerm,
   setSearchTerm,
@@ -17,111 +20,165 @@ export const VisitorFiltersUI = ({
   setDateFilter,
   resetFilters,
   loading,
-}) => (
-  <motion.div
-    initial={{ opacity: 0, y: 10 }}
-    animate={{ opacity: 1, y: 0 }}
-    transition={{ delay: 0.3, duration: 0.5 }}
-    className="bg-white/70 backdrop-blur-sm rounded-xl p-3 sm:p-4 shadow-lg border border-white/50 mb-4"
-  >
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-2 sm:gap-3">
-      {/* Search */}
-      <div className="lg:col-span-2">
-        <div className="relative">
-          <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-8 pr-3 py-2 text-sm bg-white/50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-            placeholder="Search visitors..."
-          />
+}) => {
+  return (
+    <>
+      {/* Compressed Filters Section */}
+      <div className="bg-white rounded-lg shadow-sm border border-gray-100 p-3 sm:p-4 mb-4">
+        <div className="flex flex-col space-y-3">
+          {/* Title and Action Buttons */}
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between space-y-4 lg:space-y-0 portrait:space-y-3 landscape:space-y-2 landscape:lg:space-y-0">
+            {/* <div className="flex-1">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl portrait:text-xl landscape:text-2xl landscape:lg:text-3xl font-bold text-gray-900 mb-1 lg:mb-2 portrait:mb-1 landscape:mb-1">
+                Visitors
+              </h1>
+              <p className="text-sm sm:text-base lg:text-lg portrait:text-xs landscape:text-sm landscape:lg:text-base text-gray-600">
+                Manage and track visitor registrations
+              </p>
+            </div> */}
+            
+            {/* Action Buttons - Orientation Responsive */}
+            {/* <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3 lg:space-x-4 lg:flex-shrink-0 portrait:space-y-1.5 portrait:sm:space-x-2 landscape:space-y-1.5 landscape:sm:space-x-2 landscape:lg:space-x-3">
+              <button
+                onClick={resetFilters}
+                disabled={loading}
+                className="flex items-center justify-center space-x-2 px-4 sm:px-6 lg:px-8 py-2.5 sm:py-3 lg:py-3.5 portrait:px-3 portrait:py-2 landscape:px-4 landscape:py-2.5 landscape:lg:px-6 landscape:lg:py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all duration-200 disabled:opacity-50 text-sm sm:text-base lg:text-base portrait:text-xs landscape:text-sm landscape:lg:text-base font-medium"
+              >
+                <RefreshCw className={`w-4 h-4 sm:w-5 sm:h-5 lg:w-5 lg:h-5 portrait:w-3 portrait:h-3 landscape:w-4 landscape:h-4 landscape:lg:w-5 landscape:lg:h-5 ${loading ? 'animate-spin' : ''}`} />
+                <span className="hidden sm:inline portrait:hidden landscape:inline">Refresh</span>
+              </button>
+            </div> */}
+          </div>
+
+          {/* Compressed Filters - Single Line */}
+          <div className="flex flex-row gap-2 sm:gap-3 w-full">
+            {/* Search Input - Flexible width */}
+            <div className="relative flex-1 min-w-0">
+              <Search className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <input
+                type="text"
+                placeholder="Search visitors..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm transition-all duration-200"
+              />
+            </div>
+
+            {/* Status Filter - Compact */}
+            <div className="relative w-32 sm:w-36 flex-shrink-0">
+              <Filter className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full pl-9 pr-2 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white text-sm transition-all duration-200"
+              >
+                <option value="all">All Status</option>
+                <option value="created">Created</option>
+                <option value="pending">Pending</option>
+                <option value="approved">Approved</option>
+                <option value="rejected">Rejected</option>
+                <option value="revisit">Revisit</option>
+                <option value="checked_in">Checked In</option>
+                <option value="checked_out">Checked Out</option>
+                <option value="scheduled">Scheduled</option>
+              </select>
+            </div>
+
+            {/* Date Filter - Compact */}
+            <div className="relative w-28 sm:w-32 flex-shrink-0">
+              <Calendar className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <select
+                value={dateFilter}
+                onChange={(e) => setDateFilter(e.target.value)}
+                className="w-full pl-9 pr-2 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white text-sm transition-all duration-200"
+              >
+                <option value="all">All Time</option>
+                <option value="today">Today</option>
+                <option value="week">This Week</option>
+                <option value="month">This Month</option>
+              </select>
+            </div>
+          </div>
         </div>
-      </div>
 
-      {/* Status Filter */}
-      <div className="relative">
-        <Filter className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="w-full pl-8 pr-3 py-2 text-sm bg-white/50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 appearance-none"
-        >
-          <option value="all">All Status</option>
-          <option value="checked_in">Checked In</option>
-          <option value="checked_out">Checked Out</option>
-          <option value="scheduled">Scheduled</option>
-          <option value="approved">Approved</option>
-          <option value="rejected">Rejected</option>
-          <option value="pending">Pending</option>
-        </select>
-      </div>
+        {/* Active Filters Display - Responsive */}
+        {(searchTerm || statusFilter !== "all" || dateFilter !== "all") && (
+          <div className="mt-3 sm:mt-4 space-y-2 sm:space-y-0">
+            {/* Header and Filters Container */}
+            <div className="flex flex-col sm:flex-row sm:items-center sm:flex-wrap gap-2">
+              <span className="text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-0">Active Filters:</span>
+              
+              {/* Filter Tags Container */}
+              <div className="flex flex-wrap items-center gap-1.5 sm:gap-2 flex-1">
+                {/* Search Filter */}
+                {searchTerm && (
+                  <div className="flex items-center bg-blue-100 text-blue-800 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm max-w-full">
+                    <Search className="w-3 h-3 mr-1 flex-shrink-0" />
+                    <span className="truncate max-w-[100px] sm:max-w-[150px] lg:max-w-[200px]">
+                      Search: "{searchTerm}"
+                    </span>
+                    <button
+                      onClick={() => setSearchTerm("")}
+                      className="ml-1 sm:ml-2 hover:bg-blue-200 rounded-full p-0.5 flex-shrink-0 transition-colors"
+                      aria-label="Clear search filter"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                )}
 
-      {/* Date Filter */}
-      <div className="relative">
-        <Calendar className="absolute left-2.5 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-        <select
-          value={dateFilter}
-          onChange={(e) => setDateFilter(e.target.value)}
-          className="w-full pl-8 pr-3 py-2 text-sm bg-white/50 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 appearance-none"
-        >
-          <option value="today">Today</option>
-          <option value="yesterday">Yesterday</option>
-          <option value="week">This Week</option>
-          <option value="month">This Month</option>
-        </select>
-      </div>
+                {/* Status Filter */}
+                {statusFilter !== "all" && (
+                  <div className="flex items-center bg-green-100 text-green-800 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm">
+                    <Filter className="w-3 h-3 mr-1 flex-shrink-0" />
+                    <span className="whitespace-nowrap">
+                      Status: {statusFilter.replace("_", " ")}
+                    </span>
+                    <button
+                      onClick={() => setStatusFilter("all")}
+                      className="ml-1 sm:ml-2 hover:bg-green-200 rounded-full p-0.5 flex-shrink-0 transition-colors"
+                      aria-label="Clear status filter"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                )}
 
-      {/* Reset Filters Button */}
-      <div className="relative">
-        <button
-          onClick={resetFilters}
-          disabled={loading}
-          className="w-full px-3 py-2 text-sm bg-gray-100/50 border border-gray-200 rounded-lg hover:bg-gray-200/50 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:border-transparent transition-all duration-200 disabled:opacity-50 flex items-center justify-center space-x-1.5"
-        >
-          <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
-          <span>Reset</span>
-        </button>
-      </div>
-    </div>
-    
-    {/* Active Filters Display */}
-    {(searchTerm || statusFilter !== "all" || dateFilter !== "today") && (
-      <div className="mt-3 flex flex-wrap gap-1.5">
-        {searchTerm && (
-          <span className="inline-flex items-center px-2 py-1 rounded-md text-xs bg-blue-100 text-blue-800">
-            Search: "{searchTerm.length > 15 ? searchTerm.substring(0, 15) + '...' : searchTerm}"
-            <button 
-              onClick={() => setSearchTerm("")}
-              className="ml-1.5 text-blue-600 hover:text-blue-800 text-sm"
-            >
-              ×
-            </button>
-          </span>
-        )}
-        {statusFilter !== "all" && (
-          <span className="inline-flex items-center px-2 py-1 rounded-md text-xs bg-green-100 text-green-800">
-            {statusFilter.replace("_", " ")}
-            <button 
-              onClick={() => setStatusFilter("all")}
-              className="ml-1.5 text-green-600 hover:text-green-800 text-sm"
-            >
-              ×
-            </button>
-          </span>
-        )}
-        {dateFilter !== "today" && (
-          <span className="inline-flex items-center px-2 py-1 rounded-md text-xs bg-purple-100 text-purple-800">
-            {dateFilter.replace("_", " ")}
-            <button 
-              onClick={() => setDateFilter("today")}
-              className="ml-1.5 text-purple-600 hover:text-purple-800 text-sm"
-            >
-              ×
-            </button>
-          </span>
+                {/* Date Filter */}
+                {dateFilter !== "all" && (
+                  <div className="flex items-center bg-purple-100 text-purple-800 px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm">
+                    <Calendar className="w-3 h-3 mr-1 flex-shrink-0" />
+                    <span className="whitespace-nowrap">
+                      Date: {dateFilter === "today" ? "Today" : dateFilter === "week" ? "This Week" : dateFilter === "month" ? "This Month" : dateFilter}
+                    </span>
+                    <button
+                      onClick={() => setDateFilter("all")}
+                      className="ml-1 sm:ml-2 hover:bg-purple-200 rounded-full p-0.5 flex-shrink-0 transition-colors"
+                      aria-label="Clear date filter"
+                    >
+                      <X className="w-3 h-3" />
+                    </button>
+                  </div>
+                )}
+              </div>
+
+              {/* Reset All Button - Responsive */}
+              <button
+                onClick={() => {
+                  setSearchTerm("");
+                  setStatusFilter("all");
+                  setDateFilter("all");
+                }}
+                className="flex items-center justify-center sm:justify-start bg-gray-100 text-gray-700 px-2 sm:px-3 py-1.5 sm:py-1 rounded-full text-xs sm:text-sm hover:bg-gray-200 transition-colors w-full sm:w-auto mt-1 sm:mt-0"
+                aria-label="Reset all filters"
+              >
+                <RotateCcw className="w-3 h-3 mr-1 flex-shrink-0" />
+                <span>Reset All</span>
+              </button>
+            </div>
+          </div>
         )}
       </div>
-    )}
-  </motion.div>
-);
+    </>
+  );
+};

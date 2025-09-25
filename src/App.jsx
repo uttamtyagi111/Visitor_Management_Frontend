@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { ToastProvider } from './contexts/ToastContext';
 import ErrorBoundary from './components/ErrorBoundary';
 import Login from './components/auth/Login';
 import PasswordReset from './components/auth/PasswordReset';
@@ -31,10 +32,11 @@ function ProtectedRoute({ children }) {
 function App() {
   return (
     <ErrorBoundary>
-      <AuthProvider>
-        <Router>
-          <div className="min-h-screen bg-gradient-to-br from-slate-600 via-grey-900 to-slate-900">
-            <Routes>
+      <ToastProvider>
+        <AuthProvider>
+          <Router>
+            <div className="min-h-screen bg-gradient-to-br from-slate-600 via-grey-900 to-slate-900">
+              <Routes>
               <Route path="/visitor" element={<VisitorRegistration />} />
               <Route path="/invite" element={<PublicInvitePage />} />
               <Route path="/invite/:inviteCode" element={<PublicInvitePage />} />
@@ -50,10 +52,11 @@ function App() {
                 }
               />
               <Route path="/" element={<Navigate to="/dashboard" />} />
-            </Routes>
-          </div>
-        </Router>
-      </AuthProvider>
+              </Routes>
+            </div>
+          </Router>
+        </AuthProvider>
+      </ToastProvider>
     </ErrorBoundary>
   );
 }

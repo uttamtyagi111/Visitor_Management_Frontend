@@ -1,5 +1,6 @@
 import React, { useCallback } from "react";
 import { visitorAPI } from "../../../api/visitor";
+import { useToast } from "../../../contexts/ToastContext";
 
 // Pass generation and download functionality component
 export const useVisitorPassGenerator = ({

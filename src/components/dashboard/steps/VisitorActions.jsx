@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect } from "react";
 import { visitorAPI } from "../../../api/visitor";
+import { useToast } from "../../../contexts/ToastContext";
 
 // Visitor actions and API operations component
 export const useVisitorActions = ({
@@ -16,6 +17,7 @@ export const useVisitorActions = ({
   setEditForm,
   setEditFormErrors,
 }) => {
+  const { toast } = useToast();
   // Fetch visitor details when selected visitor changes
   useEffect(() => {
     const fetchVisitorDetails = async () => {
@@ -111,12 +113,20 @@ export const useVisitorActions = ({
         await visitorAPI.updateVisitor(visitorId, visitorPayload);
         // 5️⃣ Call updateVisitorStatus API to update status and trigger email
         await visitorAPI.updateVisitorStatus(visitorId, newStatus);
-        // const updatedVisitor = await visitorAPI.getVisitor(visitorId);
-        // setSelectedVisitor(updatedVisitor);
-        // setVisitors(prev => prev.map(v => v.id === visitorId ? updatedVisitor : v));
+        
+        // Show success message based on status
+        const statusMessages = {
+          revisit: "Visitor marked for revisit",
+          pending: "Visitor check-in is pending",
+          approved: "Visitor approved successfully",
+          rejected: "Visitor rejected successfully", 
+          checked_in: "Visitor checked in successfully",
+          checked_out: "Visitor checked out successfully"
+        };
+        toast.success(statusMessages[newStatus] || `Visitor status updated to ${newStatus}`);
       } catch (err) {
         console.error("Error updating visitor status:", err);
-        setError(err.message);
+        toast.error(err.message || "Failed to update visitor status");
         // rollback frontend state
         fetchVisitors();
       } finally {
@@ -280,13 +290,16 @@ export const useVisitorActions = ({
         setSelectedVisitor((prev) => ({ ...prev, ...editForm, hostName: editForm.host }));
       }
 
+      // Show success message
+      toast.success("Visitor information updated successfully");
+      
       // Close edit mode
       setIsEditing(false);
       setEditingVisitor(null);
       setEditForm({});
     } catch (err) {
       console.error("Error updating visitor:", err);
-      setError(err.message);
+      toast.error(err.message || "Failed to update visitor information");
     } finally {
       setUpdating(false);
     }

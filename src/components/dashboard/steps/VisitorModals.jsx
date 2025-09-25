@@ -274,9 +274,9 @@ export const VisitorDetailModal = ({
                     const events = [];
                     
                     // Registration event (always first)
-                    if (selectedVisitor.created_at) {
+                    if (selectedVisitor.status === "created" && selectedVisitor.created_at) {
                       events.push({
-                        type: 'registration',
+                        type: 'created',
                         title: 'Registration',
                         description: 'Visitor registration completed',
                         timestamp: selectedVisitor.created_at,
@@ -288,7 +288,7 @@ export const VisitorDetailModal = ({
                     }
                     
                     // Pending event (always show)
-                    if (selectedVisitor.created_at) {
+                    if (selectedVisitor.status === "pending" && selectedVisitor.created_at) {
                       events.push({
                         type: 'pending',
                         title: 'Pending Review',
@@ -369,6 +369,19 @@ export const VisitorDetailModal = ({
                         textColor: 'text-gray-800',
                         badgeText: 'Checked Out',
                         additionalInfo: selectedVisitor.checkedOutBy ? `By: ${selectedVisitor.checkedOutBy}` : null
+                      });
+                    }
+                    if (selectedVisitor.status === "revisit" || selectedVisitor.updated_at) {
+                      events.push({
+                        type: 'revisit',
+                        title: 'Revisit',
+                        description: 'Visitor has revisited the facility',
+                        timestamp: selectedVisitor.revisit || selectedVisitor.updated_at,
+                        icon: <XCircle className="w-4 h-4 text-gray-600" />,
+                        bgColor: 'bg-gray-100',
+                        textColor: 'text-gray-800',
+                        badgeText: 'Revisited',
+                        
                       });
                     }
                     

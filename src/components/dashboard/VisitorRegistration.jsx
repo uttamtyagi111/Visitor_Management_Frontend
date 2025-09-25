@@ -1,12 +1,14 @@
 import React, { useState, useCallback } from "react";
 import { visitorAPI } from "../../api/visitor";
+import { useToast } from "../../contexts/ToastContext";
 import CameraStep from "./steps/CameraStep";
 import FormStep from "./steps/FormStep";
 import SuccessStep from "./steps/SuccessStep";
 import { validationUtils, debounce } from "../../utils/validation";
 
 const VisitorRegistration = () => {
-  const [currentStep, setCurrentStep] = useState("camera");
+  const { toast } = useToast();
+  const [currentStep, setCurrentStep] = useState("form"); // Start with form step
   const [formData, setFormData] = useState({
     name: "",
     phone: "",
@@ -18,22 +20,77 @@ const VisitorRegistration = () => {
 
   const [capturedImage, setCapturedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState(null);
+  const [existingVisitor, setExistingVisitor] = useState(null); // Store visitor data from createVisitor API
+  const [isExistingVisitor, setIsExistingVisitor] = useState(false); // Track if visitor is returning
+  const [isCheckingVisitor, setIsCheckingVisitor] = useState(false); // Loading state for createVisitor API
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState("");
-  const [success, setSuccess] = useState("");
+  // Removed error and success states - using toast notifications instead
   const [validationErrors, setValidationErrors] = useState({});
   const [visitorId, setVisitorId] = useState(null);
 
-  // Handle photo capture from camera step
+  // Handle photo capture from camera step - Step 2: Just capture, don't submit yet
   const handlePhotoCapture = (blob, previewUrl) => {
     setCapturedImage(blob);
     setImagePreview(previewUrl);
-    setCurrentStep("form");
+    // Don't auto-submit, wait for "Complete Registration" button
   };
 
-  // Handle skip photo
+  // Handle skip photo - no image captured
   const handleSkipPhoto = () => {
-    setCurrentStep("form");
+    setCapturedImage(null);
+    // Don't auto-submit, wait for "Complete Registration" button
+  };
+
+  // Handle using existing photo for returning visitors
+  const handleUseExistingPhoto = () => {
+    // Keep existing image, don't capture new one
+    setCapturedImage(null);
+    // Don't auto-submit, wait for "Complete Registration" button
+  };
+
+  // Step 2: Complete Registration - Update visitor with image using updateVisitor API
+  const handleCompleteRegistration = async () => {
+    if (!visitorId || !existingVisitor) {
+      toast.error("Visitor record not found. Please start over.");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    try {
+      console.log('Complete registration for visitor ID:', visitorId);
+      console.log('Image blob provided:', !!capturedImage);
+      
+      // Prepare update data
+      const updateData = {
+        ...formData,
+        // Status will be updated based on image:
+        // - If image is provided: status becomes 'pending' 
+        // - If no image: keep current status
+        status: capturedImage ? 'pending' : existingVisitor.status
+      };
+
+      // Call updateVisitor API with image
+      const response = await visitorAPI.updateVisitor(visitorId, updateData, capturedImage);
+      
+      console.log('UpdateVisitor API response:', response);
+      
+      // Show success message based on visitor type
+      if (existingVisitor.status === 'revisit') {
+        toast.success("Welcome back! Your visit has been registered successfully.");
+      } else {
+        toast.success("Registration completed successfully! Welcome to our facility.");
+      }
+      
+      // Move to success step
+      setCurrentStep("success");
+      
+    } catch (err) {
+      console.error('Error updating visitor:', err);
+      toast.error(err.message || "Failed to complete registration. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   // Real-time validation with debouncing
@@ -95,55 +152,83 @@ const VisitorRegistration = () => {
     return validation.isValid;
   };
 
-  // Submit form
+  // Step 1: Form submission - Create visitor record using createVisitor API
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!validateForm()) {
-      setError("Please fix the errors below and try again.");
+      toast.error("Please fix the errors below and try again.");
       return;
     }
 
-    setIsSubmitting(true);
-    setError("");
+    setIsCheckingVisitor(true);
 
     try {
-      const response = await visitorAPI.createVisitor(formData, capturedImage);
-      setSuccess("Registration completed successfully! Welcome to our facility.");
+      // Call createVisitor API - creates or updates visitor record without image
+      console.log('Creating visitor with form data:', formData);
+      const response = await visitorAPI.createVisitor(formData);
+      
+      console.log('CreateVisitor API response:', response);
+      
+      // Store the visitor data from response
+      setExistingVisitor(response);
       setVisitorId(response.id);
-      setCurrentStep("success");
+      
+      // Check if this is a returning visitor (revisit status) or new visitor (created status)
+      if (response.status === 'revisit') {
+        setIsExistingVisitor(true);
+        console.log('Returning visitor detected:', response.name);
+      } else {
+        setIsExistingVisitor(false);
+        console.log('New visitor created:', response.name);
+      }
+      
+      // Set existing image if available from response
+      if (response.image) {
+        console.log('Setting existing visitor image from API:', response.image);
+        setImagePreview(response.image);
+      } else {
+        console.log('No existing image in API response');
+        setImagePreview(null);
+      }
+
+      // Move to camera step
+      setCurrentStep("camera");
+      
     } catch (err) {
-      setError(err.message || "Failed to register visitor. Please try again.");
+      console.error('Error creating visitor:', err);
+      toast.error(err.message || "Failed to create visitor record. Please try again.");
     } finally {
-      setIsSubmitting(false);
+      setIsCheckingVisitor(false);
     }
   };
 
-  // Handle back to camera
-  const handleBackToCamera = () => {
-    setCurrentStep("camera");
+  // Handle back to form from camera step
+  const handleBackToForm = () => {
+    setCurrentStep("form");
   };
 
   // Reset form for new registration
   const handleRegisterAnother = () => {
-    setCurrentStep("camera");
+    setCurrentStep("form"); // Start with form step
     setFormData({
       name: "",
       phone: "",
       email: "",
       // company: "",
       purpose: "",
-      // host: "",
+      host: "",
     });
     setCapturedImage(null);
-    if (imagePreview) {
+    if (imagePreview && typeof imagePreview === 'string' && imagePreview.startsWith('blob:')) {
       URL.revokeObjectURL(imagePreview);
-      setImagePreview(null);
     }
+    setImagePreview(null);
     setVisitorId(null);
+    setExistingVisitor(null);
+    setIsExistingVisitor(false);
+    setIsCheckingVisitor(false);
     setValidationErrors({});
-    setError("");
-    setSuccess("");
     setIsSubmitting(false);
   };
 
@@ -153,11 +238,11 @@ const VisitorRegistration = () => {
         {/* Progress Indicator */}
         <div className="flex justify-center mb-8">
           <div className="flex space-x-2">
-            {["camera", "form", "success"].map((step, index) => (
+            {["form", "camera", "success"].map((step, index) => (
               <div
                 key={step}
                 className={`w-3 h-3 rounded-full transition-all duration-300 ${
-                  ["camera", "form", "success"].indexOf(currentStep) >= index
+                  ["form", "camera", "success"].indexOf(currentStep) >= index
                     ? "bg-gradient-to-r from-blue-600 to-purple-600 scale-110"
                     : "bg-gray-300"
                 }`}
@@ -167,29 +252,37 @@ const VisitorRegistration = () => {
         </div>
 
         {/* Step Content */}
-        {currentStep === "camera" && (
-          <CameraStep 
-            onPhotoCapture={handlePhotoCapture}
-            onSkip={handleSkipPhoto}
-          />
-        )}
         {currentStep === "form" && (
           <FormStep
             formData={formData}
             validationErrors={validationErrors}
-            error={error}
-            isSubmitting={isSubmitting}
-            capturedImage={capturedImage}
-            imagePreview={imagePreview}
+            isSubmitting={isCheckingVisitor}
             onInputChange={handleInputChange}
             onSubmit={handleSubmit}
-            onBack={handleBackToCamera}
+            onBack={null} // No back button in first step
+            isCheckingVisitor={isCheckingVisitor}
+            existingVisitor={existingVisitor}
+            existingImage={imagePreview}
+            capturedImage={capturedImage}
+          />
+        )}
+        {currentStep === "camera" && (
+          <CameraStep 
+            onPhotoCapture={handlePhotoCapture}
+            onSkip={handleSkipPhoto}
+            onUseExisting={handleUseExistingPhoto}
+            onCompleteRegistration={handleCompleteRegistration}
+            onBack={handleBackToForm}
+            existingVisitor={existingVisitor}
+            isExistingVisitor={isExistingVisitor}
+            existingImage={imagePreview}
+            capturedImage={capturedImage}
+            isSubmitting={isSubmitting}
           />
         )}
         {currentStep === "success" && (
           <SuccessStep
-            success={success}
-            visitorId={visitorId}
+            visitorData={{ id: visitorId, status: isExistingVisitor ? "revisit" : "pending" }}
             onRegisterAnother={handleRegisterAnother}
           />
         )}

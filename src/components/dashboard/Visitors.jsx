@@ -1,6 +1,7 @@
 import React from "react";
 import { motion } from "framer-motion";
 import { useAuth } from "../../contexts/AuthContext";
+import { useToast } from "../../contexts/ToastContext";
 import {
   RefreshCw,
   Download,
@@ -23,21 +24,17 @@ import { VisitorPagination } from "./steps/VisitorPagination";
 
 function Visitors() {
   const { user } = useAuth();
+  const { toast } = useToast();
 
   // Initialize all state using the modular hook
   const state = useVisitorState();
 
-  // Initialize filters with state dependencies
+  // Initialize filters with client-side filtering like Invitees
   const filters = useVisitorFilters({
-    dateFilter: state.dateFilter,
-    statusFilter: state.statusFilter,
+    visitors: state.visitors,
     searchTerm: state.searchTerm,
-    itemsPerPage: state.itemsPerPage,
-    setLoading: state.setLoading,
-    setError: state.setError,
-    setCurrentPage: state.setCurrentPage,
-    setVisitors: state.setVisitors,
-    setTotalItems: state.setTotalItems,
+    statusFilter: state.statusFilter,
+    dateFilter: state.dateFilter,
     setSearchTerm: state.setSearchTerm,
     setStatusFilter: state.setStatusFilter,
     setDateFilter: state.setDateFilter,
@@ -93,7 +90,7 @@ function Visitors() {
   }
 
   // Show empty state if no visitors found
-  if (!state.loading && state.filteredVisitors.length === 0) {
+  if (!state.loading && filters.filteredVisitors.length === 0) {
     return (
       <div className="p-8 overflow-y-auto bg-gradient-to-br from-gray-50 to-blue-50 min-h-full">
         <motion.div
@@ -192,7 +189,7 @@ function Visitors() {
         >
           {/* Desktop Table View */}
           <VisitorDesktopTable
-            filteredVisitors={state.filteredVisitors}
+            filteredVisitors={filters.filteredVisitors}
             user={user}
             handleStatusUpdate={actions.handleStatusUpdate}
             handleGeneratePass={passGenerator.handleGeneratePass}
@@ -202,7 +199,7 @@ function Visitors() {
 
           {/* Mobile Card View */}
           <VisitorMobileCards
-            filteredVisitors={state.filteredVisitors}
+            filteredVisitors={filters.filteredVisitors}
             handleStatusUpdate={actions.handleStatusUpdate}
             handleGeneratePass={passGenerator.handleGeneratePass}
             setSelectedVisitor={state.setSelectedVisitor}

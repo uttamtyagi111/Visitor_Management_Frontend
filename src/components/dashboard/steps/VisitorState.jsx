@@ -1,7 +1,10 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useCallback, useEffect } from "react";
+import { visitorAPI } from "../../../api/visitor";
+import { useToast } from "../../../contexts/ToastContext";
 
 // State management component for visitor data
 export const useVisitorState = () => {
+  const { toast } = useToast();
   // Main data state
   const [visitors, setVisitors] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -12,7 +15,7 @@ export const useVisitorState = () => {
   // Filter state
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [dateFilter, setDateFilter] = useState("today");
+  const [dateFilter, setDateFilter] = useState("all");
 
   // Edit functionality state
   const [isEditing, setIsEditing] = useState(false);
@@ -29,15 +32,33 @@ export const useVisitorState = () => {
   const [itemsPerPage] = useState(10);
   const [totalItems, setTotalItems] = useState(0);
 
-  // For client-side filtering when search is active
-  const filteredVisitors = useMemo(() => {
-    return visitors; // Server-side filtering is now handled in API calls
-  }, [visitors]);
+  // Data fetching - matching Invitees functionality
+  const refreshData = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const data = await visitorAPI.getVisitors(); // Fetch all visitors at once
+      const results = Array.isArray(data) ? data : data.results || [];
+      setVisitors(results);
+      setTotalItems(results.length);
+    } catch (err) {
+      console.error("Error fetching visitors:", err);
+      toast.error("Failed to fetch visitors");
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [toast]);
+
+  // Fetch visitors on component mount
+  useEffect(() => {
+    refreshData();
+  }, [refreshData]);
 
   // Memoized visitor statistics
   const visitorStats = useMemo(() => {
     const stats = {
-      total: filteredVisitors.length,
+      total: visitors.length,
       checked_in: 0,
       checked_out: 0,
       pending: 0,
@@ -45,7 +66,7 @@ export const useVisitorState = () => {
       rejected: 0,
     };
 
-    filteredVisitors.forEach((visitor) => {
+    visitors.forEach((visitor) => {
       const status = visitor.status || "pending";
       if (stats.hasOwnProperty(status)) {
         stats[status]++;
@@ -53,7 +74,7 @@ export const useVisitorState = () => {
     });
 
     return stats;
-  }, [filteredVisitors]);
+  }, [visitors]);
 
   return {
     // Main data state
@@ -67,6 +88,7 @@ export const useVisitorState = () => {
     setSelectedVisitor,
     updating,
     setUpdating,
+    refreshData,
 
     // Filter state
     searchTerm,
@@ -100,7 +122,6 @@ export const useVisitorState = () => {
     setTotalItems,
 
     // Computed values
-    filteredVisitors,
     visitorStats,
   };
 };

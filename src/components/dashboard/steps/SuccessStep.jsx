@@ -1,7 +1,7 @@
 import React from "react";
 import { CheckCircle } from "lucide-react";
 
-const SuccessStep = ({ success, visitorId, onRegisterAnother }) => {
+const SuccessStep = ({ visitorData, onRegisterAnother }) => {
   return (
     <div className="text-center space-y-6">
       <div className="w-20 h-20 mx-auto bg-green-100 rounded-full flex items-center justify-center">
@@ -9,11 +9,11 @@ const SuccessStep = ({ success, visitorId, onRegisterAnother }) => {
       </div>
       <div>
         <h2 className="text-3xl font-bold text-gray-800 mb-2">Welcome!</h2>
-        <p className="text-gray-600 mb-2">{success}</p>
-        {visitorId && (
+        <p className="text-gray-600 mb-2">Your registration has been completed successfully!</p>
+        {visitorData?.id && (
           <div className="bg-blue-50 p-3 rounded-lg mb-4">
             <p className="text-sm text-blue-800">
-              <strong>Visitor ID:</strong> #{visitorId}
+              <strong>Visitor ID:</strong> #{visitorData.id}
             </p>
           </div>
         )}
@@ -30,12 +30,6 @@ const SuccessStep = ({ success, visitorId, onRegisterAnother }) => {
             <br />• Please wait in the lobby area
           </p>
         </div>
-        <button
-          onClick={onRegisterAnother}
-          className="bg-gradient-to-r from-green-600 to-blue-600 text-white px-8 py-3 rounded-xl font-medium hover:from-green-700 hover:to-blue-700 transition-all transform hover:scale-105 shadow-lg"
-        >
-          Register Another Visitor
-        </button>
       </div>
     </div>
   );
