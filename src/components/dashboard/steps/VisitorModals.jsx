@@ -8,6 +8,7 @@ import {
   CheckCircle,
   XCircle,
   Clock,
+  RotateCcw,
 } from "lucide-react";
 import { getStatusBadge } from "./VisitorUIComponents";
 
@@ -267,149 +268,183 @@ export const VisitorDetailModal = ({
                 {/* Timeline Line */}
                 <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200"></div>
                 
-                {/* Timeline Items - Ordered by time */}
-                <div className="space-y-6">
+                {/* Timeline Items - Ordered by time - Scrollable */}
+                <div className="space-y-6 max-h-96 overflow-y-auto pr-2">
                   {(() => {
-                    // Create timeline events array
-                    const events = [];
-                    
-                    // Registration event (always first)
-                    if (selectedVisitor.status === "created" && selectedVisitor.created_at) {
-                      events.push({
-                        type: 'created',
-                        title: 'Registration',
-                        description: 'Visitor registration completed',
-                        timestamp: selectedVisitor.created_at,
-                        icon: <User className="w-4 h-4 text-blue-600" />,
-                        bgColor: 'bg-blue-100',
-                        textColor: 'text-blue-800',
-                        badgeText: 'Created'
-                      });
-                    }
-                    
-                    // Pending event (always show)
-                    if (selectedVisitor.status === "pending" && selectedVisitor.created_at) {
-                      events.push({
-                        type: 'pending',
-                        title: 'Pending Review',
-                        description: 'Visitor request is awaiting approval',
-                        timestamp: selectedVisitor.created_at,
-                        icon: <Clock className="w-4 h-4 text-yellow-600" />,
-                        bgColor: 'bg-yellow-100',
-                        textColor: 'text-yellow-800',
-                        badgeText: 'Pending'
-                      });
-                    }
-                    
-                    // Status change events
-                    if (selectedVisitor.status === "approved" && selectedVisitor.updated_at) {
-                      events.push({
-                        type: 'approved',
-                        title: 'Approved',
-                        description: 'Visitor request has been approved',
-                        timestamp: selectedVisitor.updated_at,
-                        icon: <CheckCircle className="w-4 h-4 text-green-600" />,
-                        bgColor: 'bg-green-100',
-                        textColor: 'text-green-800',
-                        badgeText: 'Approved'
-                      });
-                    }
-                    
-                    if (selectedVisitor.status === "rejected" && selectedVisitor.updated_at) {
-                      events.push({
-                        type: 'rejected',
-                        title: 'Rejected',
-                        description: 'Visitor request has been rejected',
-                        timestamp: selectedVisitor.updated_at,
-                        icon: <XCircle className="w-4 h-4 text-red-600" />,
-                        bgColor: 'bg-red-100',
-                        textColor: 'text-red-800',
-                        badgeText: 'Rejected'
-                      });
-                    }
-                    
-                    // Pass generation event
-                    if (selectedVisitor.pass_generated && (selectedVisitor.checkInTime || selectedVisitor.check_in)) {
-                      events.push({
-                        type: 'pass_generated',
-                        title: 'Pass Generated',
-                        description: 'Visitor pass has been generated and issued',
-                        timestamp: selectedVisitor.checkInTime || selectedVisitor.check_in,
-                        icon: <Download className="w-4 h-4 text-purple-600" />,
-                        bgColor: 'bg-purple-100',
-                        textColor: 'text-purple-800',
-                        badgeText: 'Pass Created'
-                      });
-                    }
-                    
-                    // Check in event - show if there's a check-in timestamp (regardless of current status)
-                    if (selectedVisitor.checkInTime || selectedVisitor.check_in) {
-                      events.push({
-                        type: 'checked_in',
-                        title: 'Checked In',
-                        description: 'Visitor has checked in to the facility',
-                        timestamp: selectedVisitor.checkInTime || selectedVisitor.check_in,
-                        icon: <CheckCircle className="w-4 h-4 text-green-600" />,
-                        bgColor: 'bg-green-100',
-                        textColor: 'text-green-800',
-                        badgeText: 'Checked In',
-                        additionalInfo: selectedVisitor.checkedInBy ? `By: ${selectedVisitor.checkedInBy}` : null
-                      });
-                    }
-                    
-                    // Check out event - show if there's a check-out timestamp (regardless of current status)
-                    if (selectedVisitor.checkOutTime || selectedVisitor.check_out) {
-                      events.push({
-                        type: 'checked_out',
-                        title: 'Checked Out',
-                        description: 'Visitor has checked out of the facility',
-                        timestamp: selectedVisitor.checkOutTime || selectedVisitor.check_out,
-                        icon: <XCircle className="w-4 h-4 text-gray-600" />,
-                        bgColor: 'bg-gray-100',
-                        textColor: 'text-gray-800',
-                        badgeText: 'Checked Out',
-                        additionalInfo: selectedVisitor.checkedOutBy ? `By: ${selectedVisitor.checkedOutBy}` : null
-                      });
-                    }
-                    if (selectedVisitor.status === "revisit" || selectedVisitor.updated_at) {
-                      events.push({
-                        type: 'revisit',
-                        title: 'Revisit',
-                        description: 'Visitor has revisited the facility',
-                        timestamp: selectedVisitor.revisit || selectedVisitor.updated_at,
-                        icon: <XCircle className="w-4 h-4 text-gray-600" />,
-                        bgColor: 'bg-gray-100',
-                        textColor: 'text-gray-800',
-                        badgeText: 'Revisited',
+                    // Simple function to format timestamps
+                    const formatTimestamp = (timestamp) => {
+                      console.log('Formatting timestamp:', timestamp, 'Type:', typeof timestamp);
+                      
+                      if (!timestamp) return 'No Date';
+                      
+                      try {
+                        let date;
                         
-                      });
+                        // Handle different timestamp formats
+                        if (typeof timestamp === 'string') {
+                          // Try multiple parsing approaches
+                          if (timestamp.includes('T')) {
+                            // ISO format: 2025-09-26T08:52:34.264516
+                            date = new Date(timestamp);
+                          } else if (timestamp.includes('-')) {
+                            // Date format: 2025-09-26
+                            date = new Date(timestamp);
+                          } else {
+                            // Try direct parsing
+                            date = new Date(timestamp);
+                          }
+                        } else {
+                          date = new Date(timestamp);
+                        }
+                        
+                        console.log('Parsed date:', date, 'Valid:', !isNaN(date.getTime()));
+                        
+                        if (isNaN(date.getTime())) {
+                          return `Invalid: ${timestamp}`;
+                        }
+                        
+                        return date.toLocaleString('en-US', {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                          hour12: true
+                        });
+                      } catch (error) {
+                        console.error('Date formatting error:', error, timestamp);
+                        return `Error: ${timestamp}`;
+                      }
+                    };
+
+                    // Get simple icon for status
+                    const getStatusIcon = (status) => {
+                      switch (status?.toLowerCase()) {
+                        case 'created': return <User className="w-4 h-4 text-blue-600" />;
+                        case 'pending': return <Clock className="w-4 h-4 text-yellow-600" />;
+                        case 'approved': return <CheckCircle className="w-4 h-4 text-green-600" />;
+                        case 'rejected': return <XCircle className="w-4 h-4 text-red-600" />;
+                        case 'checked_in': return <CheckCircle className="w-4 h-4 text-green-600" />;
+                        case 'checked_out': return <XCircle className="w-4 h-4 text-gray-600" />;
+                        case 'revisit': return <RotateCcw className="w-4 h-4 text-purple-600" />;
+                        default: return <Clock className="w-4 h-4 text-gray-600" />;
+                      }
+                    };
+
+                    // Get background color for status
+                    const getStatusBgColor = (status) => {
+                      switch (status?.toLowerCase()) {
+                        case 'created': return 'bg-blue-100';
+                        case 'pending': return 'bg-yellow-100';
+                        case 'approved': return 'bg-green-100';
+                        case 'rejected': return 'bg-red-100';
+                        case 'checked_in': return 'bg-green-100';
+                        case 'checked_out': return 'bg-gray-100';
+                        case 'revisit': return 'bg-purple-100';
+                        default: return 'bg-gray-100';
+                      }
+                    };
+
+                    // Get text color for status
+                    const getStatusTextColor = (status) => {
+                      switch (status?.toLowerCase()) {
+                        case 'created': return 'text-blue-800';
+                        case 'pending': return 'text-yellow-800';
+                        case 'approved': return 'text-green-800';
+                        case 'rejected': return 'text-red-800';
+                        case 'checked_in': return 'text-green-800';
+                        case 'checked_out': return 'text-gray-800';
+                        case 'revisit': return 'text-purple-800';
+                        default: return 'text-gray-800';
+                      }
+                    };
+
+                    console.log('=== FULL SELECTED VISITOR DATA ===');
+                    console.log('selectedVisitor:', selectedVisitor);
+                    console.log('=== TIMELINE SPECIFIC DATA ===');
+                    console.log('selectedVisitor.timeline:', selectedVisitor.timeline);
+                    console.log('Timeline type:', typeof selectedVisitor.timeline);
+                    console.log('Is timeline array?', Array.isArray(selectedVisitor.timeline));
+                    console.log('Timeline length:', selectedVisitor.timeline?.length);
+                    console.log('=== ALL POSSIBLE TIMELINE FIELDS ===');
+                    Object.keys(selectedVisitor).forEach(key => {
+                      if (key.toLowerCase().includes('timeline') || key.toLowerCase().includes('history') || key.toLowerCase().includes('status')) {
+                        console.log(`${key}:`, selectedVisitor[key]);
+                      }
+                    });
+                    console.log('=== END DEBUG ===');
+
+                    // Use the timelines array from the backend response
+                    const timelineData = selectedVisitor.timelines || selectedVisitor.timeline || [];
+                    
+                    console.log('Using timeline data:', timelineData);
+                    
+                    // Check if timeline exists and is array
+                    if (!timelineData || !Array.isArray(timelineData) || timelineData.length === 0) {
+                      return (
+                        <div className="text-center py-8 text-gray-500">
+                          <Clock className="w-8 h-8 mx-auto mb-2 text-gray-400" />
+                          <p>No timeline data available</p>
+                        </div>
+                      );
                     }
-                    
-                    // Sort events by timestamp
-                    events.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
-                    
-                    // Render events
-                    return events.map((event, index) => (
-                      <div key={`${event.type}-${index}`} className="relative flex items-start space-x-4">
-                        <div className={`flex-shrink-0 w-8 h-8 ${event.bgColor} rounded-full flex items-center justify-center relative z-10`}>
-                          {event.icon}
+
+                    // Remove duplicate timeline entries (same status and similar timestamp)
+                    const uniqueTimeline = timelineData.filter((entry, index, array) => {
+                      // Keep entry if it's the first occurrence of this status+timestamp combination
+                      return array.findIndex(e => {
+                        const entryTime = entry.updated_at || entry.created_at || entry.timestamp || entry.date;
+                        const eTime = e.updated_at || e.created_at || e.timestamp || e.date;
+                        
+                        // Consider entries duplicate if they have same status and timestamp within 1 minute
+                        const timeDiff = Math.abs(new Date(entryTime) - new Date(eTime));
+                        return e.status === entry.status && timeDiff < 60000; // 60 seconds
+                      }) === index;
+                    });
+
+                    console.log('Original timeline entries:', timelineData.length);
+                    console.log('After deduplication:', uniqueTimeline.length);
+
+                    // Sort timeline by any available timestamp field (oldest first - chronological order)
+                    const sortedTimeline = [...uniqueTimeline].sort((a, b) => {
+                      const timestampA = a.updated_at || a.created_at || a.timestamp || a.date;
+                      const timestampB = b.updated_at || b.created_at || b.timestamp || b.date;
+                      
+                      if (!timestampA && !timestampB) return 0;
+                      if (!timestampA) return 1;
+                      if (!timestampB) return -1;
+                      
+                      return new Date(timestampA) - new Date(timestampB);
+                    });
+
+                    console.log('Sorted timeline for display:', sortedTimeline);
+                    console.log('First timeline entry structure:', sortedTimeline[0]);
+                    console.log('Timeline entry keys:', Object.keys(sortedTimeline[0] || {}));
+
+                    // Render timeline entries directly
+                    return sortedTimeline.map((entry, index) => (
+                      <div key={`timeline-${entry.id}-${index}`} className="relative flex items-start space-x-4">
+                        <div className={`flex-shrink-0 w-8 h-8 ${getStatusBgColor(entry.status)} rounded-full flex items-center justify-center relative z-10`}>
+                          {getStatusIcon(entry.status)}
                         </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center space-x-2 mb-1">
-                            <h5 className="text-sm font-medium text-gray-900">{event.title}</h5>
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${event.bgColor} ${event.textColor}`}>
-                              {event.badgeText}
+                            <h5 className="text-sm font-medium text-gray-900">
+                              {entry.status?.charAt(0).toUpperCase() + entry.status?.slice(1) || 'Status Update'}
+                            </h5>
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getStatusBgColor(entry.status)} ${getStatusTextColor(entry.status)}`}>
+                              {entry.status || 'Unknown'}
                             </span>
                           </div>
                           <p className="text-sm text-gray-600">
-                            {event.description}
+                            Status changed to {entry.status}
                           </p>
                           <p className="text-xs text-gray-500 mt-1">
-                            {new Date(event.timestamp).toLocaleString()}
+                            {formatTimestamp(entry.updated_at || entry.created_at || entry.timestamp || entry.date)}
                           </p>
-                          {event.additionalInfo && (
+                          {entry.updated_by && (
                             <p className="text-xs text-gray-500">
-                              {event.additionalInfo}
+                              By: {entry.updated_by}
                             </p>
                           )}
                         </div>
