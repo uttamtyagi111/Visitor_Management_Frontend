@@ -277,7 +277,7 @@ const CameraStep = ({
               <span className="text-purple-800 font-medium">Returning Visitor</span>
             </div>
             <p className="text-purple-700 text-sm">
-              Welcome back, {existingVisitor.name}! You can use your previous photo or take a new one.
+              Welcome back, {existingVisitor.name}! Please retake your photo for this visit.
             </p>
           </div>
 
@@ -301,6 +301,19 @@ const CameraStep = ({
               </div>
             </div>
           ) : null}
+
+          {/* Retake Photo Button - Show for existing visitors with existing image (when not in retake mode) */}
+          {existingImage && !showRetakeCamera && !capturedImage && (
+            <div className="text-center">
+              <button
+                onClick={handleRetakePhoto}
+                disabled={isSubmitting}
+                className="bg-blue-600 text-white py-2 px-6 rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Retake Photo
+              </button>
+            </div>
+          )}
 
         </div>
       )}
@@ -425,25 +438,6 @@ const CameraStep = ({
           </button>
         )} */}
 
-        {/* Use Previous Photo Button - Show for existing visitors with existing image (when not in retake mode) */}
-        {isExistingVisitor && existingImage && !showRetakeCamera && !capturedImage && (
-          <div className="space-y-2">
-            <button
-              onClick={onUseExisting}
-              disabled={isSubmitting}
-              className="w-full bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
-            >
-              Use Previous Photo
-            </button>
-            <button
-              onClick={handleRetakePhoto}
-              disabled={isSubmitting}
-              className="w-full text-blue-600 hover:text-blue-700 underline text-sm disabled:opacity-50"
-            >
-              Take New Photo
-            </button>
-          </div>
-        )}
 
         {/* Retake Photo Button - Show when new photo is captured */}
         {capturedImage && (
