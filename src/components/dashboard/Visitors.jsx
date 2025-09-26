@@ -48,7 +48,7 @@ function Visitors() {
     setSelectedVisitor: state.setSelectedVisitor,
     setUpdating: state.setUpdating,
     setError: state.setError,
-    fetchVisitors: filters.fetchVisitors,
+    fetchVisitors: state.refreshData, // Use refreshData from state instead of filters
     user,
     setIsEditing: state.setIsEditing,
     setEditingVisitor: state.setEditingVisitor,
@@ -64,7 +64,7 @@ function Visitors() {
     setSelectedVisitor: state.setSelectedVisitor,
     setUpdating: state.setUpdating,
     setError: state.setError,
-    fetchVisitors: filters.fetchVisitors,
+    fetchVisitors: state.refreshData, // Use refreshData from state instead of filters
     user,
     setPassVisitor: state.setPassVisitor,
     setShowPassModal: state.setShowPassModal,
@@ -211,7 +211,7 @@ function Visitors() {
             totalItems={state.totalItems}
             itemsPerPage={state.itemsPerPage}
             currentPage={state.currentPage}
-            handlePageChange={filters.handlePageChange}
+            handlePageChange={state.handlePageChange}
             loading={state.loading}
           />
         </motion.div>

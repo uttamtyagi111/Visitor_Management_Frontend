@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useEffect } from "react";
 import { visitorAPI } from "../../api/visitor";
 import { useToast } from "../../contexts/ToastContext";
 import CameraStep from "./steps/CameraStep";
@@ -28,21 +28,51 @@ const VisitorRegistration = () => {
   const [validationErrors, setValidationErrors] = useState({});
   const [visitorId, setVisitorId] = useState(null);
 
+  // Monitor capturedImage state changes
+  useEffect(() => {
+    console.log('🔍 CapturedImage state changed:', {
+      hasCapturedImage: !!capturedImage,
+      capturedImageDetails: capturedImage ? {
+        size: capturedImage.size,
+        type: capturedImage.type,
+        name: capturedImage.name,
+        constructor: capturedImage.constructor.name
+      } : null
+    });
+  }, [capturedImage]);
+
   // Handle photo capture from camera step - Step 2: Just capture, don't submit yet
-  const handlePhotoCapture = (blob, previewUrl) => {
-    setCapturedImage(blob);
-    setImagePreview(previewUrl);
+  const handlePhotoCapture = (imageFile, previewUrl) => {
+    console.log('📸 Photo captured in VisitorRegistration:', {
+      hasFile: !!imageFile,
+      fileSize: imageFile?.size,
+      fileType: imageFile?.type,
+      fileName: imageFile?.name,
+      fileConstructor: imageFile?.constructor?.name,
+      previewUrl: previewUrl
+    });
+    
+    if (imageFile) {
+      setCapturedImage(imageFile);
+      setImagePreview(previewUrl);
+      console.log('📸 Image state updated successfully');
+    } else {
+      console.log('📸 Clearing captured image');
+      setCapturedImage(null);
+      setImagePreview(null);
+    }
     // Don't auto-submit, wait for "Complete Registration" button
   };
 
-  // Handle skip photo - no image captured
-  const handleSkipPhoto = () => {
-    setCapturedImage(null);
-    // Don't auto-submit, wait for "Complete Registration" button
-  };
+  // // Handle skip photo - no image captured
+  // const handleSkipPhoto = () => {
+  //   setCapturedImage(null);
+  //   // Don't auto-submit, wait for "Complete Registration" button
+  // };
 
   // Handle using existing photo for returning visitors
   const handleUseExistingPhoto = () => {
+    console.log('📸 Using existing photo for returning visitor');
     // Keep existing image, don't capture new one
     setCapturedImage(null);
     // Don't auto-submit, wait for "Complete Registration" button
@@ -58,35 +88,107 @@ const VisitorRegistration = () => {
     setIsSubmitting(true);
 
     try {
-      console.log('Complete registration for visitor ID:', visitorId);
-      console.log('Image blob provided:', !!capturedImage);
+      console.log('🚀 Complete registration for visitor ID:', visitorId);
+      console.log('🚀 Current visitor status:', existingVisitor.status);
+      console.log('🚀 Captured image available:', !!capturedImage);
       
-      // Prepare update data
-      const updateData = {
-        ...formData,
-        // Status will be updated based on image:
-        // - If image is provided: status becomes 'pending' 
-        // - If no image: keep current status
-        status: capturedImage ? 'pending' : existingVisitor.status
-      };
-
-      // Call updateVisitor API with image
-      const response = await visitorAPI.updateVisitor(visitorId, updateData, capturedImage);
-      
-      console.log('UpdateVisitor API response:', response);
-      
-      // Show success message based on visitor type
-      if (existingVisitor.status === 'revisit') {
-        toast.success("Welcome back! Your visit has been registered successfully.");
+      // Debug image details
+      if (capturedImage) {
+        console.log('🖼️ Image details:', {
+          size: capturedImage.size,
+          type: capturedImage.type,
+          name: capturedImage.name || 'captured-image.png',
+          constructor: capturedImage.constructor.name,
+          isFile: capturedImage instanceof File,
+          isBlob: capturedImage instanceof Blob
+        });
       } else {
-        toast.success("Registration completed successfully! Welcome to our facility.");
+        console.log('🖼️ No captured image - will use existing image or skip');
       }
+      
+      // Prepare update data based on visitor type
+      let updateData;
+      let successMessage;
+      
+      if (existingVisitor.status === 'revisit') {
+        // For returning visitors: keep revisit status, just update image/data
+        updateData = {
+          ...formData,
+          status: 'revisit' // Keep revisit status for returning visitors
+        };
+        successMessage = "Welcome back! Your visit has been registered successfully.";
+      } else {
+        // For new visitors: change status from 'created' to 'pending' (creates new timeline entry)
+        updateData = {
+          ...formData,
+          status: 'pending' // Change from 'created' to 'pending' for new visitors
+        };
+        successMessage = "Registration completed successfully! Welcome to our facility.";
+      }
+
+      // Debug what we're sending to API
+      console.log('🚀 About to call updateVisitor API with:', {
+        visitorId: visitorId,
+        updateData: updateData,
+        capturedImageExists: !!capturedImage,
+        capturedImageDetails: capturedImage ? {
+          size: capturedImage.size,
+          type: capturedImage.type,
+          name: capturedImage.name,
+          constructor: capturedImage.constructor.name,
+          isFile: capturedImage instanceof File,
+          isBlob: capturedImage instanceof Blob
+        } : null
+      });
+
+      // ✅ CRITICAL FIX: Always pass the captured image to updateVisitor API
+      // If no image was captured, pass null and backend will keep existing image
+      const imageToSend = capturedImage || null;
+      
+      console.log('🚀 Calling updateVisitor API with:', {
+        visitorId,
+        updateData,
+        imageToSend: imageToSend ? {
+          name: imageToSend.name,
+          size: imageToSend.size,
+          type: imageToSend.type,
+          constructor: imageToSend.constructor.name,
+          isFile: imageToSend instanceof File,
+          isBlob: imageToSend instanceof Blob
+        } : 'null (will keep existing image)'
+      });
+      
+      // Call updateVisitor API with image (or null)
+      const response = await visitorAPI.updateVisitor(visitorId, updateData, imageToSend);
+      
+      console.log('✅ UpdateVisitor API response:', response);
+      console.log('✅ Final visitor status:', response.status);
+      console.log('✅ Image URL in response:', response.image);
+      console.log('✅ Image URL type:', typeof response.image);
+      console.log('✅ Has image URL:', !!response.image);
+      console.log('✅ Full response object:', JSON.stringify(response, null, 2));
+      
+      // Update stored visitor data with response
+      setExistingVisitor(response);
+      
+      // Set flag to refresh visitor list when user navigates back
+      localStorage.setItem('visitor_registered', Date.now().toString());
+      console.log('✅ Set visitor_registered flag for list refresh');
+      
+      // Show success message
+      toast.success(successMessage);
       
       // Move to success step
       setCurrentStep("success");
       
     } catch (err) {
-      console.error('Error updating visitor:', err);
+      console.error('❌ Error updating visitor:', err);
+      console.error('❌ Error details:', {
+        message: err.message,
+        stack: err.stack,
+        visitorId,
+        capturedImage: !!capturedImage
+      });
       toast.error(err.message || "Failed to complete registration. Please try again.");
     } finally {
       setIsSubmitting(false);
@@ -166,7 +268,15 @@ const VisitorRegistration = () => {
     try {
       // Call createVisitor API - creates or updates visitor record without image
       console.log('Creating visitor with form data:', formData);
-      const response = await visitorAPI.createVisitor(formData);
+      
+      // ✅ For new visitors: use 'created' status in Step 1 (creates timeline entry)
+      // ✅ For returning visitors: backend will return 'revisit' status
+      const visitorDataWithStatus = {
+        ...formData,
+        status: 'created' // This will create timeline entry for new visitors
+      };
+      
+      const response = await visitorAPI.createVisitor(visitorDataWithStatus);
       
       console.log('CreateVisitor API response:', response);
       
@@ -178,9 +288,11 @@ const VisitorRegistration = () => {
       if (response.status === 'revisit') {
         setIsExistingVisitor(true);
         console.log('Returning visitor detected:', response.name);
+        toast.success(`Welcome back, ${response.name}!`);
       } else {
         setIsExistingVisitor(false);
-        console.log('New visitor created:', response.name);
+        console.log('New visitor created with status:', response.status);
+        toast.success("Visitor record created successfully!");
       }
       
       // Set existing image if available from response
@@ -269,7 +381,7 @@ const VisitorRegistration = () => {
         {currentStep === "camera" && (
           <CameraStep 
             onPhotoCapture={handlePhotoCapture}
-            onSkip={handleSkipPhoto}
+            // onSkip={handleSkipPhoto}
             onUseExisting={handleUseExistingPhoto}
             onCompleteRegistration={handleCompleteRegistration}
             onBack={handleBackToForm}
@@ -282,7 +394,7 @@ const VisitorRegistration = () => {
         )}
         {currentStep === "success" && (
           <SuccessStep
-            visitorData={{ id: visitorId, status: isExistingVisitor ? "revisit" : "pending" }}
+            visitorData={existingVisitor || { id: visitorId, status: isExistingVisitor ? "revisit" : "pending" }}
             onRegisterAnother={handleRegisterAnother}
           />
         )}

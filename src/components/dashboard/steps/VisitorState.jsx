@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useCallback, useEffect } from "react";
 import { visitorAPI } from "../../../api/visitor";
 import { useToast } from "../../../contexts/ToastContext";
+import { debounce } from "../../../utils/validation";
 
 // State management component for visitor data
 export const useVisitorState = () => {
@@ -35,12 +36,14 @@ export const useVisitorState = () => {
   // Data fetching - matching Invitees functionality
   const refreshData = useCallback(async () => {
     try {
+      console.log('Starting visitor data refresh');
       setLoading(true);
       setError(null);
       const data = await visitorAPI.getVisitors(); // Fetch all visitors at once
       const results = Array.isArray(data) ? data : data.results || [];
       setVisitors(results);
       setTotalItems(results.length);
+      console.log('Visitor data refresh completed:', results.length, 'visitors');
     } catch (err) {
       console.error("Error fetching visitors:", err);
       toast.error("Failed to fetch visitors");
@@ -50,10 +53,79 @@ export const useVisitorState = () => {
     }
   }, [toast]);
 
-  // Fetch visitors on component mount
+  // Handle page change for pagination
+  const handlePageChange = useCallback((page) => {
+    setCurrentPage(page);
+  }, []);
+
+  // Fetch visitors on component mount (only once)
   useEffect(() => {
     refreshData();
-  }, [refreshData]);
+  }, []); // Empty dependency array to run only once on mount
+
+  // Debounced refresh to prevent multiple rapid API calls
+  const debouncedRefresh = useCallback(
+    debounce(() => {
+      console.log('Debounced refresh triggered');
+      refreshData();
+    }, 1000), // 1 second debounce
+    [] // Remove refreshData dependency to prevent infinite loop
+  );
+
+  // Refresh data when window regains focus (user returns from registration)
+  useEffect(() => {
+    const handleFocus = () => {
+      console.log('Window focused - scheduling debounced refresh');
+      debouncedRefresh();
+    };
+
+    const handleVisibilityChange = () => {
+      if (!document.hidden) {
+        console.log('Page became visible - scheduling debounced refresh');
+        debouncedRefresh();
+      }
+    };
+
+    // Add event listeners
+    window.addEventListener('focus', handleFocus);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Cleanup
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      debouncedRefresh.cancel?.(); // Cancel pending debounced calls
+    };
+  }, []); // Remove debouncedRefresh dependency to prevent infinite loop
+
+  // Listen for visitor registration events
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === 'visitor_registered' && e.newValue) {
+        console.log('New visitor registered - refreshing visitor data');
+        refreshData();
+        // Clear the flag
+        localStorage.removeItem('visitor_registered');
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+    
+    // Also check for the flag on component mount/focus
+    const checkRegistrationFlag = () => {
+      if (localStorage.getItem('visitor_registered')) {
+        console.log('Found visitor registration flag - refreshing data');
+        refreshData();
+        localStorage.removeItem('visitor_registered');
+      }
+    };
+
+    checkRegistrationFlag();
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []); // Remove refreshData dependency to prevent infinite loop
 
   // Memoized visitor statistics
   const visitorStats = useMemo(() => {
@@ -117,6 +189,7 @@ export const useVisitorState = () => {
     // Pagination state
     currentPage,
     setCurrentPage,
+    handlePageChange,
     itemsPerPage,
     totalItems,
     setTotalItems,

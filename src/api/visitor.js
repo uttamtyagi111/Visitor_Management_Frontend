@@ -144,26 +144,87 @@ export const visitorAPI = {
     imageFile = null,
     passFile = null
   ) => {
+    console.log('🔧 updateVisitor called with:', {
+      visitorId,
+      visitorData,
+      hasImageFile: !!imageFile,
+      hasPassFile: !!passFile,
+      imageFileDetails: imageFile ? {
+        name: imageFile.name,
+        size: imageFile.size,
+        type: imageFile.type,
+        constructor: imageFile.constructor.name,
+        isFile: imageFile instanceof File,
+        isBlob: imageFile instanceof Blob
+      } : null
+    });
+
     let body;
     let headers = {};
 
     // If image or pass file is present, use FormData
     if (imageFile || passFile) {
+      console.log('🔧 Using FormData because image or pass file is present');
       body = new FormData();
+      
+      // Add visitor data fields
       Object.entries(visitorData).forEach(([key, value]) => {
         if (value !== null && value !== undefined && value !== "") {
           body.append(key, value);
+          console.log(`🔧 Added field to FormData: ${key} = ${value}`);
         }
       });
 
       if (imageFile) {
-        body.append("image", imageFile);
+        console.log('📷 Adding image to FormData:', {
+          size: imageFile.size,
+          type: imageFile.type,
+          name: imageFile.name || 'captured-image.jpg',
+          constructor: imageFile.constructor.name,
+          isFile: imageFile instanceof File,
+          isBlob: imageFile instanceof Blob
+        });
+        
+        // Ensure we're appending a proper File object
+        if (imageFile instanceof File || imageFile instanceof Blob) {
+          const fileName = imageFile.name || 'captured-image.jpg';
+          body.append("image", imageFile, fileName);
+          console.log('📷 ✅ Image successfully appended to FormData with name:', fileName);
+        } else {
+          console.error('📷 ❌ Invalid image file type:', typeof imageFile, imageFile);
+          throw new Error('Invalid image file provided');
+        }
+      } else {
+        console.log('📷 No image file provided - backend will keep existing image');
       }
 
       if (passFile) {
+        console.log('📄 Adding pass file to FormData:', {
+          size: passFile.size,
+          type: passFile.type,
+          name: passFile.name
+        });
         body.append("pass_file", passFile);
+        console.log('📄 ✅ Pass file successfully appended to FormData');
       }
+
+      // Debug FormData contents
+      console.log('📦 FormData entries being sent to backend:');
+      for (let [key, value] of body.entries()) {
+        if (value instanceof File) {
+          console.log(`  📄 ${key}:`, {
+            name: value.name,
+            size: value.size,
+            type: value.type,
+            isFile: true
+          });
+        } else {
+          console.log(`  📝 ${key}:`, value);
+        }
+      }
+      console.log('📦 Total FormData entries:', Array.from(body.entries()).length);
     } else {
+      console.log('🔧 Using JSON because no files provided');
       // Otherwise, send JSON
       const filteredData = Object.entries(visitorData).reduce(
         (acc, [key, value]) => {
@@ -176,13 +237,22 @@ export const visitorAPI = {
       );
       body = JSON.stringify(filteredData);
       headers["Content-Type"] = "application/json";
+      console.log('🔧 JSON body:', filteredData);
     }
 
-    return apiRequest(`${API_BASE_URL}/visitors/${visitorId}/`, {
+    console.log('🚀 Making API request to:', `${API_BASE_URL}/visitors/${visitorId}/`);
+    console.log('🚀 Request method: PATCH');
+    console.log('🚀 Request headers:', headers);
+    console.log('🚀 Request body type:', body instanceof FormData ? 'FormData' : 'JSON');
+
+    const response = await apiRequest(`${API_BASE_URL}/visitors/${visitorId}/`, {
       method: "PATCH",
       body,
       headers,
     });
+
+    console.log('✅ updateVisitor API response received:', response);
+    return response;
   },
 
   // Update visitor status

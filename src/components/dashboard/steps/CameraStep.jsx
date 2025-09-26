@@ -4,7 +4,7 @@ import { useToast } from "../../../contexts/ToastContext";
 
 const CameraStep = ({ 
   onPhotoCapture, 
-  onSkip, 
+  // onSkip, 
   onUseExisting, 
   onCompleteRegistration,
   onBack, 
@@ -46,7 +46,7 @@ const CameraStep = ({
     setIsLoading(true);
 
     try {
-      console.log("Starting camera with facingMode:", facingMode);
+      console.log("🎥 Starting camera with facingMode:", facingMode);
       
       // Stop existing stream if any
       if (cameraStream) {
@@ -72,14 +72,14 @@ const CameraStep = ({
       }
 
       if (videoRef.current) {
-        console.log("Setting video stream");
+        console.log("🎥 Setting video stream - camera started successfully");
         videoRef.current.srcObject = stream;
         setCameraStream(stream);
         setIsCameraActive(true);
         setIsLoading(false);
       }
     } catch (err) {
-      console.error("Camera access error:", err);
+      console.error("🎥 Camera access error:", err);
       toast.error("Unable to access camera. Please check permissions and try again.");
       setIsLoading(false);
       setIsCameraActive(false);
@@ -111,11 +111,34 @@ const CameraStep = ({
     // Draw video frame to canvas
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    // Convert to blob
+    // Convert to blob with proper filename
     canvas.toBlob((blob) => {
       if (blob) {
-        const previewUrl = URL.createObjectURL(blob);
-        onPhotoCapture(blob, previewUrl);
+        // Create a new File object with proper name and type
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+        const filename = `visitor-photo-${timestamp}.jpg`;
+        const imageFile = new File([blob], filename, { 
+          type: 'image/jpeg',
+          lastModified: Date.now()
+        });
+        
+        console.log('📸 Created image file in CameraStep:', {
+          name: imageFile.name,
+          size: imageFile.size,
+          type: imageFile.type,
+          constructor: imageFile.constructor.name
+        });
+        
+        const previewUrl = URL.createObjectURL(imageFile);
+        console.log('📸 Calling onPhotoCapture with File object:', {
+          hasFile: !!imageFile,
+          fileName: imageFile.name,
+          fileSize: imageFile.size,
+          fileType: imageFile.type,
+          previewUrl: previewUrl
+        });
+        
+        onPhotoCapture(imageFile, previewUrl);
         
         // Stop camera after capture
         if (cameraStream) {
@@ -124,6 +147,7 @@ const CameraStep = ({
           setIsCameraActive(false);
         }
       } else {
+        console.error('📸 Failed to create blob from canvas');
         toast.error("Failed to capture photo. Please try again.");
       }
     }, "image/jpeg", 0.8);
@@ -170,6 +194,41 @@ const CameraStep = ({
     setShowRetakeCamera(false);
     stopCamera();
   };
+
+  // Auto-start camera for new visitors (only once)
+  useEffect(() => {
+    console.log('🎥 Auto-start camera check:', {
+      isExistingVisitor,
+      capturedImage: !!capturedImage,
+      isCameraActive,
+      isLoading,
+      shouldAutoStart: !isExistingVisitor && !capturedImage && !isCameraActive && !isLoading
+    });
+
+    // For new visitors, automatically start the camera (only once)
+    if (!isExistingVisitor && !capturedImage && !isCameraActive && !isLoading) {
+      console.log('🎥 Auto-starting camera for new visitor');
+      
+      // Use a ref to prevent multiple auto-starts
+      if (!isMountedRef.current) return;
+      
+      const timeoutId = setTimeout(() => {
+        if (isMountedRef.current && videoRef.current && !isCameraActive) {
+          console.log('🎥 Starting camera now...');
+          startCamera();
+        } else {
+          console.log('🎥 Cannot start camera - component not ready or already active:', {
+            isMounted: isMountedRef.current,
+            hasVideoRef: !!videoRef.current,
+            isCameraActive
+          });
+        }
+      }, 500); // Small delay to ensure component is ready
+
+      // Cleanup timeout on unmount
+      return () => clearTimeout(timeoutId);
+    }
+  }, [isExistingVisitor, capturedImage, isCameraActive, isLoading, startCamera]);
 
   // Cleanup on unmount
   useEffect(() => {
@@ -256,7 +315,7 @@ const CameraStep = ({
       {/* Camera Section - Show based on visitor type and retake state */}
       {/* For new visitors: always show camera */}
       {/* For existing visitors: only show when retaking (showRetakeCamera=true) or no existing image */}
-      {(!isExistingVisitor || showRetakeCamera || (!existingImage && !capturedImage)) && (
+      {(!isExistingVisitor || showRetakeCamera || !existingImage) && (
         <div className="space-y-4">
           {/* Cancel retake button for existing visitors */}
           {isExistingVisitor && showRetakeCamera && (
@@ -355,15 +414,35 @@ const CameraStep = ({
           <span>{isSubmitting ? "Completing Registration..." : "Complete Registration"}</span>
         </button>
 
-        {/* Retake Photo Button - Show for existing visitors with existing image (when not in retake mode) */}
-        {isExistingVisitor && existingImage && !showRetakeCamera && !capturedImage && (
+        {/* Skip Photo Button - Show for new visitors who haven't captured a photo
+        {!isExistingVisitor && !capturedImage && (
           <button
-            onClick={handleRetakePhoto}
+            onClick={onSkip}
             disabled={isSubmitting}
-            className="w-full text-blue-600 hover:text-blue-700 underline text-sm disabled:opacity-50"
+            className="w-full text-gray-600 hover:text-gray-700 underline text-sm disabled:opacity-50"
           >
-            Retake Photo
+            Skip Photo (Optional)
           </button>
+        )} */}
+
+        {/* Use Previous Photo Button - Show for existing visitors with existing image (when not in retake mode) */}
+        {isExistingVisitor && existingImage && !showRetakeCamera && !capturedImage && (
+          <div className="space-y-2">
+            <button
+              onClick={onUseExisting}
+              disabled={isSubmitting}
+              className="w-full bg-purple-600 text-white py-2 px-4 rounded-lg hover:bg-purple-700 transition-colors disabled:opacity-50"
+            >
+              Use Previous Photo
+            </button>
+            <button
+              onClick={handleRetakePhoto}
+              disabled={isSubmitting}
+              className="w-full text-blue-600 hover:text-blue-700 underline text-sm disabled:opacity-50"
+            >
+              Take New Photo
+            </button>
+          </div>
         )}
 
         {/* Retake Photo Button - Show when new photo is captured */}
