@@ -1,18 +1,13 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { User, Download, X } from "lucide-react";
+import { X } from "lucide-react";
 import { toast } from 'react-toastify';
 import { inviteeHelpers } from "../../api/invite.js";
 import inviteeAPI from "../../api/invite.js";
 
-const PassPreviewModal = ({
-  showPassPreview,
-  setShowPassPreview,
-  selectedInvite,
-  handleDownloadPass,
-  onInviteUpdated,
-}) => {
+const PassPreviewModal = ({ showPassPreview, selectedInvite, onClose, onInviteUpdated }) => {
   const [loading, setLoading] = useState(false);
+  const [hasCheckedIn, setHasCheckedIn] = useState(false);
 
   if (!showPassPreview || !selectedInvite) return null;
 
@@ -22,11 +17,12 @@ const PassPreviewModal = ({
     setLoading(true);
 
     try {
-      // First, update the invite status to checked_in
-      if (selectedInvite.id) {
-        console.log('🎫 Updating invite status to checked_in after print pass...');
-        await inviteeAPI.updateInviteStatus(selectedInvite.id, "checked_in");
-        console.log('✅ Invite status updated to checked_in');
+      // First, check-in the visitor (only if not already checked in)
+      if (selectedInvite.id && !hasCheckedIn && selectedInvite.status !== "checked_in") {
+        console.log('🎫 Checking in visitor after print pass...');
+        await inviteeAPI.checkInVisitor(selectedInvite.id);
+        console.log('✅ Visitor checked in successfully');
+        setHasCheckedIn(true);
         
         // Notify parent component of the status update
         if (onInviteUpdated) {
@@ -156,11 +152,12 @@ const PassPreviewModal = ({
     setLoading(true);
     
     try {
-      // Update invite status to checked_in
-      if (selectedInvite.id) {
-        console.log('🎫 Updating invite status to checked_in on Done button...');
-        await inviteeAPI.updateInviteStatus(selectedInvite.id, "checked_in");
-        console.log('✅ Invite status updated to checked_in');
+      // Check-in the visitor (only if not already checked in)
+      if (selectedInvite.id && !hasCheckedIn && selectedInvite.status !== "checked_in") {
+        console.log('🎫 Checking in visitor on Done button...');
+        await inviteeAPI.checkInVisitor(selectedInvite.id);
+        console.log('✅ Visitor checked in successfully');
+        setHasCheckedIn(true);
         
         // Notify parent component of the status update
         if (onInviteUpdated) {
@@ -176,7 +173,7 @@ const PassPreviewModal = ({
       setLoading(false);
     }
     
-    setShowPassPreview(false);
+    onClose();
   };
 
   return (
@@ -185,7 +182,7 @@ const PassPreviewModal = ({
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
       className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 z-50"
-      onClick={() => setShowPassPreview(false)}
+      onClick={onClose}
     >
       <motion.div
         initial={{ scale: 0.9, opacity: 0 }}
@@ -203,7 +200,7 @@ const PassPreviewModal = ({
             <p className="text-gray-600">Your visitor pass is ready</p>
           </div>
           <button
-            onClick={() => setShowPassPreview(false)}
+            onClick={onClose}
             className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
           >
             <X className="w-6 h-6 text-gray-500" />

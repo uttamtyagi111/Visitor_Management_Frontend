@@ -148,15 +148,21 @@ const InviteTable = ({
                   </span>
                 </td>
                 <td className="px-6 py-4">
-                  <p className="font-medium text-gray-900">
-                    {inviteeHelpers.formatDateTime(invite.visit_time)}
-                  </p>
-                  {invite.expiry_time && (
-                    <p className="text-gray-600 text-sm">
-                      Expires:{" "}
-                      {inviteeHelpers.formatDateTime(invite.expiry_time)}
+                  <div className="space-y-1">
+                    <p className="font-medium text-gray-900 text-sm">
+                      <span className="text-gray-500">Scheduled:</span> {inviteeHelpers.formatDateTime(invite.visit_time)}
                     </p>
-                  )}
+                    {invite.report?.check_in && (
+                      <p className="text-green-600 text-sm">
+                        <span className="text-gray-500">Checked In:</span> {inviteeHelpers.formatDateTime(invite.report.check_in)}
+                      </p>
+                    )}
+                    {invite.report?.check_out && invite.status !== "checked_in" && (
+                      <p className="text-blue-600 text-sm">
+                        <span className="text-gray-500">Checked Out:</span> {inviteeHelpers.formatDateTime(invite.report.check_out)}
+                      </p>
+                    )}
+                  </div>
                 </td>
                 <td className="px-6 py-4">
                   {getStatusBadge(invite.status)}
@@ -165,9 +171,20 @@ const InviteTable = ({
                   <div className="flex items-center space-x-2">
                     <select
                       value={invite.status}
-                      onChange={(e) =>
-                        handleStatusUpdate(invite.id, e.target.value)
-                      }
+                      onChange={(e) => {
+                        const newStatus = e.target.value;
+                        const inviteId = invite.id;
+                        
+                        console.log('🔄 Dropdown onChange triggered for invite:', inviteId, 'New status:', newStatus);
+                        
+                        // Prevent calling if the status is the same
+                        if (newStatus === invite.status) {
+                          console.log('⚠️ Status unchanged, skipping update');
+                          return;
+                        }
+                        
+                        handleStatusUpdate(inviteId, newStatus);
+                      }}
                       className="px-2 py-1 text-sm border border-gray-200 rounded-lg bg-white min-w-[100px]"
                       disabled={loading}
                     >

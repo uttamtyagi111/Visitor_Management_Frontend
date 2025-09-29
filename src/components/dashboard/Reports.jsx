@@ -35,6 +35,76 @@ function Reports() {
     fetchReports();
   }, []);
 
+  // Refresh reports when window regains focus (user returns from another tab/page)
+  useEffect(() => {
+    const handleWindowFocus = () => {
+      console.log('🔄 Window focused, refreshing report data...');
+      fetchReports();
+    };
+
+    window.addEventListener('focus', handleWindowFocus);
+
+    return () => {
+      window.removeEventListener('focus', handleWindowFocus);
+    };
+  }, []);
+
+  // Periodic refresh every 30 seconds to catch updates from invite status changes
+  useEffect(() => {
+    const interval = setInterval(() => {
+      console.log('🔄 Periodic refresh: Checking for report updates...');
+      fetchReports();
+    }, 30000); // Refresh every 30 seconds
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Listen for storage events (when localStorage is updated from another tab)
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === 'invite_updated' || e.key === 'report_updated') {
+        console.log('🔄 Storage event: Data updated in another tab, refreshing reports...');
+        fetchReports();
+        // Clear the flag
+        localStorage.removeItem('invite_updated');
+        localStorage.removeItem('report_updated');
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
+  }, []);
+
+  // Handle export button click
+  const handleExport = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      
+      // Prepare filters based on current state
+      const filters = {
+        search: searchTerm,
+        status: statusFilter !== 'all' ? statusFilter : undefined,
+        date: dateFilter,
+        type: activeTab
+      };
+      
+      // Call the export API
+      await exportReports('csv', filters);
+      
+      console.log('Export completed successfully');
+      
+    } catch (err) {
+      setError("Failed to export reports");
+      console.error("Error exporting reports:", err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const fetchReports = async () => {
     try {
       setLoading(true);
@@ -49,13 +119,10 @@ function Reports() {
     }
   };
 
-  // In your Reports.jsx, replace the filteredReports logic with:
-
-  const filteredReports = (reports || []).map(report => {
+  // Normalize reports data for consistent display
+  const normalizedReports = (reports || []).map(report => {
     const isVisitor = !!report.visitor_data;
-    const isInvitee = !!report.invite_data;
-
-    const normalized = {
+    return {
       ...report,
       visitor_type: isVisitor ? 'visitor' : 'invitee',
       visitor_name: isVisitor
@@ -70,19 +137,17 @@ function Reports() {
       purpose: isVisitor
         ? report.visitor_data?.purpose
         : report.invite_data?.purpose,
-      // Prefer explicit status from backend if present; otherwise derive from timestamps later
-      status: isVisitor
-        ? (report.visitor_data?.status || report.status)
-        : (report.invite_data?.status || report.status),
-      image: report.image ||
-        (isVisitor ? report.visitor_data?.image : report.invite_data?.image),
-      // Ensure check-in/out exist at top level for consistent rendering and filtering
       check_in: report.check_in || (isVisitor ? report.visitor_data?.check_in : report.invite_data?.check_in),
       check_out: report.check_out || (isVisitor ? report.visitor_data?.check_out : report.invite_data?.check_out),
+      status: report.status || getReportStatus(
+        report.check_in || (isVisitor ? report.visitor_data?.check_in : report.invite_data?.check_in),
+        report.check_out || (isVisitor ? report.visitor_data?.check_out : report.invite_data?.check_out)
+      )
     };
+  });
 
-    return normalized;
-  }).filter(report => {
+  // Filter reports based on active tab and search criteria
+  const filteredReports = normalizedReports.filter(report => {
     // Filter by active tab
     const matchesTab = (activeTab === 'visitors' && report.visitor_type === 'visitor') ||
       (activeTab === 'invitees' && report.visitor_type === 'invitee');
@@ -98,37 +163,10 @@ function Reports() {
       (report.remarks || '').toLowerCase().includes(searchLower) ||
       (report.purpose || '').toLowerCase().includes(searchLower);
 
-    // Filter by status
-    const reportStatus = getReportStatus(report.check_in, report.check_out);
     const matchesStatus = statusFilter === "all" || reportStatus === statusFilter;
 
     return matchesSearch && matchesStatus;
   });
-
-  const handleExport = async () => {
-    try {
-      const filters = {
-        search: searchTerm,
-        status: statusFilter !== "all" ? statusFilter : null,
-        date_filter: dateFilter !== "today" ? dateFilter : null,
-        report_type: activeTab, // Add report type to filters
-      };
-
-      const blob = await exportReports("csv", filters);
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.style.display = "none";
-      a.href = url;
-      a.download = `reports_${new Date().toISOString().split("T")[0]}.csv`;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (error) {
-      console.error("Error exporting reports:", error);
-      alert("Failed to export reports. Please try again.");
-    }
-  };
 
   const getStatusBadge = (status) => {
     const styles = {

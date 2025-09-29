@@ -110,32 +110,65 @@ export const deleteReport = async (id) => {
   }
 };
 
-// Export reports data
+/**
+ * Export reports data to a file
+ * @param {string} format - Export format (csv, xlsx, etc.)
+ * @param {Object} filters - Filters to apply to the export
+ * @returns {Promise<Blob>} - Returns a blob containing the exported file
+ */
 export const exportReports = async (format = 'csv', filters = {}) => {
   try {
     const queryParams = new URLSearchParams();
     queryParams.append('format', format);
     
     // Add filters to query params
-    Object.keys(filters).forEach(key => {
-      if (filters[key]) {
-        queryParams.append(key, filters[key]);
+    Object.entries(filters).forEach(([key, value]) => {
+      if (value !== null && value !== undefined && value !== '') {
+        queryParams.append(key, value);
       }
     });
 
     const token = localStorage.getItem('access_token');
-    const response = await fetch(`${REPORTS_API_URL}/export/?${queryParams.toString()}`, {
+    const url = new URL('/api/reports/export-reports/', window.location.origin);
+    
+    // Add query parameters to URL
+    queryParams.forEach((value, key) => {
+      url.searchParams.append(key, value);
+    });
+
+    console.log('Exporting reports with URL:', url.toString());
+    
+    const response = await fetch(url, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
+        'Accept': 'application/octet-stream',
       },
+      credentials: 'include',
     });
 
     if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Export error response:', errorText);
       throw new Error(`HTTP error! status: ${response.status}`);
     }
 
     const blob = await response.blob();
+    
+    // Trigger file download
+    const downloadUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = downloadUrl;
+    link.setAttribute('download', `reports_${new Date().toISOString().split('T')[0]}.${format}`);
+    document.body.appendChild(link);
+    link.click();
+    
+    // Cleanup
+    setTimeout(() => {
+      window.URL.revokeObjectURL(downloadUrl);
+      link.remove();
+    }, 100);
+    
     return blob;
   } catch (error) {
     console.error('Error exporting reports:', error);

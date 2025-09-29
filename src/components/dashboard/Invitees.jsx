@@ -83,6 +83,8 @@ function Invitees() {
     error,
     success,
     handleStatusUpdate: actionHandleStatusUpdate,
+    handleCheckIn: actionHandleCheckIn,
+    handleCheckOut: actionHandleCheckOut,
     handleDeleteInvite: actionHandleDeleteInvite,
     handleGenerateInvitePass: actionHandleGenerateInvitePass,
     handleDownloadPass: actionHandleDownloadPass,
@@ -420,11 +422,37 @@ function Invitees() {
     }
   };
 
+  // Track ongoing status updates to prevent duplicates
+  const [ongoingUpdates, setOngoingUpdates] = useState(new Set());
+
   // Action handlers that integrate with the hook
   const handleStatusUpdate = async (inviteId, newStatus) => {
-    const success = await actionHandleStatusUpdate(inviteId, newStatus);
-    if (success) {
-      await refreshData();
+    const updateKey = `${inviteId}-${newStatus}`;
+    
+    // Prevent duplicate calls for the same invite and status
+    if (ongoingUpdates.has(updateKey)) {
+      console.log('⚠️ Duplicate status update prevented for invite:', inviteId, 'Status:', newStatus);
+      return;
+    }
+
+    console.log('🎯 handleStatusUpdate called for invite:', inviteId, 'New status:', newStatus);
+    
+    // Mark this update as ongoing
+    setOngoingUpdates(prev => new Set([...prev, updateKey]));
+    
+    try {
+      const success = await actionHandleStatusUpdate(inviteId, newStatus);
+      if (success) {
+        console.log('✅ Status update successful, refreshing data...');
+        await refreshData();
+      }
+    } finally {
+      // Remove from ongoing updates
+      setOngoingUpdates(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(updateKey);
+        return newSet;
+      });
     }
   };
 
@@ -596,7 +624,7 @@ function Invitees() {
 
       <PassPreviewModal
         showPassPreview={showPassPreview}
-        setShowPassPreview={setShowPassPreview}
+        onClose={() => setShowPassPreview(false)}
         selectedInvite={selectedInvite}
         handleDownloadPass={handleDownloadPass}
         onInviteUpdated={handleInviteUpdated}

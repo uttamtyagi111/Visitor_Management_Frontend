@@ -117,16 +117,24 @@ const InviteMobileCards = ({
                   </span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-500">Visit Time:</span>
+                  <span className="text-gray-500">Scheduled:</span>
                   <span className="text-gray-900 font-medium text-right">
                     {inviteeHelpers.formatDateTime(invite.visit_time)}
                   </span>
                 </div>
-                {invite.expiry_time && (
+                {invite.report?.check_in && (
                   <div className="flex justify-between">
-                    <span className="text-gray-500">Expires:</span>
-                    <span className="text-gray-900 font-medium text-right">
-                      {inviteeHelpers.formatDateTime(invite.expiry_time)}
+                    <span className="text-gray-500">Checked In:</span>
+                    <span className="text-green-600 font-medium text-right">
+                      {inviteeHelpers.formatDateTime(invite.report.check_in)}
+                    </span>
+                  </div>
+                )}
+                {invite.report?.check_out && invite.status !== "checked_in" && (
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Checked Out:</span>
+                    <span className="text-blue-600 font-medium text-right">
+                      {inviteeHelpers.formatDateTime(invite.report.check_out)}
                     </span>
                   </div>
                 )}
@@ -147,9 +155,20 @@ const InviteMobileCards = ({
                   <span className="text-sm font-medium text-gray-700 min-w-[60px]">Status:</span>
                   <select
                     value={invite.status}
-                    onChange={(e) =>
-                      handleStatusUpdate(invite.id, e.target.value)
-                    }
+                    onChange={(e) => {
+                      const newStatus = e.target.value;
+                      const inviteId = invite.id;
+                      
+                      console.log('🔄 Mobile dropdown onChange triggered for invite:', inviteId, 'New status:', newStatus);
+                      
+                      // Prevent calling if the status is the same
+                      if (newStatus === invite.status) {
+                        console.log('⚠️ Status unchanged, skipping update');
+                        return;
+                      }
+                      
+                      handleStatusUpdate(inviteId, newStatus);
+                    }}
                     className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
                     disabled={loading}
                   >

@@ -138,11 +138,47 @@ class InviteeAPI {
     });
   }
 
-  // Update invite status
-  async updateInviteStatus(id, status) {
+  // Update invite status (with optional check-in/check-out times)
+  async updateInviteStatus(id, status, options = {}) {
+    const payload = { status };
+    
+    // Add optional check-in time (visit_time)
+    if (options.visit_time) {
+      payload.visit_time = options.visit_time;
+    }
+    
+    // Add optional check-out time
+    if (options.checked_out) {
+      payload.checked_out = options.checked_out;
+    }
+    
+    // Clear check-out time when checking in (for new visit session)
+    if (options.clearCheckedOut) {
+      payload.checked_out = null;
+    }
+    
+    console.log('🔄 UpdateInviteStatus payload:', payload);
+    
     return await this.makeRequest(`/invites/${id}/status/`, {
       method: 'PATCH',
-      body: JSON.stringify({ status }),
+      body: JSON.stringify(payload),
+    });
+  }
+
+  // Check-in visitor (sets status to checked_in with current time and clears previous check-out)
+  async checkInVisitor(id) {
+    const currentTime = new Date().toISOString();
+    return await this.updateInviteStatus(id, 'checked_in', {
+      visit_time: currentTime,
+      clearCheckedOut: true  // Clear previous check-out time for new visit session
+    });
+  }
+
+  // Check-out visitor (sets status to checked_out with current time)
+  async checkOutVisitor(id) {
+    const currentTime = new Date().toISOString();
+    return await this.updateInviteStatus(id, 'checked_out', {
+      checked_out: currentTime
     });
   }
 

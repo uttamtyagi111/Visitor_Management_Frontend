@@ -75,6 +75,7 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false, initialInviteCode = '',
   const [autoVerified, setAutoVerified] = useState(false);
   const [isExistingVisitor, setIsExistingVisitor] = useState(false);
   const [isRetakeMode, setIsRetakeMode] = useState(false);
+  const [hasCheckedIn, setHasCheckedIn] = useState(false);
   
   const [inviteFormData, setInviteFormData] = useState({
     visitor_name: '',
@@ -119,13 +120,14 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false, initialInviteCode = '',
   const handleClose = async () => {
     if (loading) return; // Prevent multiple clicks
     
-    // If we're in step 4 (pass created) and user is admin, update status to checked_in
-    if (currentStep === 4 && isAdmin && inviteId) {
+    // If we're in step 4 (pass created) and user is admin, update status to checked_in (only if not already checked in)
+    if (currentStep === 4 && isAdmin && inviteId && !hasCheckedIn) {
       setLoading(true);
       try {
-        console.log('🎫 Updating invite status to checked_in on Done button...');
-        await inviteeAPI.updateInviteStatus(inviteId, "checked_in");
-        console.log('✅ Invite status updated to checked_in');
+        console.log('🎫 Checking in visitor on Done button...');
+        await inviteeAPI.checkInVisitor(inviteId);
+        console.log('✅ Visitor checked in successfully');
+        setHasCheckedIn(true);
         
         // Notify parent component of the status update
         if (onInviteUpdated) {
@@ -471,11 +473,12 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false, initialInviteCode = '',
     setError('');
 
     try {
-      // First, update the invite status to checked_in
-      if (inviteId) {
-        console.log('🎫 Updating invite status to checked_in after print pass...');
-        await inviteeAPI.updateInviteStatus(inviteId, "checked_in");
-        console.log('✅ Invite status updated to checked_in');
+      // First, check-in the visitor (only if not already checked in)
+      if (inviteId && !hasCheckedIn) {
+        console.log('🎫 Checking in visitor after print pass...');
+        await inviteeAPI.checkInVisitor(inviteId);
+        console.log('✅ Visitor checked in successfully');
+        setHasCheckedIn(true);
         
         // Notify parent component of the status update
         if (onInviteUpdated) {

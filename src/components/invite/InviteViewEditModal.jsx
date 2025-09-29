@@ -157,12 +157,34 @@ const InviteViewEditModal = ({
                           </div>
                           <div>
                             <p className="text-sm font-medium text-gray-500">
-                              Visit Time
+                              Scheduled Visit Time
                             </p>
                             <p className="mt-1 text-gray-900">
                               {inviteeHelpers.formatDateTime(currentInvite.visit_time) || 'N/A'}
                             </p>
                           </div>
+                          
+                          {currentInvite.report?.check_in && (
+                            <div>
+                              <p className="text-sm font-medium text-gray-500">
+                                Actual Check-in Time
+                              </p>
+                              <p className="mt-1 text-green-600 font-medium">
+                                {inviteeHelpers.formatDateTime(currentInvite.report.check_in)}
+                              </p>
+                            </div>
+                          )}
+                          
+                          {currentInvite.report?.check_out && currentInvite.status !== "checked_in" && (
+                            <div>
+                              <p className="text-sm font-medium text-gray-500">
+                                Actual Check-out Time
+                              </p>
+                              <p className="mt-1 text-blue-600 font-medium">
+                                {inviteeHelpers.formatDateTime(currentInvite.report.check_out)}
+                              </p>
+                            </div>
+                          )}
                           
                           {currentInvite.expiry_time && (
                             <div>

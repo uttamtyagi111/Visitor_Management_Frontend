@@ -8,15 +8,71 @@ const useInviteActions = () => {
   const [success, setSuccess] = useState("");
 
   // Handle status update
-  const handleStatusUpdate = useCallback(async (inviteId, newStatus) => {
+  const handleStatusUpdate = useCallback(async (inviteId, newStatus, options = {}) => {
+    console.log('🚀 InviteActions.handleStatusUpdate called for invite:', inviteId, 'Status:', newStatus, 'Options:', options);
+    
+    // If changing to checked_in, clear previous check-out time for new visit session
+    if (newStatus === 'checked_in') {
+      options = {
+        ...options,
+        visit_time: new Date().toISOString(), // Set current time as check-in time
+        clearCheckedOut: true // Clear previous check-out time
+      };
+      console.log('🔄 Clearing previous check-out time for new check-in session');
+    }
+    
     try {
       setLoading(true);
-      await inviteeAPI.updateInviteStatus(inviteId, newStatus);
+      await inviteeAPI.updateInviteStatus(inviteId, newStatus, options);
+      
+      // Trigger report refresh by setting localStorage flag
+      localStorage.setItem('report_updated', Date.now().toString());
+      
       toast.success(`Status updated to ${newStatus} successfully!`);
       return true;
     } catch (err) {
       console.error("Error updating status:", err);
       toast.error(err.message || "Failed to update status");
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Handle check-in (automatically sets current time)
+  const handleCheckIn = useCallback(async (inviteId) => {
+    try {
+      setLoading(true);
+      await inviteeAPI.checkInVisitor(inviteId);
+      
+      // Trigger report refresh by setting localStorage flag
+      localStorage.setItem('report_updated', Date.now().toString());
+      
+      toast.success("Visitor checked in successfully!");
+      return true;
+    } catch (err) {
+      console.error("Error checking in visitor:", err);
+      toast.error(err.message || "Failed to check in visitor");
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Handle check-out (automatically sets current time)
+  const handleCheckOut = useCallback(async (inviteId) => {
+    try {
+      setLoading(true);
+      await inviteeAPI.checkOutVisitor(inviteId);
+      
+      // Trigger report refresh by setting localStorage flag
+      localStorage.setItem('report_updated', Date.now().toString());
+      
+      toast.success("Visitor checked out successfully!");
+      return true;
+    } catch (err) {
+      console.error("Error checking out visitor:", err);
+      toast.error(err.message || "Failed to check out visitor");
       return false;
     } finally {
       setLoading(false);
@@ -243,6 +299,8 @@ const useInviteActions = () => {
     error,
     success,
     handleStatusUpdate,
+    handleCheckIn,
+    handleCheckOut,
     handleDeleteInvite,
     handleGenerateInvitePass,
     handleDownloadPass,
