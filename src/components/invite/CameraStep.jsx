@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Camera } from "lucide-react";
 
-const CameraStep = ({ onPhotoCapture, onSkip, isLoggedIn = false, existingImage = null }) => {
+const CameraStep = ({ onPhotoCapture, onSkip, isLoggedIn = false, existingImage = null, autoStart = false, allowUpload = true }) => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const isMountedRef = useRef(true);
@@ -185,6 +185,17 @@ const CameraStep = ({ onPhotoCapture, onSkip, isLoggedIn = false, existingImage 
     };
   }, []);
 
+  // Auto-start camera when requested by parent
+  useEffect(() => {
+    if (autoStart) {
+      // small timeout to ensure modal renders
+      const t = setTimeout(() => {
+        handleStartCamera();
+      }, 50);
+      return () => clearTimeout(t);
+    }
+  }, [autoStart]);
+
   const handleStartCamera = () => {
     setError(""); // Clear any previous errors
     
@@ -303,8 +314,7 @@ const CameraStep = ({ onPhotoCapture, onSkip, isLoggedIn = false, existingImage 
 
       <canvas ref={canvasRef} className="hidden" />
 
-      {/* Only show file upload for logged-in users (admins) */}
-      {isLoggedIn && (
+      {isLoggedIn && allowUpload && (
         <div className="mt-4">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             Or upload an image file:

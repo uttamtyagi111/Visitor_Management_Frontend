@@ -77,7 +77,8 @@ const InviteViewEditModal = ({
                       <div className="w-32 h-32 md:w-40 md:h-40 rounded-lg overflow-hidden border-2 border-gray-200">
                         {currentInvite.image ? (
                           <img
-                            src={currentInvite.image}
+                            key={`view-edit-${currentInvite.id}-${currentInvite.image}`}
+                            src={`${currentInvite.image}?t=${Date.now()}`}
                             alt={currentInvite.visitor_name || 'Visitor'}
                             className="w-full h-full object-cover"
                             onError={(e) => {

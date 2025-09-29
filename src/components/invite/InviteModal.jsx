@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'react-toastify';
 import { useAuth } from '../../contexts/AuthContext';
 import { 
   X, 
@@ -14,12 +15,52 @@ import {
   Upload,
   AlertCircle,
   Check,
-  ChevronRight
+  ChevronRight,
+  RotateCcw,
+  Image as ImageIcon
 } from 'lucide-react';
 import inviteeAPI, { inviteeHelpers } from '../../api/invite.js';
 import CameraStep from './CameraStep';
 
-const InviteModal = ({ isOpen, onClose, isAdmin = false }) => {
+// Helper function to handle CORS image loading
+const loadImageWithCORS = (url, retryCount = 0) => {
+  return new Promise((resolve, reject) => {
+    if (!url) {
+      reject(new Error('No image URL provided'));
+      return;
+    }
+
+    const img = new Image();
+    img.crossOrigin = 'Anonymous';
+    
+    img.onload = () => resolve(img);
+    img.onerror = (e) => {
+      console.error('Image load error:', e);
+      
+      // If we've already retried, try with a proxy
+      if (retryCount === 0) {
+        const proxyUrl = `https://cors-anywhere.herokuapp.com/${url}`;
+        console.log('Trying with CORS proxy:', proxyUrl);
+        loadImageWithCORS(proxyUrl, 1).then(resolve).catch(reject);
+      } else {
+        reject(e);
+      }
+    };
+    
+    // Add timestamp to prevent caching
+    try {
+      const finalUrl = new URL(url, window.location.origin);
+      finalUrl.searchParams.set('t', Date.now());
+      img.src = finalUrl.toString();
+    } catch (error) {
+      console.error('Error creating image URL:', error);
+      // Try with the original URL as a last resort
+      img.src = url;
+    }
+  });
+};
+
+const InviteModal = ({ isOpen, onClose, isAdmin = false, initialInviteCode = '', onInviteUpdated }) => {
   const { user } = useAuth(); // Get logged-in user information
   const [currentStep, setCurrentStep] = useState(1);
   const [inviteCode, setInviteCode] = useState('');
@@ -31,6 +72,9 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false }) => {
   const [showCamera, setShowCamera] = useState(false);
   const [formErrors, setFormErrors] = useState({});
   const fileInputRef = useRef(null);
+  const [autoVerified, setAutoVerified] = useState(false);
+  const [isExistingVisitor, setIsExistingVisitor] = useState(false);
+  const [isRetakeMode, setIsRetakeMode] = useState(false);
   
   const [inviteFormData, setInviteFormData] = useState({
     visitor_name: '',
@@ -42,12 +86,14 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false }) => {
     expiry_time: ''
   });
 
-  // Define steps - step 4 only visible to admin
+  // Define steps - admin always has 4th step; public also gets 4th success step
   const steps = [
     { id: 1, title: 'Enter Code', icon: QrCode },
     { id: 2, title: 'Verify Details', icon: Edit },
     { id: 3, title: 'Capture Image', icon: Camera },
-    ...(isAdmin ? [{ id: 4, title: 'Create Pass', icon: User }] : [])
+    ...(isAdmin
+      ? [{ id: 4, title: 'Create Pass', icon: User }]
+      : [{ id: 4, title: 'Welcome', icon: User }])
   ];
 
   const resetForm = () => {
@@ -70,7 +116,29 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false }) => {
     setFormErrors({});
   };
 
-  const handleClose = () => {
+  const handleClose = async () => {
+    if (loading) return; // Prevent multiple clicks
+    
+    // If we're in step 4 (pass created) and user is admin, update status to checked_in
+    if (currentStep === 4 && isAdmin && inviteId) {
+      setLoading(true);
+      try {
+        console.log('🎫 Updating invite status to checked_in on Done button...');
+        await inviteeAPI.updateInviteStatus(inviteId, "checked_in");
+        console.log('✅ Invite status updated to checked_in');
+        
+        // Notify parent component of the status update
+        if (onInviteUpdated) {
+          onInviteUpdated({ ...inviteFormData, id: inviteId, status: "checked_in" });
+        }
+      } catch (error) {
+        console.error('Error updating status on close:', error);
+        // Don't block the close action if status update fails
+      } finally {
+        setLoading(false);
+      }
+    }
+    
     resetForm();
     onClose();
   };
@@ -104,6 +172,7 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false }) => {
         expiry_time: inviteData.expiry_time || '',
         image: inviteData.image || null
       });
+      setIsExistingVisitor(!!inviteData.image);
 
       // If visitor already uploaded image, set it as captured image for admin
       if (isAdmin && inviteData.image) {
@@ -121,20 +190,98 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false }) => {
     }
   };
 
+  // Auto-verify when invite code is provided via URL (PublicInvitePage)
+  useEffect(() => {
+    const autoVerify = async () => {
+      if (!isOpen || autoVerified) return;
+      if (!initialInviteCode || initialInviteCode.length !== 6) return;
+      try {
+        setLoading(true);
+        setError('');
+        const inviteData = await inviteeAPI.verifyInvite(initialInviteCode);
+        setInviteId(inviteData.id);
+        setInviteFormData({
+          visitor_name: inviteData.visitor_name || '',
+          visitor_email: inviteData.visitor_email || '',
+          visitor_phone: inviteData.visitor_phone || '',
+          purpose: inviteData.purpose || '',
+          invited_by: inviteData.invited_by || '',
+          visit_time: inviteData.visit_time || '',
+          expiry_time: inviteData.expiry_time || '',
+          image: inviteData.image || null
+        });
+        setInviteCode(initialInviteCode.toLowerCase());
+        setIsExistingVisitor(!!inviteData.image);
+        if (isAdmin && inviteData.image) {
+          setCapturedImage({ file: null, preview: inviteData.image });
+        }
+        setCurrentStep(2);
+        setAutoVerified(true);
+      } catch (error) {
+        setError(inviteeHelpers.handleApiError(error));
+      } finally {
+        setLoading(false);
+      }
+    };
+    autoVerify();
+  }, [isOpen, initialInviteCode, isAdmin, autoVerified]);
+
   const handleCameraPhotoCapture = (imageFile, previewUrl) => {
     setCapturedImage({
       file: imageFile,
       preview: previewUrl
     });
     setShowCamera(false);
+    setIsRetakeMode(false);
     setError('');
   };
 
   const handleSkipCameraPhoto = () => {
     setShowCamera(false);
+    setIsRetakeMode(false);
   };
 
-  const handleImageCapture = (e) => {
+  // Edit state for Step 2 (Verify Details)
+  const [isEditingDetails, setIsEditingDetails] = useState(false);
+
+  const handleStartEditDetails = () => {
+    setIsEditingDetails(true);
+    setError('');
+  };
+
+  const handleSaveDetails = async () => {
+    if (!inviteId) return;
+    // Validate phone if provided
+    if (inviteFormData.visitor_phone && inviteFormData.visitor_phone.length !== 10) {
+      setError('Phone number must be exactly 10 digits');
+      return;
+    }
+
+    setLoading(true);
+    setError('');
+    try {
+      // For admins, allow saving all key fields; for public, only phone/purpose
+      const payload = isAdmin ? {
+        visitor_name: inviteFormData.visitor_name || '',
+        visitor_email: inviteFormData.visitor_email || '',
+        visitor_phone: inviteFormData.visitor_phone || '',
+        purpose: inviteFormData.purpose || ''
+      } : {
+        visitor_phone: inviteFormData.visitor_phone || '',
+        purpose: inviteFormData.purpose || ''
+      };
+
+      await inviteeAPI.updateInvite(inviteId, payload);
+      if (!isAdmin) setIsEditingDetails(false);
+      setCurrentStep(3);
+    } catch (e) {
+      setError(inviteeHelpers.handleApiError(e));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleImageCapture = async (e) => {
     const file = e.target.files[0];
     if (file) {
       if (file.size > 5 * 1024 * 1024) {
@@ -147,15 +294,139 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false }) => {
         return;
       }
 
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setCapturedImage({
-          file: file,
-          preview: e.target.result
+      setLoading(true);
+      try {
+        console.log('🖼️ Starting image update process...');
+        console.log('📋 Current inviteId:', inviteId);
+        console.log('📋 Current inviteFormData:', inviteFormData);
+        
+        // Check if we have an invite ID
+        if (!inviteId) {
+          throw new Error('No invite ID available for image update');
+        }
+
+        const formData = new FormData();
+        formData.append('image', file);
+        
+        console.log('📎 Added image file to FormData:', file.name, file.size, 'bytes');
+        
+        // Add other form data if needed
+        Object.entries(inviteFormData).forEach(([key, value]) => {
+          if (key !== 'image' && value !== null && value !== undefined) {
+            formData.append(key, value);
+            console.log(`📎 Added ${key}:`, value);
+          }
         });
+
+        console.log('🚀 Calling updateInvite API...');
+        // Update the invite with the new image
+        const updatedInvite = await inviteeAPI.updateInvite(inviteId, formData, true);
+        console.log('✅ API response:', updatedInvite);
+        console.log('📸 API returned image URL:', updatedInvite?.image);
+        console.log('📋 Full API response structure:', JSON.stringify(updatedInvite, null, 2));
+        
+        // Update the local state with the new image
+        setInviteFormData(prev => ({
+          ...prev,
+          image: updatedInvite.image
+        }));
+        
+        // Update captured image for preview
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          setCapturedImage({
+            file: file,
+            preview: e.target.result
+          });
+        };
+        reader.readAsDataURL(file);
+        
+        // If this is an edit, update the parent's state
+        console.log('🔄 Updating parent component with updated invite...');
+        console.log('📞 onInviteUpdated callback exists:', !!onInviteUpdated);
+        console.log('📸 Updated invite data being sent:', updatedInvite);
+        if (onInviteUpdated) {
+          onInviteUpdated(updatedInvite);
+          console.log('✅ onInviteUpdated callback called successfully');
+        } else {
+          console.warn('⚠️ onInviteUpdated callback not provided');
+        }
+        
+        // Clear the image input field
+        const imageInput = document.querySelector('#image-input');
+        if (imageInput) {
+          imageInput.value = '';
+        }
+        
         setError('');
-      };
-      reader.readAsDataURL(file);
+        toast.success('Image updated successfully!');
+      } catch (err) {
+        console.error('Error updating image:', err);
+        setError('Failed to update image. Please try again.');
+        toast.error('Failed to update image');
+      } finally {
+        setLoading(false);
+      }
+    }
+  };
+
+  // Use existing server image by converting to a File (no immediate submit)
+  const handleUseExistingImage = async () => {
+    if (!inviteFormData.image) return;
+    setLoading(true);
+    setError('');
+    try {
+      const response = await fetch(inviteFormData.image, { mode: 'cors' });
+      if (!response.ok) {
+        throw new Error('Failed to fetch existing image');
+      }
+      const blob = await response.blob();
+      const fileType = blob.type && blob.type.startsWith('image/') ? blob.type : 'image/png';
+      const fileName = fileType === 'image/png' ? 'visitor-photo.png' : 'visitor-photo.jpg';
+      const file = new File([blob], fileName, { type: fileType, lastModified: Date.now() });
+
+      // Set as captured image so the Complete button appears
+      const previewUrl = URL.createObjectURL(blob);
+      setCapturedImage({ file, preview: previewUrl });
+    } catch (err) {
+      setError('Unable to use the existing photo. Please upload or retake your photo.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Admin create pass flow: ensure we have a File, then submit
+  const handleAdminCreatePass = async () => {
+    if (!isAdmin) return;
+    setLoading(true);
+    setError('');
+    try {
+      let fileToUpload = capturedImage?.file || null;
+      if (!fileToUpload && inviteFormData.image) {
+        // Convert existing image to File directly to avoid double clicks/state timing
+        const resp = await fetch(inviteFormData.image, { mode: 'cors' });
+        const blob = await resp.blob();
+        const type = blob.type && blob.type.startsWith('image/') ? blob.type : 'image/png';
+        const name = type === 'image/png' ? 'visitor-photo.png' : 'visitor-photo.jpg';
+        fileToUpload = new File([blob], name, { type, lastModified: Date.now() });
+      }
+      if (!fileToUpload) {
+        setError('A photo file is required. Please upload or retake your photo.');
+        return;
+      }
+
+      const resp = await inviteeAPI.captureVisitorData(inviteCode, fileToUpload);
+      // Update UI with latest image URL if returned
+      if (resp?.invite?.image) {
+        setInviteFormData({ ...inviteFormData, image: resp.invite.image });
+      }
+      
+      setSuccess('Visitor data captured successfully!');
+      setCurrentStep(4);
+    } catch (e) {
+      setError(inviteeHelpers.handleApiError(e));
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -169,18 +440,23 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false }) => {
     setError('');
 
     try {
-      if (capturedImage.file) {
-        await inviteeAPI.captureVisitorData(inviteCode, capturedImage.file);
+      if (!capturedImage?.file) {
+        setError('A photo file is required. Please upload or retake your photo.');
+        setShowCamera(true);
+        return;
+      }
+      const resp = await inviteeAPI.captureVisitorData(inviteCode, capturedImage.file);
+      if (resp?.invite?.image) {
+        setInviteFormData({ ...inviteFormData, image: resp.invite.image });
       }
 
       if (isAdmin) {
         setSuccess('Visitor data captured successfully!');
         setCurrentStep(4);
       } else {
-        setSuccess('Image submitted successfully! Please wait for admin approval.');
-        setTimeout(() => {
-          handleClose();
-        }, 2000);
+        // For public users, show a friendly completion/welcome step
+        setSuccess(isExistingVisitor ? 'Welcome back! Your visit is confirmed.' : 'Thanks! We have your image. Await admin approval.');
+        setCurrentStep(4);
       }
     } catch (error) {
       setError(inviteeHelpers.handleApiError(error));
@@ -190,13 +466,21 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false }) => {
   };
 
   const handlePrintPass = async () => {
+    if (loading) return; // Prevent multiple clicks
     setLoading(true);
     setError('');
 
     try {
       // First, update the invite status to checked_in
       if (inviteId) {
+        console.log('🎫 Updating invite status to checked_in after print pass...');
         await inviteeAPI.updateInviteStatus(inviteId, "checked_in");
+        console.log('✅ Invite status updated to checked_in');
+        
+        // Notify parent component of the status update
+        if (onInviteUpdated) {
+          onInviteUpdated({ ...inviteFormData, id: inviteId, status: "checked_in" });
+        }
       }
       
       // Then generate and download the pass
@@ -334,22 +618,23 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false }) => {
       });
     };
     
-    // Load image if available
-    if (capturedImage?.preview) {
-      const img = new Image();
-      img.crossOrigin = 'anonymous';
-      img.src = capturedImage.preview;
-      
-      img.onload = () => {
-        drawPass(img);
-      };
-      
-      img.onerror = () => {
+    // Load image with CORS handling
+    const loadAndDrawImage = async () => {
+      if (!capturedImage?.preview) {
         drawPass();
-      };
-    } else {
-      drawPass();
-    }
+        return;
+      }
+
+      try {
+        const img = await loadImageWithCORS(capturedImage.preview);
+        drawPass(img);
+      } catch (error) {
+        console.error('Failed to load image:', error);
+        drawPass();
+      }
+    };
+
+    loadAndDrawImage();
     
     // Show success message
     setSuccess('Pass generated and downloaded successfully! Visitor status updated to checked-in.');
@@ -507,11 +792,11 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false }) => {
                           setFormErrors({...formErrors, visitor_name: ''});
                         }
                       }}
-                      className={`w-full pl-10 pr-4 py-3 bg-gray-50 border ${
+                      className={`w-full pl-10 pr-12 py-3 ${(isAdmin || isEditingDetails) ? 'bg-white text-gray-900' : 'bg-gray-50 text-gray-500'} border ${
                         formErrors.visitor_name ? 'border-red-500' : 'border-gray-200'
                       } rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200`}
                       placeholder="Enter full name"
-                      required
+                      readOnly={!isAdmin}
                     />
                   </div>
                   {formErrors.visitor_name && (
@@ -527,11 +812,11 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false }) => {
                       type="email"
                       value={inviteFormData.visitor_email}
                       onChange={handleEmailInput}
-                      className={`w-full pl-10 pr-4 py-3 bg-gray-50 border ${
+                      className={`w-full pl-10 pr-12 py-3 ${(isAdmin || isEditingDetails) ? 'bg-white text-gray-900' : 'bg-gray-50 text-gray-500'} border ${
                         formErrors.visitor_email ? 'border-red-500' : 'border-gray-200'
                       } rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200`}
                       placeholder="Enter email address"
-                      required
+                      readOnly={!isAdmin}
                     />
                   </div>
                   {formErrors.visitor_email && (
@@ -555,11 +840,24 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false }) => {
                         }
                       }}
                       maxLength="10"
-                      className={`w-full pl-10 pr-4 py-3 bg-gray-50 border ${
+                      className={`w-full pl-10 pr-12 py-3 ${ (isAdmin || isEditingDetails) ? 'bg-white text-gray-900' : 'bg-gray-50 text-gray-700'} border ${
                         formErrors.visitor_phone ? 'border-red-500' : 'border-gray-200'
                       } rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200`}
                       placeholder="Enter 10-digit phone number"
+                      readOnly={!(isAdmin || isEditingDetails)}
                     />
+                    {!isAdmin && (
+                    <button
+                      type="button"
+                      onClick={handleStartEditDetails}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                      title="Edit"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                        <path d="M21.731 2.269a2.625 2.625 0 0 0-3.712 0l-1.157 1.157 3.712 3.712 1.157-1.157a2.625 2.625 0 0 0 0-3.712ZM19.513 8.199l-3.712-3.712-11.03 11.03a5.25 5.25 0 0 0-1.32 2.214l-.8 2.685a.75.75 0 0 0 .933.933l2.685-.8a5.25 5.25 0 0 0 2.214-1.32L19.513 8.2Z" />
+                      </svg>
+                    </button>
+                    )}
                   </div>
                   {formErrors.visitor_phone && (
                     <p className="mt-1 text-sm text-red-600">{formErrors.visitor_phone}</p>
@@ -596,14 +894,28 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false }) => {
 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Purpose of Visit</label>
-                  <input
-                    type="text"
-                    value={inviteFormData.purpose}
-                    onChange={(e) => setInviteFormData({...inviteFormData, purpose: e.target.value})}
-                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
-                    placeholder="Purpose of visit"
-                    readOnly
-                  />
+                  <div className="relative">
+                    <input
+                      type="text"
+                      value={inviteFormData.purpose}
+                      onChange={(e) => setInviteFormData({...inviteFormData, purpose: e.target.value})}
+                      className={`w-full pl-4 pr-12 py-3 ${(isAdmin || isEditingDetails) ? 'bg-white text-gray-900' : 'bg-gray-50 text-gray-700'} border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200`}
+                      placeholder="Purpose of visit"
+                      readOnly={!(isAdmin || isEditingDetails)}
+                    />
+                    {!isAdmin && (
+                    <button
+                      type="button"
+                      onClick={handleStartEditDetails}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700"
+                      title="Edit"
+                    >
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
+                        <path d="M21.731 2.269a2.625 2.625 0 0 0-3.712 0l-1.157 1.157 3.712 3.712 1.157-1.157a2.625 2.625 0 0 0 0-3.712ZM19.513 8.199l-3.712-3.712-11.03 11.03a5.25 5.25 0 0 0-1.32 2.214l-.8 2.685a.75.75 0 0 0 .933.933l2.685-.8a5.25 5.25 0 0 0 2.214-1.32L19.513 8.2Z" />
+                      </svg>
+                    </button>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -615,17 +927,28 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false }) => {
                 >
                   Back
                 </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (validateFormStep2()) {
-                      setCurrentStep(3);
-                    }
-                  }}
-                  className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200"
-                >
-                  Continue
-                </button>
+                {(isAdmin || isEditingDetails) ? (
+                  <button
+                    type="button"
+                    onClick={handleSaveDetails}
+                    disabled={loading}
+                    className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {loading ? 'Saving...' : (isAdmin ? 'Save & Continue' : 'Save & Continue')}
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (validateFormStep2()) {
+                        setCurrentStep(3);
+                      }
+                    }}
+                    className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200"
+                  >
+                    Continue
+                  </button>
+                )}
               </div>
             </form>
           </div>
@@ -651,21 +974,71 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false }) => {
               {capturedImage ? (
                 <div className="mb-6">
                   <img 
-                    src={capturedImage ? capturedImage.preview : inviteFormData.image} 
+                    key={`captured-${inviteId}-${Date.now()}`}
+                    src={capturedImage.preview} 
                     alt="Captured" 
                     className="w-48 h-48 object-cover rounded-2xl mx-auto border-4 border-white shadow-lg"
                   />
-                  <div className="mt-4 flex justify-center space-x-4">
+                  <div className="mt-4 flex justify-center space-x-3">
                     <button
-                      onClick={() => setCapturedImage(null)}
-                      className="px-4 py-2 text-blue-600 hover:text-blue-800 transition-colors"
+                      onClick={() => { setCapturedImage(null); setIsRetakeMode(true); setShowCamera(true); }}
+                      className="p-2 rounded-full bg-white text-blue-600 hover:bg-gray-100 shadow"
+                      title="Retake"
+                      aria-label="Retake"
                     >
-                      {inviteFormData.image && isAdmin ? 'Change Photo' : 'Retake Photo'}
+                      <RotateCcw className="w-5 h-5" />
                     </button>
-                    {inviteFormData.image && !capturedImage && (
-                      <span className="px-4 py-2 text-green-600 text-sm bg-green-50 rounded-lg">
-                        ✓ Uploaded by visitor
-                      </span>
+                    {isAdmin && (
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className="p-2 rounded-full bg-white text-gray-700 hover:bg-gray-100 shadow"
+                        title="Upload"
+                        aria-label="Upload"
+                      >
+                        <Upload className="w-5 h-5" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              ) : inviteFormData.image ? (
+                <div className="mb-6">
+                  <img 
+                    key={`existing-${inviteId}-${inviteFormData.image}`}
+                    src={`${inviteFormData.image}?t=${Date.now()}`}
+                    alt="Existing"
+                    className="w-48 h-48 object-cover rounded-2xl mx-auto border-4 border-white shadow-lg"
+                  />
+                  <div className="mt-4 flex justify-center space-x-3">
+                    <button
+                      onClick={handleUseExistingImage}
+                      disabled={loading}
+                      className="p-2 rounded-full bg-white text-green-600 hover:bg-gray-100 shadow disabled:opacity-50 disabled:cursor-not-allowed"
+                      title="Use this image"
+                      aria-label="Use this image"
+                    >
+                      {loading ? (
+                        <svg className="w-5 h-5 animate-spin" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" opacity="0.25"/><path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="4" opacity="0.75"/></svg>
+                      ) : (
+                        <Check className="w-5 h-5" />
+                      )}
+                    </button>
+                    <button
+                      onClick={() => { setCapturedImage(null); setIsRetakeMode(true); setShowCamera(true); }}
+                      className="p-2 rounded-full bg-white text-blue-600 hover:bg-gray-100 shadow"
+                      title="Retake"
+                      aria-label="Retake"
+                    >
+                      <RotateCcw className="w-5 h-5" />
+                    </button>
+                    {isAdmin && (
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        className="p-2 rounded-full bg-white text-gray-700 hover:bg-gray-100 shadow"
+                        title="Upload"
+                        aria-label="Upload"
+                      >
+                        <Upload className="w-5 h-5" />
+                      </button>
                     )}
                   </div>
                 </div>
@@ -679,25 +1052,22 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false }) => {
                     <span>Take Photo with Camera</span>
                   </button>
                   
-                  {/* Only show upload option for logged-in users (admins) */}
-                  {isAdmin && (
-                    <>
-                      <div className="flex items-center my-4">
-                        <hr className="flex-1 border-gray-300" />
-                        <span className="px-3 text-gray-500 text-sm">OR</span>
-                        <hr className="flex-1 border-gray-300" />
-                      </div>
+                  <div className="flex items-center my-4">
+                    <hr className="flex-1 border-gray-300" />
+                    <span className="px-3 text-gray-500 text-sm">OR</span>
+                    <hr className="flex-1 border-gray-300" />
+                  </div>
 
-                      <div 
-                        onClick={() => fileInputRef.current?.click()}
-                        className="w-full py-8 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-all duration-200"
-                      >
-                        <Upload className="w-8 h-8 text-gray-400 mb-2" />
-                        <p className="text-gray-600 font-medium">Upload from device</p>
-                        <p className="text-gray-400 text-sm mt-1">JPG, PNG up to 5MB</p>
-                      </div>
-                    </>
-                  )}
+                  <button 
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full py-8 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-all duration-200"
+                    title="Upload"
+                    aria-label="Upload"
+                  >
+                    <Upload className="w-8 h-8 text-gray-400 mb-2" />
+                    <span className="sr-only">Upload from device or gallery</span>
+                    <p className="text-gray-400 text-sm">JPG, PNG up to 5MB</p>
+                  </button>
                 </div>
               )}
 
@@ -716,14 +1086,24 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false }) => {
                 >
                   Back
                 </button>
-                {capturedImage && (
+                {isAdmin ? (
                   <button
-                    onClick={handleCaptureVisitorData}
-                    disabled={loading}
+                    onClick={handleAdminCreatePass}
+                    disabled={loading || (!capturedImage?.file && !inviteFormData.image)}
                     className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {loading ? 'Submitting...' : isAdmin ? 'Create Pass' : 'Complete Registration'}
+                    {loading ? 'Submitting...' : 'Create Pass'}
                   </button>
+                ) : (
+                  capturedImage?.file && (
+                    <button
+                      onClick={handleCaptureVisitorData}
+                      disabled={loading}
+                      className="px-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {loading ? 'Submitting...' : 'Complete Registration'}
+                    </button>
+                  )
                 )}
               </div>
             </div>
@@ -734,7 +1114,7 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false }) => {
         return (
           <div className="py-6">
             <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">
-              {isAdmin ? 'Invites Pass Created!' : 'Registration Complete!'}
+              {isAdmin ? 'Invites Pass Created!' : 'Welcome'}
             </h3>
             
             {success && (
@@ -756,7 +1136,12 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false }) => {
                 <div className="flex items-center space-x-4 mb-4">
                   <div className="w-20 h-20 rounded-xl overflow-hidden bg-white/20">
                     {capturedImage ? (
-                      <img src={capturedImage.preview} alt="Visitor" className="w-full h-full object-cover" />
+                      <img 
+                        key={`pass-preview-${inviteId}-${capturedImage.preview}`}
+                        src={capturedImage.preview} 
+                        alt="Visitor" 
+                        className="w-full h-full object-cover" 
+                      />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
                         <User className="w-8 h-8 text-white/60" />
@@ -812,11 +1197,8 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false }) => {
                 </div>
                 
                 <div className="space-y-4">
-                  <h4 className="text-xl font-semibold text-gray-900">Thank You!</h4>
-                  <p className="text-gray-600">
-                    You have successfully reviewed your details and uploaded your image. 
-                    Please wait for your invite pass to be generated by our admin team.
-                  </p>
+                  <h4 className="text-xl font-semibold text-gray-900">Thank you, {inviteFormData.visitor_name || 'Guest'}!</h4>
+                  <p className="text-gray-600">Your details and photo have been submitted.</p>
                   
                   <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-6">
                     <div className="flex items-start space-x-3">
@@ -826,9 +1208,11 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false }) => {
                       <div className="text-left">
                         <p className="text-blue-800 font-medium text-sm">What happens next?</p>
                         <ul className="text-blue-700 text-sm mt-2 space-y-1">
-                          <li>• Our admin will review your information</li>
-                          <li>• Your invite pass will be generated</li>
-                          <li>• You'll be notified when ready</li>
+                          <>
+                            <li>• Our admin will review your information</li>
+                            <li>• Your invite pass will be generated</li>
+                            <li>• You'll be notified when ready</li>
+                          </>
                         </ul>
                       </div>
                     </div>
@@ -953,7 +1337,9 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false }) => {
                   onPhotoCapture={handleCameraPhotoCapture}
                   onSkip={handleSkipCameraPhoto}
                   isLoggedIn={isAdmin}
-                  existingImage={inviteFormData.image}
+                  existingImage={null}
+                  autoStart={true}
+                  allowUpload={false}
                 />
               </motion.div>
             </motion.div>

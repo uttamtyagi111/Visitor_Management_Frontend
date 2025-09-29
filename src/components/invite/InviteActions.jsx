@@ -43,19 +43,20 @@ const useInviteActions = () => {
     }
   }, []);
 
-  // Handle generate invite pass
-  const handleGenerateInvitePass = useCallback(async (invite) => {
+  // Handle generate invite pass - now opens preview modal instead of direct status update
+  const handleGenerateInvitePass = useCallback(async (invite, openPassPreview) => {
     try {
       setLoading(true);
       
-      // Update the invite status to checked_in and mark pass as generated
-      await inviteeAPI.updateInviteStatus(invite.id, "checked_in");
+      // Open the pass preview modal instead of directly updating status
+      if (openPassPreview) {
+        openPassPreview(invite);
+      }
       
-      toast.success("Pass generated successfully!");
       return true;
     } catch (err) {
-      console.error("Error generating pass:", err);
-      toast.error(err.message || "Failed to generate pass");
+      console.error("Error opening pass preview:", err);
+      toast.error(err.message || "Failed to open pass preview");
       return false;
     } finally {
       setLoading(false);
@@ -140,7 +141,34 @@ const useInviteActions = () => {
       return true;
     } catch (err) {
       console.error("Error sending invitation:", err);
-      toast.error(err.message || "Failed to send invitation");
+      
+      // Handle specific error cases
+      let errorMessage = err.message || "Failed to send invitation";
+      
+      // Check if the error message contains the JSON response with visitor_email error
+      if (errorMessage.includes('visitor_email') && errorMessage.includes('already exists')) {
+        toast.error("An invite with this email already exists!");
+      } else if (errorMessage.includes('invite with this visitor email already exists')) {
+        toast.error("An invite with this email already exists!");
+      } else {
+        // Try to parse JSON error response if it's embedded in the message
+        try {
+          const jsonMatch = errorMessage.match(/response: (\{.*\})/);
+          if (jsonMatch) {
+            const errorData = JSON.parse(jsonMatch[1]);
+            if (errorData.visitor_email && errorData.visitor_email[0]) {
+              toast.error("An invite with this email already exists!");
+            } else {
+              toast.error(errorMessage);
+            }
+          } else {
+            toast.error(errorMessage);
+          }
+        } catch (parseError) {
+          toast.error(errorMessage);
+        }
+      }
+      
       return false;
     } finally {
       setLoading(false);
@@ -171,6 +199,9 @@ const useInviteActions = () => {
     try {
       setLoading(true);
       
+      console.log('🔄 Reinvite data being sent:', reinviteData);
+      console.log('🔄 Reinvite ID:', inviteId);
+      
       const response = await inviteeAPI.reinviteInvite(inviteId, reinviteData);
       
       toast.success(`Reinvitation sent successfully! New invite code: ${response.invite_code}`);
@@ -178,7 +209,18 @@ const useInviteActions = () => {
       return true;
     } catch (err) {
       console.error("Error sending reinvitation:", err);
-      toast.error(err.message || "Failed to send reinvitation");
+      
+      // Handle specific error cases for reinvite
+      let errorMessage = err.message || "Failed to send reinvitation";
+      
+      if (errorMessage.includes('Invalid data format')) {
+        toast.error("Invalid data format. Please check the form fields.");
+      } else if (errorMessage.includes('expected JSON object')) {
+        toast.error("Data format error. Please try again.");
+      } else {
+        toast.error(errorMessage);
+      }
+      
       return false;
     } finally {
       setLoading(false);

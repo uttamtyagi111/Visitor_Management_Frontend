@@ -108,11 +108,20 @@ class InviteeAPI {
   }
 
   // Update invite by primary key (Admin usage)
-  async updateInvite(id, updateData) {
-    return await this.makeRequest(`/invites/${id}/`, {
-      method: 'PUT',
-      body: JSON.stringify(updateData),
-    });
+  async updateInvite(id, updateData, isFormData = false) {
+    const config = {
+      method: 'PATCH',
+    };
+
+    if (isFormData) {
+      // For FormData, let the browser set the Content-Type with boundary
+      config.body = updateData;
+    } else {
+      // For JSON data
+      config.body = JSON.stringify(updateData);
+    }
+
+    return await this.makeRequest(`/invites/${id}/`, config);
   }
 
   // Delete invite by primary key (Admin usage)
@@ -149,13 +158,18 @@ class InviteeAPI {
     });
   }
 
-  // Capture visitor data (image upload and pass image)
-  async captureVisitorData(inviteCode, imageFile, passImageFile = null) {
-    console.log('captureVisitorData called with:', { inviteCode, imageFile, passImageFile });
+  // Capture visitor data (image upload or server-side fetch via image_url)
+  async captureVisitorData(inviteCode, imageFile, passImageFile = null, imageUrl = null) {
+    console.log('captureVisitorData called with:', { inviteCode, hasImageFile: !!imageFile, passImageFile, imageUrl });
     
     const formData = new FormData();
     formData.append('invite_code', inviteCode);
-    formData.append('image', imageFile);
+    if (imageFile) {
+      formData.append('image', imageFile);
+    }
+    if (imageUrl) {
+      formData.append('image_url', imageUrl);
+    }
     
     if (passImageFile) {
       formData.append('pass_image', passImageFile);
@@ -168,7 +182,7 @@ class InviteeAPI {
 
     try {
       const response = await this.makeRequest('/invites/capture/', {
-        method: 'POST',
+        method: 'PATCH',
         body: formData,
         headers: {}
       });
@@ -188,6 +202,9 @@ class InviteeAPI {
 
   // Reinvite with updated details
   async reinviteInvite(id, reinviteData) {
+    console.log('🔄 API: Reinvite data:', reinviteData);
+    console.log('🔄 API: JSON stringified:', JSON.stringify(reinviteData));
+    
     return await this.makeRequest(`/invites/${id}/reinvite/`, {
       method: 'POST',
       body: JSON.stringify(reinviteData),

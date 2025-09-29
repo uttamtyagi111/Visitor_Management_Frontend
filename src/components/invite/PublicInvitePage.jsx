@@ -48,6 +48,22 @@ const PublicInvitePage = () => {
     }
   };
 
+  const handleInviteUpdated = (updatedInvite) => {
+    console.log('📱 Public invite page: Invite updated:', updatedInvite);
+    
+    // Trigger storage event to notify admin dashboard in other tabs
+    localStorage.setItem('invite_updated', JSON.stringify({
+      inviteId: updatedInvite.id,
+      timestamp: Date.now(),
+      type: 'image_update'
+    }));
+    
+    // Remove the flag after a short delay to allow other tabs to catch it
+    setTimeout(() => {
+      localStorage.removeItem('invite_updated');
+    }, 1000);
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 flex items-center justify-center">
@@ -218,7 +234,9 @@ const PublicInvitePage = () => {
       <InviteModal
         isOpen={showModal}
         onClose={handleCloseModal}
+        onInviteUpdated={handleInviteUpdated}
         isAdmin={false}
+        initialInviteCode={inviteCode || ''}
       />
     </div>
   );

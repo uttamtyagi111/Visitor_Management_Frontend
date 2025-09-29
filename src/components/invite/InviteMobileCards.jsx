@@ -20,6 +20,7 @@ const InviteMobileCards = ({
   getStatusBadge,
   handleStatusUpdate,
   handleGenerateInvitePass,
+  openPassPreview,
   handleDownloadPass,
   canReinvite,
   openReinviteModal,
@@ -43,7 +44,8 @@ const InviteMobileCards = ({
                 <div className="flex-shrink-0 w-12 h-12 relative">
                   {invite.image ? (
                     <img
-                      src={invite.image}
+                      key={`${invite.id}-${invite.image}`}
+                      src={`${invite.image}?t=${Date.now()}`}
                       alt={invite.visitor_name || "Visitor"}
                       className="w-12 h-12 rounded-full object-cover border-2 border-gray-200"
                       onError={(e) => {
@@ -190,9 +192,9 @@ const InviteMobileCards = ({
                   )}
 
                   {/* Pass generation button for approved invites */}
-                  {invite.status === "approved" && !invite.pass_generated && (
+                  {invite.status === "approved" && (
                     <button
-                      onClick={() => handleGenerateInvitePass(invite)}
+                      onClick={() => openPassPreview(invite)}
                       disabled={loading}
                       className="flex items-center space-x-1 px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors duration-200 text-sm disabled:opacity-50 font-medium"
                     >

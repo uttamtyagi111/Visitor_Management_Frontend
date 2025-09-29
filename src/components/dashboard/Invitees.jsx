@@ -30,6 +30,7 @@ function Invitees() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("all");
   const [invites, setInvites] = useState([]);
+  const [inviteCode, setInviteCode] = useState("");
   
   // Modal states
   const [showInviteForm, setShowInviteForm] = useState(false);
@@ -45,6 +46,7 @@ function Invitees() {
   // Reinvite modal state
   const [showReinviteModal, setShowReinviteModal] = useState(false);
   const [reinviteTarget, setReinviteTarget] = useState(null);
+  const [reinviteError, setReinviteError] = useState("");
   
   // Timeline data state
   const [timelineData, setTimelineData] = useState([]);
@@ -112,6 +114,37 @@ function Invitees() {
     setReinviteError("");
   };
 
+  // Handle invite updates (for image updates, status changes, etc.)
+  const handleInviteUpdated = (updatedInvite) => {
+    console.log('🔄 handleInviteUpdated called with:', updatedInvite);
+    console.log('📋 Current invites before update:', invites.length);
+    
+    setInvites(prevInvites => {
+      const updatedInvites = prevInvites.map(invite => {
+        if (invite.id === updatedInvite.id) {
+          console.log('✅ Found matching invite, updating:', invite.id);
+          console.log('📸 Old image:', invite.image);
+          console.log('📸 New image:', updatedInvite.image);
+          return { ...invite, ...updatedInvite };
+        }
+        return invite;
+      });
+      console.log('📋 Updated invites:', updatedInvites.length);
+      return updatedInvites;
+    });
+    
+    if (currentInvite && currentInvite.id === updatedInvite.id) {
+      console.log('🔄 Also updating currentInvite');
+      setCurrentInvite({ ...currentInvite, ...updatedInvite });
+    }
+    
+    // Force a refresh to ensure we have the latest data
+    console.log('🔄 Triggering refresh to ensure latest data...');
+    setTimeout(() => {
+      refreshData();
+    }, 1000);
+  };
+
   // Fetch timeline data for an invite
   const fetchTimelineData = async (inviteId) => {
     try {
@@ -151,6 +184,25 @@ function Invitees() {
     setShowReinviteModal(true);
   };
 
+  // Open pass preview modal
+  const openPassPreview = async (invite) => {
+    console.log('🎫 Opening pass preview for invite:', invite.id);
+    
+    // Fetch the latest invite data to ensure we have the most recent image
+    try {
+      const latestInvite = await inviteeAPI.getInviteById(invite.id);
+      console.log('📋 Latest invite data:', latestInvite);
+      console.log('📸 Latest image URL:', latestInvite.image);
+      
+      setSelectedInvite(latestInvite);
+    } catch (error) {
+      console.warn('Failed to fetch latest invite data, using current data:', error);
+      setSelectedInvite(invite);
+    }
+    
+    setShowPassPreview(true);
+  };
+
   // Data fetching
   const refreshData = useCallback(async () => {
     try {
@@ -165,6 +217,48 @@ function Invitees() {
   // Fetch invites on component mount
   useEffect(() => {
     refreshData();
+  }, [refreshData]);
+
+  // Refresh data when window regains focus (user returns from another tab/page)
+  useEffect(() => {
+    const handleWindowFocus = () => {
+      console.log('🔄 Window focused, refreshing invite data...');
+      refreshData();
+    };
+
+    window.addEventListener('focus', handleWindowFocus);
+
+    return () => {
+      window.removeEventListener('focus', handleWindowFocus);
+    };
+  }, [refreshData]);
+
+  // Periodic refresh every 30 seconds to catch updates from public invite page
+  useEffect(() => {
+    const interval = setInterval(() => {
+      console.log('🔄 Periodic refresh: Checking for invite updates...');
+      refreshData();
+    }, 30000); // Refresh every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [refreshData]);
+
+  // Listen for storage events (when localStorage is updated from another tab)
+  useEffect(() => {
+    const handleStorageChange = (e) => {
+      if (e.key === 'invite_updated') {
+        console.log('🔄 Storage event: Invite updated in another tab, refreshing...');
+        refreshData();
+        // Clear the flag
+        localStorage.removeItem('invite_updated');
+      }
+    };
+
+    window.addEventListener('storage', handleStorageChange);
+
+    return () => {
+      window.removeEventListener('storage', handleStorageChange);
+    };
   }, [refreshData]);
 
   // Filter invites based on search and filters
@@ -389,8 +483,8 @@ function Invitees() {
     }
   };
 
-  const handleReinvite = async (reinviteData) => {
-    const success = await actionHandleReinvite(reinviteTarget.id, reinviteData);
+  const handleReinvite = async (inviteId, reinviteData) => {
+    const success = await actionHandleReinvite(inviteId, reinviteData);
     if (success) {
       closeReinviteModal();
       await refreshData();
@@ -433,6 +527,7 @@ function Invitees() {
             getStatusBadge={getStatusBadge}
             handleStatusUpdate={handleStatusUpdate}
             handleGenerateInvitePass={handleGenerateInvitePass}
+            openPassPreview={openPassPreview}
             canReinvite={canReinvite}
             openReinviteModal={openReinviteModal}
             handleDeleteInvite={handleDeleteInvite}
@@ -447,6 +542,7 @@ function Invitees() {
             getStatusBadge={getStatusBadge}
             handleStatusUpdate={handleStatusUpdate}
             handleGenerateInvitePass={handleGenerateInvitePass}
+            openPassPreview={openPassPreview}
             handleDownloadPass={handleDownloadPass}
             canReinvite={canReinvite}
             openReinviteModal={openReinviteModal}
@@ -495,6 +591,7 @@ function Invitees() {
         getCurrentDateTime={getCurrentDateTime}
         getMinExpiryTimeEdit={getMinExpiryTimeEdit}
         loading={loading}
+        onInviteUpdated={handleInviteUpdated}
       />
 
       <PassPreviewModal
@@ -502,12 +599,14 @@ function Invitees() {
         setShowPassPreview={setShowPassPreview}
         selectedInvite={selectedInvite}
         handleDownloadPass={handleDownloadPass}
+        onInviteUpdated={handleInviteUpdated}
       />
 
       {/* Existing Modals */}
       <InviteModal
         isOpen={showInviteCodeModal}
         onClose={closeModal}
+        onInviteUpdated={handleInviteUpdated}
         isAdmin={true}
       />
 

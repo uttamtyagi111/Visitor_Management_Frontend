@@ -191,7 +191,7 @@ export function AuthProvider({ children }) {
     return () => {
       clearInterval(tokenCheckInterval);
     };
-  }, [isAuthenticated]);
+  }, []);
 
   const login = async (email, password) => {
     setLoading(true);
@@ -263,7 +263,9 @@ export function AuthProvider({ children }) {
         
         setUser(userData);
         setIsAuthenticated(true);
+        setError(null);
         
+        // Return the full response so Login component can access the message
         return { ...response, user: userData };
       } else {
         throw new Error('Invalid login response: missing access token');

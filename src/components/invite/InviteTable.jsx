@@ -20,6 +20,7 @@ const InviteTable = ({
   openReinviteModal,
   handleDeleteInvite,
   openInviteModal,
+  openPassPreview,
 }) => {
   return (
     <div className="hidden md:block overflow-auto max-h-[600px]">
@@ -65,7 +66,8 @@ const InviteTable = ({
                     <div className="flex-shrink-0 w-10 h-10 relative">
                       {invite.image ? (
                         <img
-                          src={invite.image}
+                          key={`${invite.id}-${invite.image}`}
+                          src={`${invite.image}?t=${Date.now()}`}
                           alt={invite.visitor_name || "Visitor"}
                           className="w-10 h-10 rounded-full object-cover border-2 border-gray-200"
                           onError={(e) => {
@@ -203,16 +205,15 @@ const InviteTable = ({
                     )}
 
                     {/* Pass generation button for approved invites */}
-                    {invite.status === "approved" &&
-                      !invite.pass_generated && (
-                        <button
-                          onClick={() => handleGenerateInvitePass(invite)}
-                          disabled={loading}
-                          className="px-3 py-1 bg-blue-100 text-blue-800 rounded-lg hover:bg-blue-200 transition-colors duration-200 text-sm disabled:opacity-50"
-                        >
-                          Generate Pass
-                        </button>
-                      )}
+                    {invite.status === "approved" && (
+                      <button
+                        onClick={() => openPassPreview(invite)}
+                        disabled={loading}
+                        className="px-3 py-1 bg-blue-100 text-blue-800 rounded-lg hover:bg-blue-200 transition-colors duration-200 text-sm disabled:opacity-50"
+                      >
+                        Generate Pass
+                      </button>
+                    )}
 
                     {/* Check mark for pass generated */}
                     {invite.pass_generated && (

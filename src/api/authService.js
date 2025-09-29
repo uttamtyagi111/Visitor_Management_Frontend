@@ -277,11 +277,12 @@ export const authAPI = {
     return 0;
   },
 
-  // Check if token needs refresh (refresh if less than 1 day remaining)
+  // Check if token needs refresh (refresh if less than 2 days remaining)
   shouldRefreshToken: () => {
     const remaining = authAPI.getTokenTimeRemaining();
-    const oneDayInMs = 24 * 60 * 60 * 1000;
-    return remaining > 0 && remaining < oneDayInMs;
+    const twoDaysInMs = 2 * 24 * 60 * 60 * 1000; // Refresh earlier
+    console.log('🔄 Token time remaining:', Math.floor(remaining / (1000 * 60 * 60)), 'hours');
+    return remaining > 0 && remaining < twoDaysInMs;
   },
 
   // Update user activity timestamp

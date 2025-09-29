@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Eye, EyeOff, Lock, Mail, Shield, AlertCircle } from "lucide-react";
+import { useToast } from "../../contexts/ToastContext";
 import { useSafeAuth } from "../../hooks/useSafeAuth";
 
 function Login() {
@@ -14,6 +15,7 @@ function Login() {
   // Safely get auth context - won't throw errors during hot reloading
   const authContext = useSafeAuth();
   const { login, loading, error, clearError } = authContext || {};
+  const { toast } = useToast();
   const navigate = useNavigate();
 
   // Clear any existing errors when component mounts
@@ -43,15 +45,39 @@ function Login() {
 
     try {
       setLocalLoading(true);
-      await login(email, password);
+      const response = await login(email, password);
+      
+      // Show success toast based on API response
+      if (response?.message) {
+        toast.success(response.message); // "Login successful"
+      } else {
+        toast.success("Login successful!");
+      }
+      
       navigate("/dashboard");
     } catch (error) {
       console.error("Login failed:", error);
       let errorMessage = error.message || "Login failed. Please try again.";
       
-      // Check for connection refused error (backend not running)
-      if (error.message && error.message.includes('Failed to fetch')) {
-        errorMessage = "Cannot connect to server. Please ensure the backend server is running on port 8000.";
+      // Handle specific API error messages from your Django backend
+      if (error.message) {
+        if (error.message.includes('No active user with this email exists')) {
+          errorMessage = "No active user with this email exists";
+          toast.error(errorMessage);
+        } else if (error.message.includes('Email or password is incorrect')) {
+          errorMessage = "Email or password is incorrect";
+          toast.error(errorMessage);
+        } else if (error.message.includes('Email and password are required')) {
+          errorMessage = "Email and password are required";
+          toast.error(errorMessage);
+        } else if (error.message.includes('Failed to fetch')) {
+          errorMessage = "Cannot connect to server. Please ensure the backend server is running on port 8000.";
+          toast.error(errorMessage);
+        } else {
+          toast.error(errorMessage);
+        }
+      } else {
+        toast.error("Login failed. Please try again.");
       }
       
       setLocalError(errorMessage);
