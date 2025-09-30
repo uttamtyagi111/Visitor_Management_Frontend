@@ -25,27 +25,21 @@ const InviteTable = ({
   return (
     <div className="hidden md:block overflow-auto max-h-[600px]">
       <table className="w-full table-auto">
-        <thead className="bg-gray-50/50">
+        <thead className="bg-gray-50/50 sticky top-0 z-10">
           <tr>
-            <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">
+            <th className="px-3 py-2 text-center text-sm font-bold text-gray-900 uppercase tracking-wider bg-gray-50/50 backdrop-blur-sm">
               Invitee
             </th>
-            <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">
-              Host
-            </th>
-            <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">
+            <th className="px-3 py-2 text-left text-sm font-bold text-gray-900 uppercase tracking-wider bg-gray-50/50 backdrop-blur-sm">
               Invite_code
             </th>
-            <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">
+            <th className="px-3 py-2 text-left text-sm font-bold text-gray-900 uppercase tracking-wider bg-gray-50/50 backdrop-blur-sm">
               Purpose
             </th>
-            <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">
+            <th className="px-3 py-2 text-left text-sm font-bold text-gray-900 uppercase tracking-wider bg-gray-50/50 backdrop-blur-sm">
               Visit Time
             </th>
-            <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">
-              Status
-            </th>
-            <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">
+            <th className="px-3 py-2 text-center text-sm font-bold text-gray-900 uppercase tracking-wider bg-gray-50/50 backdrop-blur-sm">
               Actions
             </th>
           </tr>
@@ -61,15 +55,15 @@ const InviteTable = ({
                 transition={{ delay: index * 0.05, duration: 0.3 }}
                 className="hover:bg-white/50 transition-colors duration-200"
               >
-                <td className="px-6 py-4">
+                <td className="px-3 py-2">
                   <div className="flex items-center space-x-3">
-                    <div className="flex-shrink-0 w-10 h-10 relative">
+                    <div className="flex-shrink-0 w-8 h-8 relative">
                       {invite.image ? (
                         <img
                           key={`${invite.id}-${invite.image}`}
                           src={`${invite.image}?t=${Date.now()}`}
                           alt={invite.visitor_name || "Visitor"}
-                          className="w-10 h-10 rounded-full object-cover border-2 border-gray-200"
+                          className="w-8 h-8 rounded-full object-cover border-2 border-gray-200"
                           onError={(e) => {
                             e.target.style.display = "none";
                             const fallback =
@@ -88,7 +82,7 @@ const InviteTable = ({
                         />
                       ) : null}
                       <div
-                        className={`fallback-avatar w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm absolute top-0 left-0 ${
+                        className={`fallback-avatar w-8 h-8 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-xs absolute top-0 left-0 ${
                           invite.image ? "hidden" : "flex"
                         }`}
                       >
@@ -98,10 +92,10 @@ const InviteTable = ({
                       </div>
                     </div>
                     <div>
-                      <p className="font-bold text-gray-900">
+                      <p className="font-bold text-gray-900 text-sm">
                         {invite.visitor_name}
                       </p>
-                      <p className="text-gray-600 text-sm">
+                      <p className="text-gray-600 text-xs">
                         {invite.visitor_email}
                       </p>
                       {invite.visitor_phone && (
@@ -109,30 +103,21 @@ const InviteTable = ({
                           {invite.visitor_phone}
                         </p>
                       )}
+                      <div className="mt-1">
+                        {getStatusBadge(invite.status)}
+                      </div>
                     </div>
                   </div>
                 </td>
-                <td className="px-6 py-4">
-                  <div>
-                    <p className="font-medium text-gray-900">
-                      {invite.invited_by}
-                    </p>
-                    {invite.created_at && (
-                      <p className="text-gray-600 text-sm">
-                        {inviteeHelpers.formatDateTime(invite.created_at)}
-                      </p>
-                    )}
-                  </div>
-                </td>
-                <td className="px-6 py-4">
+                <td className="px-3 py-2">
                   <div className="flex items-center space-x-2">
-                    <p className="font-medium text-gray-900">
+                    <p className="font-medium text-gray-900 text-sm">
                       {invite.invite_code || "N/A"}
                     </p>
                     {(invite.status === "checked_in" ||
                       invite.pass_generated) && (
                       <div className="group relative">
-                        <Check className="w-4 h-4 text-green-600" />
+                        <Check className="w-3 h-3 text-green-600" />
                         <span className="absolute left-0 bottom-full mb-2 hidden group-hover:block bg-gray-800 text-white text-xs rounded py-1 px-2">
                           {invite.status === "checked_in"
                             ? "Checked In"
@@ -142,32 +127,29 @@ const InviteTable = ({
                     )}
                   </div>
                 </td>
-                <td className="px-6 py-4">
-                  <span className="font-medium text-gray-900">
+                <td className="px-3 py-2">
+                  <span className="font-medium text-gray-900 text-sm">
                     {invite.purpose}
                   </span>
                 </td>
-                <td className="px-6 py-4">
+                <td className="px-3 py-2">
                   <div className="space-y-1">
-                    <p className="font-medium text-gray-900 text-sm">
+                    <p className="font-medium text-gray-900 text-xs">
                       <span className="text-gray-500">Scheduled:</span> {inviteeHelpers.formatDateTime(invite.visit_time)}
                     </p>
                     {invite.report?.check_in && (
-                      <p className="text-green-600 text-sm">
+                      <p className="text-green-600 text-xs">
                         <span className="text-gray-500">Checked In:</span> {inviteeHelpers.formatDateTime(invite.report.check_in)}
                       </p>
                     )}
                     {invite.report?.check_out && invite.status !== "checked_in" && (
-                      <p className="text-blue-600 text-sm">
+                      <p className="text-blue-600 text-xs">
                         <span className="text-gray-500">Checked Out:</span> {inviteeHelpers.formatDateTime(invite.report.check_out)}
                       </p>
                     )}
                   </div>
                 </td>
-                <td className="px-6 py-4">
-                  {getStatusBadge(invite.status)}
-                </td>
-                <td className="px-6 py-4">
+                <td className="px-3 py-2">
                   <div className="flex items-center space-x-2">
                     <select
                       value={invite.status}

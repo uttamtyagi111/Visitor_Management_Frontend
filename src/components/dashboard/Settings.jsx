@@ -24,16 +24,16 @@ function Settings() {
   };
 
   return (
-    <div className="p-8 overflow-y-auto bg-gradient-to-br from-gray-50 to-blue-50 min-h-full">
+    <div className="p-4 overflow-y-auto bg-gradient-to-br from-gray-50 to-blue-50 min-h-full">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6 }}
       >
         {/* Header */}
-        <div className="mb-4">
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Settings</h1>
-          <p className="text-gray-600 text-base">Configure your visitor management system</p>
+        <div className="mb-3">
+          <h1 className="text-xl font-bold text-gray-900 mb-1">Settings</h1>
+          <p className="text-gray-600 text-sm">Configure your visitor management system</p>
         </div>
 
         {/* Tab Navigation */}
@@ -41,9 +41,9 @@ function Settings() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, duration: 0.5 }}
-          className="bg-white/70 backdrop-blur-sm rounded-2xl p-2 shadow-xl border border-white/50 mb-8"
+          className="bg-white/70 backdrop-blur-sm rounded-xl p-1.5 shadow-lg border border-white/50 mb-4"
         >
-          <div className="flex space-x-2">
+          <div className="flex space-x-1">
             {tabs.map((tab) => {
               const Icon = tab.icon;
               const active = isActive(tab.href);
@@ -52,7 +52,7 @@ function Settings() {
                 <Link
                   key={tab.name}
                   to={tab.href}
-                  className={`flex items-center space-x-2 px-6 py-3 rounded-xl transition-all duration-200 font-medium ${
+                  className={`flex items-center space-x-2 px-4 py-2 rounded-lg transition-all duration-200 font-medium text-sm ${
                     active
                       ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg'
                       : 'text-gray-600 hover:text-gray-900 hover:bg-white/50'

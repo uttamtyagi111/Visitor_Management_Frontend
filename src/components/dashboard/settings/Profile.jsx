@@ -417,6 +417,41 @@ function Profile() {
                 </div>
               )}
             </div>
+
+            {/* Account Information - Vertical Layout */}
+            <div className="mt-6 pt-6 border-t border-gray-200">
+              <h4 className="text-md font-semibold text-gray-900 mb-4">Account Information</h4>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-500 mb-1">
+                    User ID
+                  </label>
+                  <p className="text-gray-900 font-medium">{user?.id || 'N/A'}</p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-500 mb-1">
+                    Role
+                  </label>
+                  <p className="text-gray-900 font-medium capitalize">{user?.role || user?.user_type || 'User'}</p>
+                </div>
+                
+                <div>
+                  <label className="block text-sm font-medium text-gray-500 mb-1">
+                    Member Since
+                  </label>
+                  <p className="text-gray-900 font-medium">
+                    {(user?.date_joined || user?.created_at) ? 
+                      new Date(user.date_joined || user.created_at).toLocaleDateString('en-US', {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric'
+                      }) : 'N/A'}
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
         </motion.div>
 
@@ -609,45 +644,6 @@ function Profile() {
         </motion.div>
       </div>
 
-      {/* Account Information */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.4, duration: 0.6 }}
-        className="bg-white/70 backdrop-blur-sm rounded-2xl p-6 shadow-xl border border-white/50"
-      >
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Account Information</h3>
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-500 mb-1">
-              User ID
-            </label>
-            <p className="text-gray-900 font-medium">{user?.id || 'N/A'}</p>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-500 mb-1">
-              Role
-            </label>
-            <p className="text-gray-900 font-medium capitalize">{user?.role || user?.user_type || 'User'}</p>
-          </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-gray-500 mb-1">
-              Member Since
-            </label>
-            <p className="text-gray-900 font-medium">
-              {(user?.date_joined || user?.created_at) ? 
-                new Date(user.date_joined || user.created_at).toLocaleDateString('en-US', {
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric'
-                }) : 'N/A'}
-            </p>
-          </div>
-        </div>
-      </motion.div>
 
       {/* Change Password Modal */}
       {showChangePassword && (

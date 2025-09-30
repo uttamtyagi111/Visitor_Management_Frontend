@@ -163,6 +163,7 @@ function Reports() {
       (report.remarks || '').toLowerCase().includes(searchLower) ||
       (report.purpose || '').toLowerCase().includes(searchLower);
 
+    const reportStatus = getReportStatus(report.check_in, report.check_out);
     const matchesStatus = statusFilter === "all" || reportStatus === statusFilter;
 
     return matchesSearch && matchesStatus;
@@ -325,33 +326,30 @@ function Reports() {
           {/* Desktop and Tablet Table View */}
           <div className="hidden md:block overflow-auto max-h-[600px]">
             <table className="w-full table-auto">
-              <thead className="bg-gray-50/50">
+              <thead className="bg-gray-50/50 sticky top-0 z-10">
                 <tr>
-                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider bg-gray-50/50 backdrop-blur-sm">
                     Visitor
                   </th>
-                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider bg-gray-50/50 backdrop-blur-sm">
                     Check In
                   </th>
-                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider bg-gray-50/50 backdrop-blur-sm">
                     Check Out
                   </th>
-                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider bg-gray-50/50 backdrop-blur-sm">
                     Visit Count
                   </th>
-                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">
+                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider bg-gray-50/50 backdrop-blur-sm">
                     Status
                   </th>
                   {/* <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">Remarks</th> */}
-                  <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">
-                    Actions
-                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
                 {loading ? (
                   <tr>
-                    <td colSpan="7" className="px-6 py-12 text-center">
+                    <td colSpan="5" className="px-6 py-12 text-center">
                       <div className="flex items-center justify-center space-x-2">
                         <RefreshCw className="w-5 h-5 animate-spin text-blue-600" />
                         <span className="text-gray-600">
@@ -362,7 +360,7 @@ function Reports() {
                   </tr>
                 ) : error ? (
                   <tr>
-                    <td colSpan="7" className="px-6 py-12 text-center">
+                    <td colSpan="5" className="px-6 py-12 text-center">
                       <div className="text-red-600">
                         <p className="font-medium">{error}</p>
                         <button
@@ -454,17 +452,9 @@ function Reports() {
                                 report.remarks.length > 50 
                                   ? `${report.remarks.substring(0, 50)}...` 
                                   : report.remarks
-                              ) : 'No remarks'}
+                              ) : 'No remarks'
                             </span>
                           </td> */}
-                          <td className="px-6 py-4">
-                            <button
-                              onClick={() => setSelectedReport(report)}
-                              className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200"
-                            >
-                              <MoreVertical className="w-4 h-4 text-gray-400" />
-                            </button>
-                          </td>
                         </motion.tr>
                       );
                     })}
@@ -709,27 +699,5 @@ function Reports() {
   );
 }
 
-function getStatusBadge(status) {
-  const styles = {
-    "checked-in": "bg-green-100 text-green-800 border-green-200",
-    "checked-out": "bg-gray-100 text-gray-800 border-gray-200",
-    scheduled: "bg-blue-100 text-blue-800 border-blue-200",
-  };
-
-  const icons = {
-    "checked-in": <CheckCircle className="w-4 h-4" />,
-    "checked-out": <XCircle className="w-4 h-4" />,
-    scheduled: <Clock className="w-4 h-4" />,
-  };
-
-  return (
-    <span
-      className={`inline-flex items-center space-x-1 px-3 py-1 rounded-full text-sm font-medium border ${styles[status]}`}
-    >
-      {icons[status]}
-      <span className="capitalize">{status.replace("-", " ")}</span>
-    </span>
-  );
-}
 
 export default Reports;

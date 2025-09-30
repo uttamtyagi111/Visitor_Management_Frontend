@@ -157,225 +157,203 @@ export const VisitorDetailModal = ({
           initial={{ scale: 0.9, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.9, opacity: 0 }}
-          className="bg-white rounded-2xl p-8 max-w-6xl w-full shadow-2xl max-h-[90vh] overflow-y-auto"
+          className="bg-white rounded-2xl p-4 max-w-5xl w-full max-h-[85vh] overflow-y-auto"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Modal Header */}
-          <div className="flex items-center justify-between mb-6">
-            <div className="text-center flex-1">
-              {selectedVisitor.image ||
-              selectedVisitor.imageUrl ||
-              selectedVisitor.photo ? (
-                <img
-                  src={
-                    selectedVisitor.image ||
-                    selectedVisitor.imageUrl ||
-                    selectedVisitor.photo
-                  }
-                  alt={
-                    selectedVisitor.name ||
-                    `${selectedVisitor.firstName || ""} ${
-                      selectedVisitor.lastName || ""
-                    }`.trim()
-                  }
-                  className="w-20 h-20 rounded-full object-cover mx-auto mb-4 border-4 border-blue-100"
-                  onError={(e) => {
-                    e.target.style.display = "none";
-                    e.target.nextSibling.style.display = "flex";
-                  }}
-                />
-              ) : null}
-              <div
-                className={`w-20 h-20 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-2xl mx-auto mb-4 border-4 border-blue-100 ${
-                  selectedVisitor.image ||
-                  selectedVisitor.imageUrl ||
-                  selectedVisitor.photo
-                    ? "hidden"
-                    : "flex"
-                }`}
-              >
-                {(selectedVisitor.name || selectedVisitor.firstName || "V")
-                  .charAt(0)
-                  .toUpperCase()}
-                {(selectedVisitor.lastName || "").charAt(0).toUpperCase()}
-              </div>
-              <h3 className="text-2xl font-bold text-gray-900">
-                {selectedVisitor.name ||
-                  `${selectedVisitor.firstName || ""} ${
-                    selectedVisitor.lastName || ""
-                  }`.trim()}
-              </h3>
-            </div>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-bold text-gray-900">
+              Visitor Details
+            </h2>
             <button
               onClick={() => setSelectedVisitor(null)}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors duration-200"
+              className="text-gray-400 hover:text-gray-500 p-1"
             >
-              <X className="w-5 h-5 text-gray-400" />
+              <X className="w-5 h-5" />
             </button>
           </div>
 
-          {/* Two Column Layout */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Left Column - Visitor Information */}
-            <div className="space-y-4">
-              <h4 className="text-lg font-semibold text-gray-900 mb-4">Visitor Information</h4>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">
-                    Email
-                  </label>
-                  <p className="text-gray-900 font-medium">
-                    {selectedVisitor.email || "N/A"}
-                  </p>
+          {/* Main Layout */}
+          <div className="flex flex-col lg:flex-row gap-4 h-full">
+            {/* Main Content */}
+            <div className="flex-1 space-y-4">
+              <div className="flex flex-col md:flex-row gap-4">
+                {/* Visitor Image */}
+                <div className="flex-shrink-0">
+                  <div className="w-24 h-24 md:w-32 md:h-32 rounded-lg overflow-hidden border-2 border-gray-200">
+                    {selectedVisitor.image ||
+                    selectedVisitor.imageUrl ||
+                    selectedVisitor.photo ? (
+                      <img
+                        src={
+                          selectedVisitor.image ||
+                          selectedVisitor.imageUrl ||
+                          selectedVisitor.photo
+                        }
+                        alt={
+                          selectedVisitor.name ||
+                          `${selectedVisitor.firstName || ""} ${
+                            selectedVisitor.lastName || ""
+                          }`.trim()
+                        }
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          e.target.style.display = "none";
+                          e.target.nextElementSibling.style.display = "flex";
+                        }}
+                      />
+                    ) : null}
+                    <div
+                      className={`w-full h-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold ${
+                        selectedVisitor.image ||
+                        selectedVisitor.imageUrl ||
+                        selectedVisitor.photo
+                          ? "hidden"
+                          : "flex"
+                      }`}
+                    >
+                      {(selectedVisitor.name || selectedVisitor.firstName || "V")
+                        .charAt(0)
+                        .toUpperCase()}
+                      {(selectedVisitor.lastName || "").charAt(0).toUpperCase()}
+                    </div>
+                  </div>
+                  
+                  {/* Status Badge */}
+                  <div className="mt-3">
+                    <p className="text-sm font-medium text-gray-500 mb-1">
+                      Status
+                    </p>
+                    {getStatusBadge(selectedVisitor.status)}
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">
-                    Phone
-                  </label>
-                  <p className="text-gray-900 font-medium">
-                    {selectedVisitor.phone || "N/A"}
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">
-                    Purpose
-                  </label>
-                  <p className="text-gray-900 font-medium">
-                    {selectedVisitor.purpose || "N/A"}
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">
-                    Host
-                  </label>
-                  <p className="text-gray-900 font-medium">
-                    {selectedVisitor.host || selectedVisitor.hostName || (selectedVisitor.issued_by == user.id ? user.name || selectedVisitor.user?.name || "N/A" : "N/A")}
-                  </p>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">
-                    Status
-                  </label>
-                  {getStatusBadge(selectedVisitor.status)}
+                
+                <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <h3 className="text-base font-medium text-gray-900 mb-3">
+                      Visitor Information
+                    </h3>
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-sm font-medium text-gray-500">
+                          Full Name
+                        </p>
+                        <p className="mt-1 text-gray-900 font-medium">
+                          {selectedVisitor.name ||
+                            `${selectedVisitor.firstName || ""} ${
+                              selectedVisitor.lastName || ""
+                            }`.trim()}
+                        </p>
+                      </div>
+                      
+                      <div>
+                        <p className="text-sm font-medium text-gray-500">
+                          Email
+                        </p>
+                        <p className="mt-1 text-blue-600">
+                          {selectedVisitor.email || "N/A"}
+                        </p>
+                      </div>
+                      
+                      {selectedVisitor.phone && (
+                        <div>
+                          <p className="text-sm font-medium text-gray-500">
+                            Phone
+                          </p>
+                          <p className="mt-1 text-gray-900">
+                            {selectedVisitor.phone}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  
+                  <div>
+                    <h3 className="text-base font-medium text-gray-900 mb-3">
+                      Visit Details
+                    </h3>
+                    <div className="space-y-3">
+                      <div>
+                        <p className="text-sm font-medium text-gray-500">
+                          Purpose
+                        </p>
+                        <p className="mt-1 text-gray-900">
+                          {selectedVisitor.purpose || "N/A"}
+                        </p>
+                      </div>
+                      
+                      <div>
+                        <p className="text-sm font-medium text-gray-500">
+                          Host
+                        </p>
+                        <p className="mt-1 text-gray-900">
+                          {selectedVisitor.host || selectedVisitor.hostName || (selectedVisitor.issued_by == user.id ? user.name || selectedVisitor.user?.name || "N/A" : "N/A")}
+                        </p>
+                      </div>
+                      
+                      {selectedVisitor.checkInTime || selectedVisitor.check_in ? (
+                        <div>
+                          <p className="text-sm font-medium text-gray-500">
+                            Check In Time
+                          </p>
+                          <p className="mt-1 text-green-600">
+                            {new Date(selectedVisitor.checkInTime || selectedVisitor.check_in).toLocaleString()}
+                          </p>
+                        </div>
+                      ) : null}
+                      
+                      {selectedVisitor.checkOutTime || selectedVisitor.check_out ? (
+                        <div>
+                          <p className="text-sm font-medium text-gray-500">
+                            Check Out Time
+                          </p>
+                          <p className="mt-1 text-blue-600">
+                            {new Date(selectedVisitor.checkOutTime || selectedVisitor.check_out).toLocaleString()}
+                          </p>
+                        </div>
+                      ) : null}
+                    </div>
+                  </div>
                 </div>
               </div>
+
+              {/* Action Buttons */}
+              <div className="flex justify-end space-x-3 pt-4 border-t border-gray-200">
+                <button
+                  type="button"
+                  onClick={() => setSelectedVisitor(null)}
+                  className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50 font-medium"
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleEditVisitor(selectedVisitor);
+                  }}
+                  className="px-4 py-2 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-lg hover:from-blue-700 hover:to-purple-700 transition-all duration-200 font-medium"
+                >
+                  Edit Visitor
+                </button>
+              </div>
+
             </div>
 
-            {/* Right Column - Timeline */}
-            <div className="space-y-4">
-              <h4 className="text-lg font-semibold text-gray-900 mb-4">Timeline</h4>
-              <div className="relative">
-                {/* Timeline Line */}
-                <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200"></div>
+            {/* Timeline Sidebar */}
+            <div className="lg:w-72 lg:border-l lg:border-gray-200 lg:pl-4">
+              <div className="bg-gray-50 rounded-lg p-3">
+                <h3 className="text-base font-medium text-gray-900 mb-3 flex items-center">
+                  <Clock className="w-4 h-4 mr-2 text-blue-600" />
+                  Timeline
+                </h3>
                 
-                {/* Timeline Items - Ordered by time - Scrollable */}
-                <div className="space-y-6 max-h-96 overflow-y-auto pr-2">
+                <div className="max-h-96 overflow-y-auto space-y-4 pr-2 scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100">
                   {(() => {
-                    // Simple function to format timestamps
-                    const formatTimestamp = (timestamp) => {
-                      console.log('Formatting timestamp:', timestamp, 'Type:', typeof timestamp);
-                      
-                      if (!timestamp) return 'No Date';
-                      
-                      try {
-                        let date;
-                        
-                        // Handle different timestamp formats
-                        if (typeof timestamp === 'string') {
-                          // Try multiple parsing approaches
-                          if (timestamp.includes('T')) {
-                            // ISO format: 2025-09-26T08:52:34.264516
-                            date = new Date(timestamp);
-                          } else if (timestamp.includes('-')) {
-                            // Date format: 2025-09-26
-                            date = new Date(timestamp);
-                          } else {
-                            // Try direct parsing
-                            date = new Date(timestamp);
-                          }
-                        } else {
-                          date = new Date(timestamp);
-                        }
-                        
-                        console.log('Parsed date:', date, 'Valid:', !isNaN(date.getTime()));
-                        
-                        if (isNaN(date.getTime())) {
-                          return `Invalid: ${timestamp}`;
-                        }
-                        
-                        return date.toLocaleString('en-US', {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                          hour12: true
-                        });
-                      } catch (error) {
-                        console.error('Date formatting error:', error, timestamp);
-                        return `Error: ${timestamp}`;
-                      }
-                    };
-
-                    // Get simple icon for status
-                    const getStatusIcon = (status) => {
-                      switch (status?.toLowerCase()) {
-                        case 'created': return <User className="w-4 h-4 text-blue-600" />;
-                        case 'pending': return <Clock className="w-4 h-4 text-yellow-600" />;
-                        case 'approved': return <CheckCircle className="w-4 h-4 text-green-600" />;
-                        case 'rejected': return <XCircle className="w-4 h-4 text-red-600" />;
-                        case 'checked_in': return <CheckCircle className="w-4 h-4 text-green-600" />;
-                        case 'checked_out': return <XCircle className="w-4 h-4 text-gray-600" />;
-                        case 'revisit': return <RotateCcw className="w-4 h-4 text-purple-600" />;
-                        default: return <Clock className="w-4 h-4 text-gray-600" />;
-                      }
-                    };
-
-                    // Get background color for status
-                    const getStatusBgColor = (status) => {
-                      switch (status?.toLowerCase()) {
-                        case 'created': return 'bg-blue-100';
-                        case 'pending': return 'bg-yellow-100';
-                        case 'approved': return 'bg-green-100';
-                        case 'rejected': return 'bg-red-100';
-                        case 'checked_in': return 'bg-green-100';
-                        case 'checked_out': return 'bg-gray-100';
-                        case 'revisit': return 'bg-purple-100';
-                        default: return 'bg-gray-100';
-                      }
-                    };
-
-                    // Get text color for status
-                    const getStatusTextColor = (status) => {
-                      switch (status?.toLowerCase()) {
-                        case 'created': return 'text-blue-800';
-                        case 'pending': return 'text-yellow-800';
-                        case 'approved': return 'text-green-800';
-                        case 'rejected': return 'text-red-800';
-                        case 'checked_in': return 'text-green-800';
-                        case 'checked_out': return 'text-gray-800';
-                        case 'revisit': return 'text-purple-800';
-                        default: return 'text-gray-800';
-                      }
-                    };
-
-                    console.log('=== FULL SELECTED VISITOR DATA ===');
-                    console.log('selectedVisitor:', selectedVisitor);
-                    console.log('=== TIMELINE SPECIFIC DATA ===');
-                    console.log('selectedVisitor.timeline:', selectedVisitor.timeline);
-                    console.log('Timeline type:', typeof selectedVisitor.timeline);
-                    console.log('Is timeline array?', Array.isArray(selectedVisitor.timeline));
-                    console.log('Timeline length:', selectedVisitor.timeline?.length);
-                    console.log('=== ALL POSSIBLE TIMELINE FIELDS ===');
-                    Object.keys(selectedVisitor).forEach(key => {
-                      if (key.toLowerCase().includes('timeline') || key.toLowerCase().includes('history') || key.toLowerCase().includes('status')) {
-                        console.log(`${key}:`, selectedVisitor[key]);
-                      }
-                    });
-                    console.log('=== END DEBUG ===');
-
-                    // Use the timelines array from the backend response
-                    const timelineData = selectedVisitor.timelines || selectedVisitor.timeline || [];
+                    console.log('Timeline Debug - Selected Visitor:', selectedVisitor);
+                    console.log('Timeline Debug - Timelines field:', selectedVisitor.timelines);
+                    
+                    // Use timeline data from backend (selectedVisitor.timelines)
+                    const timelineData = selectedVisitor.timelines || [];
                     
                     console.log('Using timeline data:', timelineData);
                     
@@ -384,7 +362,7 @@ export const VisitorDetailModal = ({
                       return (
                         <div className="text-center py-8 text-gray-500">
                           <Clock className="w-8 h-8 mx-auto mb-2 text-gray-400" />
-                          <p>No timeline data available</p>
+                          <p className="text-sm">No timeline data available</p>
                         </div>
                       );
                     }
@@ -405,7 +383,7 @@ export const VisitorDetailModal = ({
                     console.log('Original timeline entries:', timelineData.length);
                     console.log('After deduplication:', uniqueTimeline.length);
 
-                    // Sort timeline by any available timestamp field (oldest first - chronological order)
+                    // Sort timeline by any available timestamp field (newest first - reverse chronological order)
                     const sortedTimeline = [...uniqueTimeline].sort((a, b) => {
                       const timestampA = a.updated_at || a.created_at || a.timestamp || a.date;
                       const timestampB = b.updated_at || b.created_at || b.timestamp || b.date;
@@ -414,65 +392,114 @@ export const VisitorDetailModal = ({
                       if (!timestampA) return 1;
                       if (!timestampB) return -1;
                       
-                      return new Date(timestampA) - new Date(timestampB);
+                      return new Date(timestampB) - new Date(timestampA);
                     });
 
                     console.log('Sorted timeline for display:', sortedTimeline);
                     console.log('First timeline entry structure:', sortedTimeline[0]);
                     console.log('Timeline entry keys:', Object.keys(sortedTimeline[0] || {}));
 
-                    // Render timeline entries directly
-                    return sortedTimeline.map((entry, index) => (
-                      <div key={`timeline-${entry.id}-${index}`} className="relative flex items-start space-x-4">
-                        <div className={`flex-shrink-0 w-8 h-8 ${getStatusBgColor(entry.status)} rounded-full flex items-center justify-center relative z-10`}>
-                          {getStatusIcon(entry.status)}
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center space-x-2 mb-1">
-                            <h5 className="text-sm font-medium text-gray-900">
-                              {entry.status?.charAt(0).toUpperCase() + entry.status?.slice(1) || 'Status Update'}
-                            </h5>
-                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getStatusBgColor(entry.status)} ${getStatusTextColor(entry.status)}`}>
-                              {entry.status || 'Unknown'}
-                            </span>
-                          </div>
-                          <p className="text-sm text-gray-600">
-                            Status changed to {entry.status}
-                          </p>
-                          <p className="text-xs text-gray-500 mt-1">
-                            {formatTimestamp(entry.updated_at || entry.created_at || entry.timestamp || entry.date)}
-                          </p>
-                          {entry.updated_by && (
-                            <p className="text-xs text-gray-500">
-                              By: {entry.updated_by}
-                            </p>
+                    // Helper functions for status styling
+                    const getStatusIcon = (status) => {
+                      switch (status) {
+                        case 'pending': return <Clock className="w-4 h-4 text-yellow-600" />;
+                        case 'approved': return <CheckCircle className="w-4 h-4 text-green-600" />;
+                        case 'rejected': return <XCircle className="w-4 h-4 text-red-600" />;
+                        case 'checked_in': return <CheckCircle className="w-4 h-4 text-green-600" />;
+                        case 'checked_out': return <XCircle className="w-4 h-4 text-gray-600" />;
+                        case 'revisit': return <RotateCcw className="w-4 h-4 text-purple-600" />;
+                        default: return <User className="w-4 h-4 text-blue-600" />;
+                      }
+                    };
+
+                    const getStatusBgColor = (status) => {
+                      switch (status) {
+                        case 'pending': return 'bg-yellow-100';
+                        case 'approved': return 'bg-green-100';
+                        case 'rejected': return 'bg-red-100';
+                        case 'checked_in': return 'bg-green-100';
+                        case 'checked_out': return 'bg-gray-100';
+                        case 'revisit': return 'bg-purple-100';
+                        default: return 'bg-blue-100';
+                      }
+                    };
+
+                    const getStatusTextColor = (status) => {
+                      switch (status) {
+                        case 'pending': return 'text-yellow-800';
+                        case 'approved': return 'text-green-800';
+                        case 'rejected': return 'text-red-800';
+                        case 'checked_in': return 'text-green-800';
+                        case 'checked_out': return 'text-gray-800';
+                        case 'revisit': return 'text-purple-800';
+                        default: return 'text-blue-800';
+                      }
+                    };
+
+                    const formatTimestamp = (timestamp) => {
+                      if (!timestamp) return 'Unknown time';
+                      try {
+                        return new Date(timestamp).toLocaleString('en-US', {
+                          year: 'numeric',
+                          month: 'short',
+                          day: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        });
+                      } catch (error) {
+                        console.error('Error formatting timestamp:', timestamp, error);
+                        return 'Invalid date';
+                      }
+                    };
+
+                    // Render timeline entries directly from backend data
+                    return sortedTimeline.map((entry, index) => {
+                      const isLast = index === sortedTimeline.length - 1;
+                      
+                      return (
+                        <div key={`timeline-${entry.id}-${index}`} className="relative">
+                          {/* Vertical Line */}
+                          {!isLast && (
+                            <div className="absolute left-4 top-8 w-0.5 h-8 bg-gray-300" />
                           )}
+                          
+                          {/* Event Content */}
+                          <div className="flex items-start space-x-3">
+                            {/* Icon */}
+                            <div className={`flex-shrink-0 w-8 h-8 ${getStatusBgColor(entry.status)} rounded-full flex items-center justify-center border-2 border-white shadow-sm relative z-10`}>
+                              {getStatusIcon(entry.status)}
+                            </div>
+                            
+                            {/* Content */}
+                            <div className="flex-1 min-w-0 pb-2">
+                              <div className="flex items-center space-x-2 mb-1">
+                                <h5 className="text-sm font-semibold text-gray-900">
+                                  {entry.status?.charAt(0).toUpperCase() + entry.status?.slice(1) || 'Status Update'}
+                                </h5>
+                                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${getStatusBgColor(entry.status)} ${getStatusTextColor(entry.status)}`}>
+                                  {entry.status || 'Unknown'}
+                                </span>
+                              </div>
+                              <p className="text-xs text-gray-600 mb-1">
+                                Status changed to {entry.status}
+                              </p>
+                              <p className="text-xs text-gray-400 font-medium">
+                                {formatTimestamp(entry.updated_at || entry.created_at || entry.timestamp || entry.date)}
+                              </p>
+                              {entry.updated_by && (
+                                <p className="text-xs text-blue-600 mt-1 font-medium">
+                                  By: {entry.updated_by}
+                                </p>
+                              )}
+                            </div>
+                          </div>
                         </div>
-                      </div>
-                    ));
+                      );
+                    });
                   })()}
                 </div>
               </div>
             </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex space-x-3 mt-8 pt-6 border-t border-gray-200">
-            <button
-              onClick={() => setSelectedVisitor(null)}
-              className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-colors font-medium"
-            >
-              Close
-            </button>
-            <button
-              onClick={() => {
-                setSelectedVisitor(null);
-                handleEditVisitor(selectedVisitor);
-              }}
-              className="flex-1 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 font-medium"
-            >
-              Edit Visitor
-            </button>
           </div>
         </motion.div>
       </motion.div>

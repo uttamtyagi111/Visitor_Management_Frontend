@@ -178,9 +178,10 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false, initialInviteCode = '',
 
       // If visitor already uploaded image, set it as captured image for admin
       if (isAdmin && inviteData.image) {
+        const imageUrlWithTimestamp = `${inviteData.image}?t=${Date.now()}`;
         setCapturedImage({
           file: null, // No file object since it's already uploaded
-          preview: inviteData.image
+          preview: imageUrlWithTimestamp
         });
       }
       
@@ -215,7 +216,8 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false, initialInviteCode = '',
         setInviteCode(initialInviteCode.toLowerCase());
         setIsExistingVisitor(!!inviteData.image);
         if (isAdmin && inviteData.image) {
-          setCapturedImage({ file: null, preview: inviteData.image });
+          const imageUrlWithTimestamp = `${inviteData.image}?t=${Date.now()}`;
+          setCapturedImage({ file: null, preview: imageUrlWithTimestamp });
         }
         setCurrentStep(2);
         setAutoVerified(true);
@@ -227,6 +229,17 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false, initialInviteCode = '',
     };
     autoVerify();
   }, [isOpen, initialInviteCode, isAdmin, autoVerified]);
+
+  // Update captured image when invite form data changes (for updated images)
+  useEffect(() => {
+    if (isAdmin && inviteFormData.image && !capturedImage) {
+      const imageUrlWithTimestamp = `${inviteFormData.image}?t=${Date.now()}`;
+      setCapturedImage({
+        file: null,
+        preview: imageUrlWithTimestamp
+      });
+    }
+  }, [inviteFormData.image, isAdmin, capturedImage]);
 
   const handleCameraPhotoCapture = (imageFile, previewUrl) => {
     setCapturedImage({
@@ -333,15 +346,12 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false, initialInviteCode = '',
           image: updatedInvite.image
         }));
         
-        // Update captured image for preview
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          setCapturedImage({
-            file: file,
-            preview: e.target.result
-          });
-        };
-        reader.readAsDataURL(file);
+        // Update captured image for preview - use server URL to ensure latest image
+        const imageUrlWithTimestamp = updatedInvite.image ? `${updatedInvite.image}?t=${Date.now()}` : updatedInvite.image;
+        setCapturedImage({
+          file: file,
+          preview: imageUrlWithTimestamp // Use server URL with cache-busting timestamp
+        });
         
         // If this is an edit, update the parent's state
         console.log('🔄 Updating parent component with updated invite...');
@@ -378,19 +388,30 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false, initialInviteCode = '',
     setLoading(true);
     setError('');
     try {
-      const response = await fetch(inviteFormData.image, { mode: 'cors' });
+      // Remove any timestamp query parameters for the fetch
+      const cleanImageUrl = inviteFormData.image.split('?')[0];
+      console.log('🖼️ Using existing image from clean URL:', cleanImageUrl);
+      
+      const response = await fetch(cleanImageUrl, { 
+        mode: 'cors',
+        cache: 'no-cache' // Ensure we get the latest version
+      });
+      
       if (!response.ok) {
-        throw new Error('Failed to fetch existing image');
+        throw new Error(`Failed to fetch existing image: ${response.status} ${response.statusText}`);
       }
+      
       const blob = await response.blob();
       const fileType = blob.type && blob.type.startsWith('image/') ? blob.type : 'image/png';
       const fileName = fileType === 'image/png' ? 'visitor-photo.png' : 'visitor-photo.jpg';
       const file = new File([blob], fileName, { type: fileType, lastModified: Date.now() });
 
       // Set as captured image so the Complete button appears
-      const previewUrl = URL.createObjectURL(blob);
-      setCapturedImage({ file, preview: previewUrl });
+      const imageUrlWithTimestamp = `${inviteFormData.image}?t=${Date.now()}`;
+      setCapturedImage({ file, preview: imageUrlWithTimestamp });
+      console.log('✅ Successfully set existing image as captured image');
     } catch (err) {
+      console.error('❌ Error using existing image:', err);
       setError('Unable to use the existing photo. Please upload or retake your photo.');
     } finally {
       setLoading(false);
@@ -405,12 +426,31 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false, initialInviteCode = '',
     try {
       let fileToUpload = capturedImage?.file || null;
       if (!fileToUpload && inviteFormData.image) {
-        // Convert existing image to File directly to avoid double clicks/state timing
-        const resp = await fetch(inviteFormData.image, { mode: 'cors' });
-        const blob = await resp.blob();
-        const type = blob.type && blob.type.startsWith('image/') ? blob.type : 'image/png';
-        const name = type === 'image/png' ? 'visitor-photo.png' : 'visitor-photo.jpg';
-        fileToUpload = new File([blob], name, { type, lastModified: Date.now() });
+        try {
+          // Convert existing image to File directly to avoid double clicks/state timing
+          // Remove any timestamp query parameters for the fetch
+          const cleanImageUrl = inviteFormData.image.split('?')[0];
+          console.log('🖼️ Fetching image from clean URL:', cleanImageUrl);
+          
+          const resp = await fetch(cleanImageUrl, { 
+            mode: 'cors',
+            cache: 'no-cache' // Ensure we get the latest version
+          });
+          
+          if (!resp.ok) {
+            throw new Error(`Failed to fetch image: ${resp.status} ${resp.statusText}`);
+          }
+          
+          const blob = await resp.blob();
+          const type = blob.type && blob.type.startsWith('image/') ? blob.type : 'image/png';
+          const name = type === 'image/png' ? 'visitor-photo.png' : 'visitor-photo.jpg';
+          fileToUpload = new File([blob], name, { type, lastModified: Date.now() });
+          console.log('✅ Successfully converted image to file:', name, blob.size, 'bytes');
+        } catch (fetchError) {
+          console.error('❌ Error fetching existing image:', fetchError);
+          setError('Unable to load the existing photo. Please upload or retake your photo.');
+          return;
+        }
       }
       if (!fileToUpload) {
         setError('A photo file is required. Please upload or retake your photo.');
@@ -732,12 +772,12 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false, initialInviteCode = '',
     switch (currentStep) {
       case 1:
         return (
-          <div className="text-center py-8">
-            <div className="w-20 h-20 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-6">
-              <QrCode className="w-10 h-10 text-white" />
+          <div className="text-center py-4">
+            <div className="w-16 h-16 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl flex items-center justify-center mx-auto mb-4">
+              <QrCode className="w-8 h-8 text-white" />
             </div>
-            <h3 className="text-2xl font-bold text-gray-900 mb-4">Enter Invite Code</h3>
-            <p className="text-gray-600 mb-8">Enter your invitation code to proceed</p>
+            <h3 className="text-xl font-bold text-gray-900 mb-3">Enter Invite Code</h3>
+            <p className="text-gray-600 mb-6">Enter your invitation code to proceed</p>
             
             {error && (
               <div className="mb-4 p-3 bg-red-100 border border-red-200 text-red-700 rounded-lg flex items-center space-x-2">
@@ -751,7 +791,7 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false, initialInviteCode = '',
                 type="text"
                 value={inviteCode}
                 onChange={(e) => setInviteCode(e.target.value.toLowerCase())}
-                className="w-full px-6 py-4 text-center text-2xl font-mono bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 tracking-wider"
+                className="w-full px-4 py-3 text-center text-xl font-mono bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200 tracking-wider"
                 placeholder="abc123"
                 maxLength={6}
               />
@@ -759,7 +799,7 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false, initialInviteCode = '',
               <button
                 onClick={handleInviteCodeSubmit}
                 disabled={!inviteCode.trim() || loading}
-                className="w-full mt-6 py-3 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full mt-4 py-2.5 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-medium rounded-xl hover:from-blue-700 hover:to-purple-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {loading ? 'Verifying...' : 'Verify Code'}
               </button>
@@ -769,8 +809,8 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false, initialInviteCode = '',
 
       case 2:
         return (
-          <div className="py-6">
-            <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">Verify Your Details</h3>
+          <div className="py-4">
+            <h3 className="text-xl font-bold text-gray-900 mb-4 text-center">Verify Your Details</h3>
             
             {error && (
               <div className="mb-4 p-3 bg-red-100 border border-red-200 text-red-700 rounded-lg flex items-center space-x-2">
@@ -779,8 +819,8 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false, initialInviteCode = '',
               </div>
             )}
             
-            <form className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <form className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">Full Name *</label>
                   <div className="relative">
@@ -795,9 +835,9 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false, initialInviteCode = '',
                           setFormErrors({...formErrors, visitor_name: ''});
                         }
                       }}
-                      className={`w-full pl-10 pr-12 py-3 ${(isAdmin || isEditingDetails) ? 'bg-white text-gray-900' : 'bg-gray-50 text-gray-500'} border ${
+                      className={`w-full pl-10 pr-12 py-2.5 ${(isAdmin || isEditingDetails) ? 'bg-white text-gray-900' : 'bg-gray-50 text-gray-500'} border ${
                         formErrors.visitor_name ? 'border-red-500' : 'border-gray-200'
-                      } rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200`}
+                      } rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200`}
                       placeholder="Enter full name"
                       readOnly={!isAdmin}
                     />
@@ -1253,45 +1293,45 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false, initialInviteCode = '',
           initial={{ scale: 0.95, opacity: 0 }}
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.95, opacity: 0 }}
-          className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden"
+          className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[85vh] overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
-          <div className="flex items-center justify-between p-6 border-b border-gray-200">
-            <div className="flex items-center space-x-4">
-              <h2 className="text-2xl font-bold text-gray-900">
+          <div className="flex items-center justify-between p-4 border-b border-gray-200">
+            <div className="flex items-center space-x-3">
+              <h2 className="text-xl font-bold text-gray-900">
                 {isAdmin ? 'Admin Invite Process' : 'Complete Your Visit'}
               </h2>
             </div>
             <button
               onClick={handleClose}
-              className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
             >
-              <X className="w-6 h-6 text-gray-500" />
+              <X className="w-5 h-5 text-gray-500" />
             </button>
           </div>
 
           {/* Progress Steps */}
-          <div className="px-6 py-4 bg-gray-50 border-b border-gray-200">
+          <div className="px-4 py-3 bg-gray-50 border-b border-gray-200">
             <div className="flex items-center justify-between">
               {steps.map((step, index) => (
                 <div key={step.id} className="flex items-center">
-                  <div className={`flex items-center justify-center w-10 h-10 rounded-full border-2 transition-all duration-200 ${
+                  <div className={`flex items-center justify-center w-8 h-8 rounded-full border-2 transition-all duration-200 ${
                     currentStep >= step.id 
                       ? 'bg-blue-600 border-blue-600 text-white' 
                       : 'bg-white border-gray-300 text-gray-400'
                   }`}>
-                    <step.icon className="w-5 h-5" />
+                    <step.icon className="w-4 h-4" />
                   </div>
-                  <div className="ml-3 hidden sm:block">
-                    <p className={`text-sm font-medium ${
+                  <div className="ml-2 hidden sm:block">
+                    <p className={`text-xs font-medium ${
                       currentStep >= step.id ? 'text-blue-600' : 'text-gray-500'
                     }`}>
                       {step.title}
                     </p>
                   </div>
                   {index < steps.length - 1 && (
-                    <ChevronRight className="w-5 h-5 text-gray-300 mx-4" />
+                    <ChevronRight className="w-4 h-4 text-gray-300 mx-3" />
                   )}
                 </div>
               ))}
@@ -1299,11 +1339,11 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false, initialInviteCode = '',
           </div>
 
           {/* Content */}
-          <div className="p-6 overflow-y-auto max-h-[calc(90vh-200px)]">
+          <div className="p-4 overflow-y-auto max-h-[calc(85vh-160px)]">
             {success && !isAdmin && currentStep === 3 && (
-              <div className="mb-6 p-4 bg-green-100 border border-green-200 text-green-700 rounded-lg flex items-center justify-center space-x-2">
-                <Check className="w-5 h-5" />
-                <span>{success}</span>
+              <div className="mb-4 p-3 bg-green-100 border border-green-200 text-green-700 rounded-lg flex items-center justify-center space-x-2">
+                <Check className="w-4 h-4" />
+                <span className="text-sm">{success}</span>
               </div>
             )}
             {renderStepContent()}

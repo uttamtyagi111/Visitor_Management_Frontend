@@ -19,24 +19,21 @@ export const VisitorDesktopTable = ({
 }) => (
   <div className="hidden md:block overflow-auto max-h-[600px]">
     <table className="w-full table-auto">
-      <thead className="bg-gray-50/50">
+      <thead className="bg-gray-50/50 sticky top-0 z-10">
         <tr>
-          <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">
+          <th className="px-3 py-2 text-left text-sm font-bold text-gray-900 uppercase tracking-wider bg-gray-50/50 backdrop-blur-sm">
             Visitor
           </th>
-          <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">
+          <th className="px-3 py-2 text-left text-sm font-bold text-gray-900 uppercase tracking-wider bg-gray-50/50 backdrop-blur-sm">
             Purpose
           </th>
-          <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">
+          <th className="px-3 py-2 text-left text-sm font-bold text-gray-900 uppercase tracking-wider bg-gray-50/50 backdrop-blur-sm">
             Host
           </th>
-          <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">
+          <th className="px-3 py-2 text-left text-sm font-bold text-gray-900 uppercase tracking-wider bg-gray-50/50 backdrop-blur-sm">
             Check In
           </th>
-          <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">
-            Status
-          </th>
-          <th className="px-6 py-4 text-left text-sm font-bold text-gray-900 uppercase tracking-wider">
+          <th className="px-3 py-2 text-left text-sm font-bold text-gray-900 uppercase tracking-wider bg-gray-50/50 backdrop-blur-sm">
             Actions
           </th>
         </tr>
@@ -52,8 +49,8 @@ export const VisitorDesktopTable = ({
               transition={{ duration: 0.2, delay: index * 0.05 }}
               className="hover:bg-gray-50/50 transition-colors duration-200"
             >
-              <td className="px-6 py-4 whitespace-nowrap">
-                <div className="flex items-center space-x-4">
+              <td className="px-3 py-2 whitespace-nowrap">
+                <div className="flex items-center space-x-3">
                   <div className="flex-shrink-0 w-12 h-12 relative">
                     {visitor.image ||
                     visitor.imageUrl ||
@@ -87,7 +84,7 @@ export const VisitorDesktopTable = ({
                       />
                     ) : null}
                     <div
-                      className={`fallback-avatar w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-lg absolute top-0 left-0 ${
+                      className={`fallback-avatar w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-base absolute top-0 left-0 ${
                         visitor.image ||
                         visitor.imageUrl ||
                         visitor.photo
@@ -114,20 +111,23 @@ export const VisitorDesktopTable = ({
                     <div className="text-sm text-gray-500 truncate">
                       {visitor.phone}
                     </div>
+                    <div className="mt-1">
+                      {getStatusBadge(visitor.status)}
+                    </div>
                   </div>
                 </div>
               </td>
-              <td className="px-6 py-4 whitespace-nowrap">
+              <td className="px-3 py-2 whitespace-nowrap">
                 <div className="text-sm text-gray-900">
                   {visitor.purpose || "N/A"}
                 </div>
               </td>
-              <td className="px-6 py-4 whitespace-nowrap">
+              <td className="px-3 py-2 whitespace-nowrap">
                 <div className="text-sm text-gray-900">
                   {visitor.host || visitor.hostName || visitor.issued_by == user.id ? user.name : "N/A"}
                 </div>
               </td>
-              <td className="px-6 py-4 whitespace-nowrap">
+              <td className="px-3 py-2 whitespace-nowrap">
                 <div className="text-sm text-gray-900">
                   <div className="mb-1">
                     <span className="block">
@@ -164,10 +164,7 @@ export const VisitorDesktopTable = ({
                   )}
                 </div>
               </td>
-              <td className="px-6 py-4">
-                {getStatusBadge(visitor.status)}
-              </td>
-              <td className="px-6 py-4">
+              <td className="px-3 py-2">
                 <div className="flex items-center space-x-2">
                   {/* Status Dropdown */}
                   <select

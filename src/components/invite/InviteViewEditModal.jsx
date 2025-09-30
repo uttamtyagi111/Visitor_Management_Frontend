@@ -51,30 +51,30 @@ const InviteViewEditModal = ({
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
-            className="bg-white rounded-2xl p-6 max-w-6xl w-full max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-2xl p-4 max-w-5xl w-full max-h-[85vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-bold text-gray-900">
                 {isEditing ? 'Edit Invitation' : 'Invitation Details'}
               </h2>
               <button
                 onClick={closeModal}
-                className="text-gray-400 hover:text-gray-500"
+                className="text-gray-400 hover:text-gray-500 p-1"
               >
-                <X className="w-6 h-6" />
+                <X className="w-5 h-5" />
               </button>
             </div>
 
             {!isEditing ? (
               // View Mode with Sidebar Layout
-              <div className="flex flex-col lg:flex-row gap-6 h-full">
+              <div className="flex flex-col lg:flex-row gap-4 h-full">
                 {/* Main Content */}
-                <div className="flex-1 space-y-6">
-                  <div className="flex flex-col md:flex-row gap-6">
+                <div className="flex-1 space-y-4">
+                  <div className="flex flex-col md:flex-row gap-4">
                     {/* Visitor Image */}
                     <div className="flex-shrink-0">
-                      <div className="w-32 h-32 md:w-40 md:h-40 rounded-lg overflow-hidden border-2 border-gray-200">
+                      <div className="w-24 h-24 md:w-32 md:h-32 rounded-lg overflow-hidden border-2 border-gray-200">
                         {currentInvite.image ? (
                           <img
                             key={`view-edit-${currentInvite.id}-${currentInvite.image}`}
@@ -88,7 +88,7 @@ const InviteViewEditModal = ({
                           />
                         ) : null}
                         <div 
-                          className={`w-full h-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-4xl font-bold ${
+                          className={`w-full h-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-2xl font-bold ${
                             currentInvite.image ? 'hidden' : 'flex'
                           }`}
                         >
@@ -97,7 +97,7 @@ const InviteViewEditModal = ({
                       </div>
                       
                       {/* Status Badge */}
-                      <div className="mt-4">
+                      <div className="mt-3">
                         <p className="text-sm font-medium text-gray-500 mb-1">
                           Status
                         </p>
@@ -105,12 +105,12 @@ const InviteViewEditModal = ({
                       </div>
                     </div>
                     
-                    <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <h3 className="text-lg font-medium text-gray-900 mb-4">
+                        <h3 className="text-base font-medium text-gray-900 mb-3">
                           Visitor Information
                         </h3>
-                        <div className="space-y-4">
+                        <div className="space-y-3">
                           <div>
                             <p className="text-sm font-medium text-gray-500">
                               Full Name
@@ -143,10 +143,10 @@ const InviteViewEditModal = ({
                       </div>
                       
                       <div>
-                        <h3 className="text-lg font-medium text-gray-900 mb-4">
+                        <h3 className="text-base font-medium text-gray-900 mb-3">
                           Visit Details
                         </h3>
-                        <div className="space-y-4">
+                        <div className="space-y-3">
                           <div>
                             <p className="text-sm font-medium text-gray-500">
                               Purpose
@@ -219,7 +219,7 @@ const InviteViewEditModal = ({
                     </div>
                   </div>
 
-                  <div className="pt-6 border-t border-gray-200 flex justify-end space-x-3">
+                  <div className="pt-4 border-t border-gray-200 flex justify-end space-x-3">
                     <button
                       type="button"
                       onClick={closeModal}
@@ -239,15 +239,15 @@ const InviteViewEditModal = ({
                 </div>
 
                 {/* Timeline Sidebar */}
-                <div className="lg:w-80 lg:border-l lg:border-gray-200 lg:pl-6">
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <h3 className="text-lg font-medium text-gray-900 mb-4 flex items-center">
-                      <ClockIcon className="w-5 h-5 mr-2 text-blue-600" />
+                <div className="lg:w-72 lg:border-l lg:border-gray-200 lg:pl-4">
+                  <div className="bg-gray-50 rounded-lg p-3">
+                    <h3 className="text-base font-medium text-gray-900 mb-3 flex items-center">
+                      <ClockIcon className="w-4 h-4 mr-2 text-blue-600" />
                       Timeline
                     </h3>
                     
                     {/* Enhanced Timeline Component with Real API Data */}
-                    <div className="max-h-96 overflow-y-auto space-y-4 pr-2">
+                    <div className="max-h-80 overflow-y-auto space-y-3 pr-2">
                       {timelineLoading ? (
                         <div className="flex items-center justify-center py-8">
                           <div className="animate-spin w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full"></div>
@@ -329,7 +329,7 @@ const InviteViewEditModal = ({
                             <div key={step.status} className="relative">
                               {/* Vertical Line */}
                               {!isLast && (
-                                <div className={`absolute left-4 top-8 w-0.5 h-16 ${
+                                <div className={`absolute left-3 top-6 w-0.5 h-12 ${
                                   step.completed 
                                     ? step.isRejected 
                                       ? 'bg-red-400'
@@ -343,9 +343,9 @@ const InviteViewEditModal = ({
                               )}
                               
                               {/* Step Content */}
-                              <div className="flex items-start space-x-3">
+                              <div className="flex items-start space-x-2">
                                 {/* Icon */}
-                                <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                                <div className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center ${
                                   step.completed 
                                     ? step.isRejected 
                                       ? 'bg-red-100 text-red-600' 
@@ -356,7 +356,7 @@ const InviteViewEditModal = ({
                                       : 'bg-green-100 text-green-600'
                                     : 'bg-gray-100 text-gray-400'
                                 }`}>
-                                  <IconComponent className="w-4 h-4" />
+                                  <IconComponent className="w-3 h-3" />
                                 </div>
                                 
                                 {/* Content */}
@@ -405,7 +405,7 @@ const InviteViewEditModal = ({
               </div>
             ) : (
               // Edit Mode
-              <form onSubmit={handleUpdateInvite} className="space-y-6">
+              <form onSubmit={handleUpdateInvite} className="space-y-4">
                 {error && (
                   <div className="p-3 bg-red-100 border border-red-200 text-red-700 rounded-lg flex items-center space-x-2">
                     <AlertCircle className="w-4 h-4" />
@@ -566,7 +566,7 @@ const InviteViewEditModal = ({
                   </div>
                 </div>
 
-                <div className="pt-6 border-t border-gray-200 flex justify-end space-x-3">
+                <div className="pt-4 border-t border-gray-200 flex justify-end space-x-3">
                   <button
                     type="button"
                     onClick={() => {

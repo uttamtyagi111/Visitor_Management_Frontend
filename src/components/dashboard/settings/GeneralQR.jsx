@@ -6,7 +6,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { toast, ToastContainer } from "react-toastify";
 import 'react-toastify/dist/ReactToastify.css';
 
-function GeneralQR() {
+const GeneralQR = () => {
   const [qrSettings, setQrSettings] = useState({
     size: 256,
     errorCorrection: 'M',
@@ -297,8 +297,8 @@ function GeneralQR() {
               <input
                 type="text"
                 value={qrSettings.customText}
-                onChange={(e) => setQrSettings({...qrSettings, customText: e.target.value})}
-                className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                readOnly
+                className="w-full px-4 py-3 bg-gray-100 border border-gray-300 rounded-xl cursor-not-allowed text-gray-600"
                 placeholder="Enter URL or text for QR"
               />
             </div>
@@ -337,35 +337,35 @@ function GeneralQR() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Background</label>
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="color"
-                    value={qrSettings.backgroundColor}
-                    onChange={(e) => setQrSettings({...qrSettings, backgroundColor: e.target.value})}
-                    className="w-12 h-12 rounded-lg border border-gray-200 cursor-pointer"
-                  />
+                <div className="relative w-full">
                   <input
                     type="text"
                     value={qrSettings.backgroundColor}
                     onChange={(e) => setQrSettings({...qrSettings, backgroundColor: e.target.value})}
-                    className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm"
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                  />
+                  <input
+                    type="color"
+                    value={qrSettings.backgroundColor}
+                    onChange={(e) => setQrSettings({...qrSettings, backgroundColor: e.target.value})}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded border border-gray-300 cursor-pointer"
                   />
                 </div>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">Foreground</label>
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="color"
-                    value={qrSettings.foregroundColor}
-                    onChange={(e) => setQrSettings({...qrSettings, foregroundColor: e.target.value})}
-                    className="w-12 h-12 rounded-lg border border-gray-200 cursor-pointer"
-                  />
+                <div className="relative w-full">
                   <input
                     type="text"
                     value={qrSettings.foregroundColor}
                     onChange={(e) => setQrSettings({...qrSettings, foregroundColor: e.target.value})}
-                    className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm"
+                    className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all duration-200"
+                  />
+                  <input
+                    type="color"
+                    value={qrSettings.foregroundColor}
+                    onChange={(e) => setQrSettings({...qrSettings, foregroundColor: e.target.value})}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 w-6 h-6 rounded border border-gray-300 cursor-pointer"
                   />
                 </div>
               </div>
@@ -393,10 +393,10 @@ function GeneralQR() {
             <button
               onClick={handleGenerateQR}
               disabled={generating}
-              className="flex items-center space-x-2 px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors font-medium"
+              className="p-2 bg-blue-100 text-blue-700 rounded-full hover:bg-blue-200 transition-colors"
+              title={generating ? 'Generating...' : 'Refresh QR Code'}
             >
-              <RefreshCw className={`w-4 h-4 ${generating ? 'animate-spin' : ''}`} />
-              <span>{generating ? 'Generating...' : 'Refresh'}</span>
+              <RefreshCw className={`w-5 h-5 ${generating ? 'animate-spin' : ''}`} />
             </button>
           </div>
           
@@ -467,43 +467,47 @@ function GeneralQR() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="flex justify-center space-x-6 mt-6">
             <button 
               onClick={handleDownloadQR}
               disabled={!(qrData?.image || previewQR?.image)}
-              className="flex items-center justify-center space-x-2 py-3 bg-white border-2 border-gray-200 text-gray-700 rounded-xl hover:bg-gray-50 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              className="p-2.5 bg-blue-100 text-blue-700 rounded-full hover:bg-blue-200 transition-colors"
+              title="Download QR Code"
             >
-              <Download className="w-4 h-4" />
-              <span>Download</span>
+              <Download className="w-5 h-5" />
             </button>
             <button 
               onClick={handleCopyText}
               disabled={!(qrData?.image || previewQR?.image)}
-              className="flex items-center justify-center space-x-2 py-3 bg-white border-2 border-blue-200 text-blue-700 rounded-xl hover:bg-blue-50 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              className="p-2.5 bg-purple-100 text-purple-700 rounded-full hover:bg-purple-200 transition-colors"
+              title="Copy QR Code"
             >
-              <Copy className="w-4 h-4" />
-              <span>Copy</span>
+              <Copy className="w-5 h-5" />
             </button>
             <button 
               onClick={handleShareQR}
               disabled={!(qrData?.image || previewQR?.image)}
-              className="flex items-center justify-center space-x-2 py-3 bg-white border-2 border-purple-200 text-purple-700 rounded-xl hover:bg-purple-50 transition-all duration-200 font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              className="p-2.5 bg-green-100 text-green-700 rounded-full hover:bg-green-200 transition-colors"
+              title="Share QR Code"
             >
-              <Share2 className="w-4 h-4" />
-              <span>Share</span>
+              <Share2 className="w-5 h-5" />
             </button>
             <button 
-              className="flex items-center justify-center space-x-2 py-3 bg-gradient-to-r from-green-600 to-blue-600 text-white rounded-xl hover:from-green-700 hover:to-blue-700 transition-all duration-200 font-medium"
               onClick={() => {
-                if ((qrData || previewQR)?.text) {
-                  window.open((qrData || previewQR).text, '_blank', 'noopener,noreferrer');
+                const url = qrData?.text || previewQR?.text;
+                if (url) {
+                  // Check if URL has protocol, add https:// if missing
+                  const formattedUrl = url.match(/^https?:\/\//) ? url : `https://${url}`;
+                  window.open(formattedUrl, '_blank', 'noopener,noreferrer');
                 } else {
-                  toast.info('Generate a QR code first to view details');
+                  toast.error('No URL available to visit');
                 }
               }}
+              disabled={!(qrData?.image || previewQR?.image)}
+              className="p-2.5 bg-amber-100 text-amber-700 rounded-full hover:bg-amber-200 transition-colors"
+              title="Visit URL"
             >
-              <Eye className="w-4 h-4" />
-              <span>View</span>
+              <Eye className="w-5 h-5" />
             </button>
           </div>
         </div>
@@ -546,4 +550,8 @@ function GeneralQR() {
   );
 }
 
+// Named export for potential direct imports
+export { GeneralQR };
+
+// Default export for backward compatibility
 export default GeneralQR;

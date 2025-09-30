@@ -8,6 +8,7 @@ import {
   X,
   RotateCcw,
   Users,
+  ChevronDown,
 } from "lucide-react";
 
 // Filter UI Component for Visitors - Matching Invitee Design
@@ -67,10 +68,11 @@ export const VisitorFiltersUI = ({
             {/* Status Filter - Compact */}
             <div className="relative w-32 sm:w-36 flex-shrink-0">
               <Filter className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <ChevronDown className="absolute right-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
               <select
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full pl-9 pr-2 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white text-sm transition-all duration-200"
+                className="w-full pl-9 pr-9 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white text-sm transition-all duration-200"
               >
                 <option value="all">All Status</option>
                 <option value="created">Created</option>
@@ -87,10 +89,11 @@ export const VisitorFiltersUI = ({
             {/* Date Filter - Compact */}
             <div className="relative w-28 sm:w-32 flex-shrink-0">
               <Calendar className="absolute left-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
+              <ChevronDown className="absolute right-2.5 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4 pointer-events-none" />
               <select
                 value={dateFilter}
                 onChange={(e) => setDateFilter(e.target.value)}
-                className="w-full pl-9 pr-2 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white text-sm transition-all duration-200"
+                className="w-full pl-9 pr-9 py-2 border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white text-sm transition-all duration-200"
               >
                 <option value="all">All Time</option>
                 <option value="today">Today</option>
