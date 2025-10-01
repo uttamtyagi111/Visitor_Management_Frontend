@@ -21,7 +21,7 @@ export const VisitorDesktopTable = ({
     <table className="w-full table-auto">
       <thead className="bg-gray-50/50 sticky top-0 z-10">
         <tr>
-          <th className="px-3 py-2 text-left text-sm font-bold text-gray-900 uppercase tracking-wider bg-gray-50/50 backdrop-blur-sm">
+          <th className="px-3 py-2 text-center text-sm font-bold text-gray-900 uppercase tracking-wider bg-gray-50/50 backdrop-blur-sm">
             Visitor
           </th>
           <th className="px-3 py-2 text-left text-sm font-bold text-gray-900 uppercase tracking-wider bg-gray-50/50 backdrop-blur-sm">
@@ -33,7 +33,7 @@ export const VisitorDesktopTable = ({
           <th className="px-3 py-2 text-left text-sm font-bold text-gray-900 uppercase tracking-wider bg-gray-50/50 backdrop-blur-sm">
             Check In
           </th>
-          <th className="px-3 py-2 text-left text-sm font-bold text-gray-900 uppercase tracking-wider bg-gray-50/50 backdrop-blur-sm">
+          <th className="px-3 py-2 text-center text-sm font-bold text-gray-900 uppercase tracking-wider bg-gray-50/50 backdrop-blur-sm">
             Actions
           </th>
         </tr>
