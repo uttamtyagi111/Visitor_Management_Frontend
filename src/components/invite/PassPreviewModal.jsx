@@ -19,9 +19,9 @@ const PassPreviewModal = ({ showPassPreview, selectedInvite, onClose, onInviteUp
     try {
       // First, check-in the visitor (only if not already checked in)
       if (selectedInvite.id && !hasCheckedIn && selectedInvite.status !== "checked_in") {
-        console.log('🎫 Checking in visitor after print pass...');
+        console.log('🎫 Checking in invitee after print pass...');
         await inviteeAPI.checkInVisitor(selectedInvite.id);
-        console.log('✅ Visitor checked in successfully');
+        console.log('✅ Invitee checked in successfully');
         setHasCheckedIn(true);
         
         // Notify parent component of the status update
@@ -53,12 +53,12 @@ const PassPreviewModal = ({ showPassPreview, selectedInvite, onClose, onInviteUp
         ctx.fillStyle = 'white';
         ctx.font = 'bold 24px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText('VISITOR PASS', canvas.width / 2, 50);
+        ctx.fillText('INVITEE PASS', canvas.width / 2, 50);
         
         ctx.font = '16px Arial';
         ctx.fillText('Wish Geeks Techserve', canvas.width / 2, 80);
         
-        // Add visitor image
+        // Add invitee image
         if (img) {
           const imgSize = 120;
           const imgX = (canvas.width - imgSize) / 2;
@@ -105,7 +105,7 @@ const PassPreviewModal = ({ showPassPreview, selectedInvite, onClose, onInviteUp
         ctx.fillStyle = 'white';
         ctx.font = 'bold 20px Arial';
         ctx.textAlign = 'center';
-        ctx.fillText(selectedInvite.visitor_name || 'Visitor', canvas.width / 2, 280);
+        ctx.fillText(selectedInvite.visitor_name || 'Invitee', canvas.width / 2, 280);
         
         ctx.font = '16px Arial';
         ctx.fillText(selectedInvite.visitor_email || '', canvas.width / 2, 310);
@@ -118,7 +118,7 @@ const PassPreviewModal = ({ showPassPreview, selectedInvite, onClose, onInviteUp
         
         // Download the pass
         const link = document.createElement('a');
-        link.download = `visitor-pass-${selectedInvite.visitor_name || 'visitor'}.png`;
+        link.download = `invite-pass-${selectedInvite.visitor_name || 'invitee'}.png`;
         link.href = canvas.toDataURL();
         link.click();
       };
@@ -154,9 +154,9 @@ const PassPreviewModal = ({ showPassPreview, selectedInvite, onClose, onInviteUp
     try {
       // Check-in the visitor (only if not already checked in)
       if (selectedInvite.id && !hasCheckedIn && selectedInvite.status !== "checked_in") {
-        console.log('🎫 Checking in visitor on Done button...');
+        console.log('🎫 Checking in invitee on Done button...');
         await inviteeAPI.checkInVisitor(selectedInvite.id);
-        console.log('✅ Visitor checked in successfully');
+        console.log('✅ Invitee checked in successfully');
         setHasCheckedIn(true);
         
         // Notify parent component of the status update
@@ -164,8 +164,8 @@ const PassPreviewModal = ({ showPassPreview, selectedInvite, onClose, onInviteUp
           onInviteUpdated({ ...selectedInvite, status: "checked_in" });
         }
       }
-      
-      toast.success('Visitor checked in successfully!');
+
+      toast.success('Invitee checked in successfully!');
     } catch (error) {
       console.error('Error updating status on done:', error);
       toast.error('Failed to update status. Please try again.');
@@ -197,7 +197,7 @@ const PassPreviewModal = ({ showPassPreview, selectedInvite, onClose, onInviteUp
             <h3 className="text-2xl font-bold text-gray-900">
               🎫 Pass Generated!
             </h3>
-            <p className="text-gray-600">Your visitor pass is ready</p>
+            <p className="text-gray-600">Your invitee pass is ready</p>
           </div>
           <button
             onClick={onClose}
@@ -211,7 +211,7 @@ const PassPreviewModal = ({ showPassPreview, selectedInvite, onClose, onInviteUp
         <div className="bg-gradient-to-br from-blue-600 to-purple-600 rounded-2xl p-6 text-white mb-6 shadow-lg">
           {/* Header - matches canvas */}
           <div className="text-center mb-4">
-            <h4 className="text-xl font-bold mb-1">VISITOR PASS</h4>
+            <h4 className="text-xl font-bold mb-1">INVITEE PASS</h4>
             <p className="text-blue-100 text-sm">Wish Geeks Techserve</p>
           </div>
 
@@ -284,7 +284,7 @@ const PassPreviewModal = ({ showPassPreview, selectedInvite, onClose, onInviteUp
             </div>
             <div>
               <p className="text-green-800 font-medium">Pass Ready!</p>
-              <p className="text-green-600 text-sm">You can now print the pass or mark the visitor as checked in.</p>
+              <p className="text-green-600 text-sm">You can now print the pass or mark the invitee as checked in.</p>
             </div>
           </div>
         </div>

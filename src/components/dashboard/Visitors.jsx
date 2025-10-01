@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { useAuth } from "../../contexts/AuthContext";
 import { useToast } from "../../contexts/ToastContext";
@@ -25,9 +25,21 @@ import { VisitorPagination } from "./steps/VisitorPagination";
 function Visitors() {
   const { user } = useAuth();
   const { toast } = useToast();
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // Initialize all state using the modular hook
   const state = useVisitorState();
+
+  // Enhanced refresh handler with animation
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await state.refreshData();
+    } finally {
+      // Keep spinning for a brief moment to show completion
+      setTimeout(() => setIsRefreshing(false), 300);
+    }
+  };
 
   // Initialize filters with client-side filtering like Invitees
   const filters = useVisitorFilters({
@@ -152,14 +164,18 @@ function Visitors() {
           </div>
           <div className="flex space-x-3">
             <button
-              onClick={actions.refreshData}
-              disabled={state.loading}
-              className="flex items-center space-x-2 px-4 py-2 bg-white/70 border border-gray-200 rounded-xl hover:bg-white hover:shadow-lg transition-all duration-200 disabled:opacity-50"
+              onClick={handleRefresh}
+              disabled={state.loading || isRefreshing}
+              className="flex items-center space-x-2 px-4 py-2 bg-white/70 border border-gray-200 rounded-xl hover:bg-white hover:shadow-lg transition-all duration-200 disabled:opacity-50 group"
             >
               <RefreshCw
-                className={`w-4 h-4 ${state.loading ? "animate-spin" : ""}`}
+                className={`w-4 h-4 transition-transform duration-300 ${
+                  state.loading || isRefreshing 
+                    ? "animate-spin" 
+                    : "group-hover:rotate-180"
+                }`}
               />
-              <span>Refresh</span>
+              <span>{state.loading || isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
             </button>
             <button className="flex items-center space-x-2 px-4 py-2 bg-white/70 border border-gray-200 rounded-xl hover:bg-white hover:shadow-lg transition-all duration-200">
               <Download className="w-4 h-4" />

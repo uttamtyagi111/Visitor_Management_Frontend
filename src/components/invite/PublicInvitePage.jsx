@@ -172,7 +172,7 @@ const PublicInvitePage = () => {
             </div>
             <h3 className="text-lg font-bold text-gray-900 mb-2">Capture Photo</h3>
             <p className="text-gray-600 text-sm">
-              Take or upload your photo for the visitor pass
+              Take or upload your photo for the visit pass
             </p>
           </div>
         </motion.div>

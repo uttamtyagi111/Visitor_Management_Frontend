@@ -194,7 +194,7 @@ const ReinviteModal = ({
               <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
                 <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
                   <User className="w-5 h-5 mr-2 text-gray-600" />
-                  Visitor Information
+                  Invitee Information
                 </h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>

@@ -1,15 +1,14 @@
-import React from "react";
-import { motion } from "framer-motion";
-import {
-  Search,
-  Filter,
+import React, { useState } from "react";
+import { 
+  Search, 
+  RefreshCw, 
+  QrCode, 
+  Plus, 
+  X, 
+  Filter, 
   Calendar,
-  Plus,
-  RefreshCw,
-  QrCode,
-  X,
   RotateCcw,
-  ChevronDown,
+  ChevronDown 
 } from "lucide-react";
 import { inviteeHelpers } from "../../api/invite.js";
 
@@ -25,6 +24,17 @@ const InviteFilters = ({
   setShowInviteForm,
   setShowInviteCodeModal,
 }) => {
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      await refreshData();
+    } finally {
+      // Keep spinning for a brief moment to show completion
+      setTimeout(() => setIsRefreshing(false), 300);
+    }
+  };
   return (
     <>
       {/* Header Section - Title and Action Buttons */}
@@ -42,12 +52,20 @@ const InviteFilters = ({
           {/* Action Buttons */}
           <div className="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-3">
             <button
-              onClick={refreshData}
-              disabled={loading}
-              className="flex items-center justify-center space-x-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all duration-200 disabled:opacity-50 text-sm font-medium"
+              onClick={handleRefresh}
+              disabled={loading || isRefreshing}
+              className="flex items-center justify-center space-x-2 px-4 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 transition-all duration-200 disabled:opacity-50 text-sm font-medium group"
             >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              <span className="hidden sm:inline">Refresh</span>
+              <RefreshCw 
+                className={`w-4 h-4 transition-transform duration-300 ${
+                  loading || isRefreshing 
+                    ? 'animate-spin' 
+                    : 'group-hover:rotate-180'
+                }`} 
+              />
+              <span className="hidden sm:inline">
+                {loading || isRefreshing ? 'Refreshing...' : 'Refresh'}
+              </span>
             </button>
             <button
               onClick={() => setShowInviteCodeModal(true)}

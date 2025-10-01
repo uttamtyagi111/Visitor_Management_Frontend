@@ -77,6 +77,17 @@ function Invitees() {
   const [formErrors, setFormErrors] = useState({});
   const [inviteFormErrors, setInviteFormErrors] = useState({});
   
+  // Data fetching function (defined before useInviteActions to avoid circular dependency)
+  const refreshData = useCallback(async () => {
+    try {
+      const data = await inviteeAPI.getInvites();
+      setInvites(data);
+    } catch (err) {
+      console.error("Error fetching invites:", err);
+      toast.error("Failed to fetch invitations");
+    }
+  }, []);
+  
   // Use the actions hook
   const {
     loading,
@@ -95,7 +106,7 @@ function Invitees() {
     clearMessages,
     setError,
     setSuccess,
-  } = useInviteActions();
+  } = useInviteActions(invites, refreshData);
 
   // Modal handlers
   const closeModal = () => {
@@ -205,16 +216,6 @@ function Invitees() {
     setShowPassPreview(true);
   };
 
-  // Data fetching
-  const refreshData = useCallback(async () => {
-    try {
-      const data = await inviteeAPI.getInvites();
-      setInvites(data);
-    } catch (err) {
-      console.error("Error fetching invites:", err);
-      toast.error("Failed to fetch invitations");
-    }
-  }, []);
 
   // Fetch invites on component mount
   useEffect(() => {
@@ -307,6 +308,7 @@ function Invitees() {
   // Status badge helper
   const getStatusBadge = (status) => {
     const statusConfig = {
+      created: { bg: "bg-gray-100", text: "text-gray-800", label: "Created" },
       pending: { bg: "bg-yellow-100", text: "text-yellow-800", label: "Pending" },
       approved: { bg: "bg-green-100", text: "text-green-800", label: "Approved" },
       rejected: { bg: "bg-red-100", text: "text-red-800", label: "Rejected" },

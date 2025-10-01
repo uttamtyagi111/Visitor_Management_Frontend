@@ -403,7 +403,7 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false, initialInviteCode = '',
       
       const blob = await response.blob();
       const fileType = blob.type && blob.type.startsWith('image/') ? blob.type : 'image/png';
-      const fileName = fileType === 'image/png' ? 'visitor-photo.png' : 'visitor-photo.jpg';
+      const fileName = fileType === 'image/png' ? 'invite-photo.png' : 'invite-photo.jpg';
       const file = new File([blob], fileName, { type: fileType, lastModified: Date.now() });
 
       // Set as captured image so the Complete button appears
@@ -443,7 +443,7 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false, initialInviteCode = '',
           
           const blob = await resp.blob();
           const type = blob.type && blob.type.startsWith('image/') ? blob.type : 'image/png';
-          const name = type === 'image/png' ? 'visitor-photo.png' : 'visitor-photo.jpg';
+          const name = type === 'image/png' ? 'invite-photo.png' : 'invite-photo.jpg';
           fileToUpload = new File([blob], name, { type, lastModified: Date.now() });
           console.log('✅ Successfully converted image to file:', name, blob.size, 'bytes');
         } catch (fetchError) {
@@ -462,8 +462,8 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false, initialInviteCode = '',
       if (resp?.invite?.image) {
         setInviteFormData({ ...inviteFormData, image: resp.invite.image });
       }
-      
-      setSuccess('Visitor data captured successfully!');
+
+      setSuccess('Invite data captured successfully!');
       setCurrentStep(4);
     } catch (e) {
       setError(inviteeHelpers.handleApiError(e));
@@ -493,11 +493,11 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false, initialInviteCode = '',
       }
 
       if (isAdmin) {
-        setSuccess('Visitor data captured successfully!');
+        setSuccess('Invite data captured successfully!');
         setCurrentStep(4);
       } else {
         // For public users, show a friendly completion/welcome step
-        setSuccess(isExistingVisitor ? 'Welcome back! Your visit is confirmed.' : 'Thanks! We have your image. Await admin approval.');
+        setSuccess(isExistingVisitor ? 'Welcome back! Your invite is confirmed.' : 'Thanks! We have your image. Await admin approval.');
         setCurrentStep(4);
       }
     } catch (error) {
@@ -507,17 +507,92 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false, initialInviteCode = '',
     }
   };
 
+  // Generate pass as canvas and convert to blob (similar to visitor approach)
+  const generatePassAsImage = async (inviteData) => {
+    try {
+      // Create canvas for the pass
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      
+      // Set canvas size
+      canvas.width = 400;
+      canvas.height = 600;
+      
+      // Create gradient background
+      const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+      gradient.addColorStop(0, '#2563eb');
+      gradient.addColorStop(1, '#7c3aed');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // Add company header
+      ctx.fillStyle = 'white';
+      ctx.font = 'bold 32px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillText('INVITE PASS', canvas.width / 2, 80);
+      
+      ctx.font = '18px Arial';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+      ctx.fillText('Wish Geeks Techserve', canvas.width / 2, 110);
+      
+      // Add visitor info
+      ctx.fillStyle = 'white';
+      ctx.font = 'bold 24px Arial';
+      ctx.textAlign = 'left';
+      ctx.fillText('Invite Information:', 60, 180);
+      
+      ctx.font = '20px Arial';
+      ctx.fillText(`Name: ${inviteData.visitor_name || 'Guest'}`, 60, 220);
+      ctx.fillText(`Email: ${inviteData.visitor_email || 'N/A'}`, 60, 250);
+      ctx.fillText(`Purpose: ${inviteData.purpose || 'Meeting'}`, 60, 280);
+      ctx.fillText(`Code: ${inviteData.invite_code || inviteCode}`, 60, 310);
+      
+      // Add visit details
+      ctx.font = 'bold 24px Arial';
+      ctx.fillText('Invite Details:', 60, 370);
+      
+      ctx.font = '20px Arial';
+      if (inviteData.visit_time) {
+        ctx.fillText(`Visit Time: ${new Date(inviteData.visit_time).toLocaleString()}`, 60, 410);
+      }
+      if (inviteData.expiry_time) {
+        ctx.fillText(`Expires: ${new Date(inviteData.expiry_time).toLocaleString()}`, 60, 440);
+      }
+      
+      // Add footer
+      ctx.font = '16px Arial';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+      ctx.fillText('Please present this pass at reception', canvas.width / 2, 520);
+      ctx.fillText(`Generated on: ${new Date().toLocaleString()}`, canvas.width / 2, 550);
+      
+      // Convert canvas to blob
+      return await new Promise(resolve => {
+        canvas.toBlob(blob => resolve(blob), 'image/png', 1.0);
+      });
+    } catch (error) {
+      console.error('Error generating pass:', error);
+      throw error;
+    }
+  };
+
   const handlePrintPass = async () => {
     if (loading) return; // Prevent multiple clicks
     setLoading(true);
     setError('');
 
     try {
-      // First, check-in the visitor (only if not already checked in)
+      // Generate pass file first
+      const passFile = await generatePassAsImage(inviteFormData);
+      
+      // Check-in the visitor with pass file (only if not already checked in)
       if (inviteId && !hasCheckedIn) {
-        console.log('🎫 Checking in visitor after print pass...');
-        await inviteeAPI.checkInVisitor(inviteId);
-        console.log('✅ Visitor checked in successfully');
+        console.log('🎫 Checking in invite with pass file...');
+        await inviteeAPI.updateInviteStatus(inviteId, 'checked_in', {
+          visit_time: new Date().toISOString(),
+          clearCheckedOut: true
+        }, passFile);
+        console.log('✅ Invite checked in successfully with pass');
         setHasCheckedIn(true);
         
         // Notify parent component of the status update
@@ -1004,7 +1079,12 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false, initialInviteCode = '',
               <Camera className="w-10 h-10 text-white" />
             </div>
             <h3 className="text-2xl font-bold text-gray-900 mb-4">Capture Your Photo</h3>
-            <p className="text-gray-600 mb-8">Take a photo or upload an existing one for your visitor pass</p>
+            <p className="text-gray-600 mb-8">
+              {isAdmin 
+                ? "Take a photo or upload an existing one for your visitor pass"
+                : "Take a photo with your camera for your visitor pass"
+              }
+            </p>
 
             {error && (
               <div className="mb-4 p-3 bg-red-100 border border-red-200 text-red-700 rounded-lg flex items-center space-x-2 max-w-md mx-auto">
@@ -1095,22 +1175,27 @@ const InviteModal = ({ isOpen, onClose, isAdmin = false, initialInviteCode = '',
                     <span>Take Photo with Camera</span>
                   </button>
                   
-                  <div className="flex items-center my-4">
-                    <hr className="flex-1 border-gray-300" />
-                    <span className="px-3 text-gray-500 text-sm">OR</span>
-                    <hr className="flex-1 border-gray-300" />
-                  </div>
+                  {/* Only show file upload option for admin users */}
+                  {isAdmin && (
+                    <>
+                      <div className="flex items-center my-4">
+                        <hr className="flex-1 border-gray-300" />
+                        <span className="px-3 text-gray-500 text-sm">OR</span>
+                        <hr className="flex-1 border-gray-300" />
+                      </div>
 
-                  <button 
-                    onClick={() => fileInputRef.current?.click()}
-                    className="w-full py-8 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-all duration-200"
-                    title="Upload"
-                    aria-label="Upload"
-                  >
-                    <Upload className="w-8 h-8 text-gray-400 mb-2" />
-                    <span className="sr-only">Upload from device or gallery</span>
-                    <p className="text-gray-400 text-sm">JPG, PNG up to 5MB</p>
-                  </button>
+                      <button 
+                        onClick={() => fileInputRef.current?.click()}
+                        className="w-full py-8 border-2 border-dashed border-gray-300 rounded-xl flex flex-col items-center justify-center cursor-pointer hover:border-blue-500 hover:bg-blue-50 transition-all duration-200"
+                        title="Upload"
+                        aria-label="Upload"
+                      >
+                        <Upload className="w-8 h-8 text-gray-400 mb-2" />
+                        <span className="sr-only">Upload from device or gallery</span>
+                        <p className="text-gray-400 text-sm">JPG, PNG up to 5MB</p>
+                      </button>
+                    </>
+                  )}
                 </div>
               )}
 

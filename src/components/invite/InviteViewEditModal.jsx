@@ -108,7 +108,7 @@ const InviteViewEditModal = ({
                     <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <h3 className="text-base font-medium text-gray-900 mb-3">
-                          Visitor Information
+                          Invitees Information
                         </h3>
                         <div className="space-y-3">
                           <div>
@@ -258,7 +258,8 @@ const InviteViewEditModal = ({
                           const getTimelineSteps = () => {
                             // Map status to display information
                             const statusMap = {
-                              'pending': { title: 'Invitation Sent', description: 'Invitation created and sent to visitor', icon: MailIcon, color: 'green' },
+                              'created': { title: 'Invitation Created', description: 'Invitation has been created', icon: MailIcon, color: 'blue' },
+                              'pending': { title: 'Invitation Pending', description: 'Invitation is pending approval', icon: ClockIcon, color: 'yellow' },
                               'approved': { title: 'Invitation Approved', description: 'Invitation approved by host', icon: CheckCircle, color: 'green' },
                               'rejected': { title: 'Invitation Rejected', description: 'Invitation was rejected', icon: XCircleIcon, color: 'red' },
                               'checked_in': { title: 'Visitor Checked In', description: 'Visitor arrived and checked in', icon: UserCheck, color: 'green' },
@@ -269,13 +270,41 @@ const InviteViewEditModal = ({
 
                             // Use API timeline data if available, otherwise fallback to current invite data
                             if (timelineData && timelineData.length > 0) {
-                              return timelineData.map((timelineItem, index) => {
+                              // Sort timeline data in descending order (most recent first) as additional safety
+                              const sortedTimelineData = [...timelineData].sort((a, b) => {
+                                const timeA = new Date(a.timestamp || a.created_at || a.date || a.time);
+                                const timeB = new Date(b.timestamp || b.created_at || b.date || b.time);
+                                return timeB - timeA; // Descending order (newest first)
+                              });
+                              
+                              console.log('📅 Timeline sorted for display (newest first):', 
+                                sortedTimelineData.map(item => ({
+                                  status: item.status,
+                                  time: item.timestamp || item.created_at || item.date || item.time
+                                }))
+                              );
+                              
+                              // First map the timeline data with actual timestamps
+                              const mappedTimelineData = sortedTimelineData.map((timelineItem, index) => {
                                 const statusInfo = statusMap[timelineItem.status] || statusMap['pending'];
+                                
+                                // For check-in/check-out, use actual times from report if available
+                                let actualTimestamp = timelineItem.created_at || timelineItem.timestamp;
+                                let enhancedDescription = timelineItem.notes || statusInfo.description;
+                                
+                                if (timelineItem.status === 'checked_in' && currentInvite.report?.check_in) {
+                                  actualTimestamp = currentInvite.report.check_in;
+                                  enhancedDescription = `Visitor actually checked in at ${new Date(currentInvite.report.check_in).toLocaleString()}`;
+                                } else if (timelineItem.status === 'checked_out' && currentInvite.report?.check_out) {
+                                  actualTimestamp = currentInvite.report.check_out;
+                                  enhancedDescription = `Visitor actually checked out at ${new Date(currentInvite.report.check_out).toLocaleString()}`;
+                                }
+                                
                                 return {
                                   status: timelineItem.status,
                                   title: statusInfo.title,
-                                  description: timelineItem.notes || statusInfo.description,
-                                  timestamp: timelineItem.created_at || timelineItem.timestamp,
+                                  description: enhancedDescription,
+                                  timestamp: actualTimestamp,
                                   icon: statusInfo.icon,
                                   completed: true,
                                   isRejected: timelineItem.status === 'rejected',
@@ -284,16 +313,35 @@ const InviteViewEditModal = ({
                                   updatedBy: timelineItem.updated_by,
                                   order: index + 1
                                 };
-                              }).sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+                              });
+                              
+                              // Then sort by the actual timestamps (newest first)
+                              const finalSortedTimeline = mappedTimelineData.sort((a, b) => {
+                                const timeA = new Date(a.timestamp);
+                                const timeB = new Date(b.timestamp);
+                                console.log('🔄 Sorting timeline items:', {
+                                  a: { status: a.status, time: a.timestamp, parsed: timeA },
+                                  b: { status: b.status, time: b.timestamp, parsed: timeB },
+                                  result: timeB - timeA
+                                });
+                                return timeB - timeA; // Descending order (newest first)
+                              });
+                              
+                              console.log('📅 Final timeline order:', finalSortedTimeline.map(item => ({
+                                status: item.status,
+                                timestamp: item.timestamp
+                              })));
+                              
+                              return finalSortedTimeline;
                             } else {
                               // Fallback to basic timeline based on current invite status
                               const fallbackSteps = [
                                 {
                                   status: 'pending',
-                                  title: 'Invitation Sent',
-                                  description: 'Invitation created and sent to visitor',
+                                  title: 'Invitation Pending',
+                                  description: 'Invitation is pending approval',
                                   timestamp: currentInvite.created_at,
-                                  icon: MailIcon,
+                                  icon: ClockIcon,
                                   completed: true,
                                   order: 1
                                 }
@@ -315,7 +363,8 @@ const InviteViewEditModal = ({
                                 });
                               }
 
-                              return fallbackSteps;
+                              // Sort fallback steps in descending order (newest first)
+                              return fallbackSteps.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
                             }
                           };
 
@@ -326,10 +375,10 @@ const InviteViewEditModal = ({
                           const isLast = index === timelineSteps.length - 1;
                           
                           return (
-                            <div key={step.status} className="relative">
-                              {/* Vertical Line */}
+                            <div key={step.status} className="relative pb-6">
+                              {/* Vertical Line - extends to next icon */}
                               {!isLast && (
-                                <div className={`absolute left-3 top-6 w-0.5 h-12 ${
+                                <div className={`absolute left-3 top-6 w-0.5 ${
                                   step.completed 
                                     ? step.isRejected 
                                       ? 'bg-red-400'
@@ -339,7 +388,10 @@ const InviteViewEditModal = ({
                                       ? 'bg-blue-400'
                                       : 'bg-green-400'
                                     : 'bg-gray-300'
-                                }`} />
+                                }`} 
+                                style={{ 
+                                  height: 'calc(100% - 12px)'
+                                }} />
                               )}
                               
                               {/* Step Content */}

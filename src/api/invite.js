@@ -138,31 +138,78 @@ class InviteeAPI {
     });
   }
 
-  // Update invite status (with optional check-in/check-out times)
-  async updateInviteStatus(id, status, options = {}) {
-    const payload = { status };
-    
-    // Add optional check-in time (visit_time)
-    if (options.visit_time) {
-      payload.visit_time = options.visit_time;
+  // Update invite status (with optional check-in/check-out times and pass file)
+  // Uses backend endpoint: /invites/<int:pk>/status/ (UpdateInviteStatusView)
+  async updateInviteStatus(id, status, options = {}, passFile = null) {
+    if (passFile) {
+      // Use FormData when pass file is included
+      const formData = new FormData();
+      formData.append('status', status);
+      
+      // Add optional check-in time (visit_time)
+      if (options.visit_time) {
+        formData.append('visit_time', options.visit_time);
+      }
+      
+      // Add optional check-out time
+      if (options.checked_out) {
+        formData.append('checked_out', options.checked_out);
+      }
+      
+      // Clear check-out time when checking in (for new visit session)
+      if (options.clearCheckedOut) {
+        formData.append('checked_out', '');
+      }
+      
+      // Clear both check-in and check-out times when status changes to created or reinvited
+      if (status === 'created' || status === 'reinvited') {
+        console.log('🔄 Clearing previous check-in/check-out times for status:', status);
+        formData.append('visit_time', '');
+        formData.append('checked_out', '');
+      }
+      
+      // Add pass file
+      formData.append('pass_file', passFile, 'pass.png');
+      
+      console.log('🔄 UpdateInviteStatus with pass file - using /status/ endpoint');
+      
+      return await this.makeRequest(`/invites/${id}/status/`, {
+        method: 'PATCH',
+        body: formData,
+      });
+    } else {
+      // Use JSON when no file
+      const payload = { status };
+      
+      // Add optional check-in time (visit_time)
+      if (options.visit_time) {
+        payload.visit_time = options.visit_time;
+      }
+      
+      // Add optional check-out time
+      if (options.checked_out) {
+        payload.checked_out = options.checked_out;
+      }
+      
+      // Clear check-out time when checking in (for new visit session)
+      if (options.clearCheckedOut) {
+        payload.checked_out = null;
+      }
+      
+      // Clear both check-in and check-out times when status changes to created or reinvited
+      if (status === 'created' || status === 'reinvited') {
+        console.log('🔄 Clearing previous check-in/check-out times for status:', status);
+        payload.visit_time = null;
+        payload.checked_out = null;
+      }
+      
+      console.log('🔄 UpdateInviteStatus payload:', payload);
+      
+      return await this.makeRequest(`/invites/${id}/status/`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
+      });
     }
-    
-    // Add optional check-out time
-    if (options.checked_out) {
-      payload.checked_out = options.checked_out;
-    }
-    
-    // Clear check-out time when checking in (for new visit session)
-    if (options.clearCheckedOut) {
-      payload.checked_out = null;
-    }
-    
-    console.log('🔄 UpdateInviteStatus payload:', payload);
-    
-    return await this.makeRequest(`/invites/${id}/status/`, {
-      method: 'PATCH',
-      body: JSON.stringify(payload),
-    });
   }
 
   // Check-in visitor (sets status to checked_in with current time and clears previous check-out)
@@ -182,38 +229,42 @@ class InviteeAPI {
     });
   }
 
-  // Verify invite by code (Public access - no auth required)
-  async verifyInvite(inviteCode) {
+  // Verify invite code (No auth required)
+  // Uses backend endpoint: /invites/verify/ (VerifyInviteView)
+  async verifyInviteCode(inviteCode) {
     return await this.makeRequest('/invites/verify/', {
       method: 'POST',
       body: JSON.stringify({ invite_code: inviteCode }),
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
         // No Authorization header for public access
       }
     });
   }
 
-  // Capture visitor data (image upload or server-side fetch via image_url)
-  async captureVisitorData(inviteCode, imageFile, passImageFile = null, imageUrl = null) {
-    console.log('captureVisitorData called with:', { inviteCode, hasImageFile: !!imageFile, passImageFile, imageUrl });
+  // Alias for backward compatibility
+  async verifyInvite(inviteCode) {
+    return await this.verifyInviteCode(inviteCode);
+  }
+
+  // Capture visitor data (image upload only - NO status change, NO pass file)
+  // Uses backend endpoint: /invites/capture/ (CaptureinviteDataView)
+  async captureVisitorData(inviteCode, imageFile, imageUrl = null) {
+    console.log('captureVisitorData called with:', { inviteCode, hasImageFile: !!imageFile, imageUrl });
     
     const formData = new FormData();
     formData.append('invite_code', inviteCode);
+    
     if (imageFile) {
       formData.append('image', imageFile);
     }
     if (imageUrl) {
       formData.append('image_url', imageUrl);
     }
-    
-    if (passImageFile) {
-      formData.append('pass_image', passImageFile);
-    }
 
     // Log FormData contents
     for (let [key, value] of formData.entries()) {
-      console.log('FormData:', key, value);
+      console.log('captureVisitorData FormData:', key, value);
     }
 
     try {
@@ -231,9 +282,34 @@ class InviteeAPI {
     }
   }
 
-  // Get invite timeline data
+  // Get invite timeline data (sorted by most recent first)
   async getInviteTimeline(inviteId) {
-    return await this.makeRequest(`/invites/${inviteId}/timeline/`);
+    try {
+      console.log('API: Getting timeline for invite:', inviteId);
+      const result = await this.makeRequest(`/invites/${inviteId}/timeline/`);
+      
+      // Sort timeline entries by timestamp in descending order (most recent first)
+      if (Array.isArray(result)) {
+        const sortedTimeline = result.sort((a, b) => {
+          // Try different timestamp field names that might be used
+          const timeA = new Date(a.timestamp || a.created_at || a.date || a.time);
+          const timeB = new Date(b.timestamp || b.created_at || b.date || b.time);
+          return timeB - timeA; // Descending order (newest first)
+        });
+        
+        console.log('API: Timeline sorted (newest first):', sortedTimeline.length, 'entries');
+        console.log('📅 Timeline order:', sortedTimeline.map(item => ({
+          status: item.status || item.action,
+          time: item.timestamp || item.created_at || item.date || item.time
+        })));
+        return sortedTimeline;
+      }
+      
+      return result || [];
+    } catch (error) {
+      console.error('Error fetching timeline:', error);
+      throw error;
+    }
   }
 
   // Reinvite with updated details

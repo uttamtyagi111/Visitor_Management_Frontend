@@ -134,18 +134,25 @@ const InviteTable = ({
                 </td>
                 <td className="px-3 py-2">
                   <div className="space-y-1">
-                    <p className="font-medium text-gray-900 text-xs">
+                    {/* Show scheduled time - emphasize for created/reinvited status */}
+                    <p className={`text-xs ${(invite.status === 'created' || invite.status === 'reinvited') ? 'text-indigo-600 font-medium' : 'font-medium text-gray-900'}`}>
                       <span className="text-gray-500">Scheduled:</span> {inviteeHelpers.formatDateTime(invite.visit_time)}
                     </p>
-                    {invite.report?.check_in && (
-                      <p className="text-green-600 text-xs">
-                        <span className="text-gray-500">Checked In:</span> {inviteeHelpers.formatDateTime(invite.report.check_in)}
-                      </p>
-                    )}
-                    {invite.report?.check_out && invite.status !== "checked_in" && (
-                      <p className="text-blue-600 text-xs">
-                        <span className="text-gray-500">Checked Out:</span> {inviteeHelpers.formatDateTime(invite.report.check_out)}
-                      </p>
+                    
+                    {/* Only show check-in/check-out times for visitors who have actually checked in */}
+                    {(invite.status === 'checked_in' || invite.status === 'checked_out') && (
+                      <>
+                        {invite.report?.check_in && (
+                          <p className="text-green-600 text-xs">
+                            <span className="text-gray-500">Checked In:</span> {inviteeHelpers.formatDateTime(invite.report.check_in)}
+                          </p>
+                        )}
+                        {invite.report?.check_out && invite.status === "checked_out" && (
+                          <p className="text-blue-600 text-xs">
+                            <span className="text-gray-500">Checked Out:</span> {inviteeHelpers.formatDateTime(invite.report.check_out)}
+                          </p>
+                        )}
+                      </>
                     )}
                   </div>
                 </td>
@@ -206,7 +213,7 @@ const InviteTable = ({
                     {/* Pass generation button for approved invites */}
                     {invite.status === "approved" && (
                       <button
-                        onClick={() => openPassPreview(invite)}
+                        onClick={() => handleStatusUpdate(invite.id, "checked_in")}
                         disabled={loading}
                         className="px-3 py-1 bg-blue-100 text-blue-800 rounded-lg hover:bg-blue-200 transition-colors duration-200 text-sm disabled:opacity-50"
                       >

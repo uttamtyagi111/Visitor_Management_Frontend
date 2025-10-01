@@ -69,7 +69,7 @@ export const ToastProvider = ({ children }) => {
     setToasts(prev => [...prev, newToast]);
 
     // Auto remove after duration (default 5 seconds)
-    const duration = toast.duration || 5000;
+    const duration = toast.duration || 3000;
     if (duration > 0) {
       setTimeout(() => {
         removeToast(id);

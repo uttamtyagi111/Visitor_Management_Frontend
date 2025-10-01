@@ -116,27 +116,34 @@ const InviteMobileCards = ({
                     {invite.purpose}
                   </span>
                 </div>
+                {/* Show scheduled time - emphasize for created/reinvited status */}
                 <div className="flex justify-between">
                   <span className="text-gray-500">Scheduled:</span>
-                  <span className="text-gray-900 font-medium text-right">
+                  <span className={`font-medium text-right ${(invite.status === 'created' || invite.status === 'reinvited') ? 'text-indigo-600' : 'text-gray-900'}`}>
                     {inviteeHelpers.formatDateTime(invite.visit_time)}
                   </span>
                 </div>
-                {invite.report?.check_in && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Checked In:</span>
-                    <span className="text-green-600 font-medium text-right">
-                      {inviteeHelpers.formatDateTime(invite.report.check_in)}
-                    </span>
-                  </div>
-                )}
-                {invite.report?.check_out && invite.status !== "checked_in" && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">Checked Out:</span>
-                    <span className="text-blue-600 font-medium text-right">
-                      {inviteeHelpers.formatDateTime(invite.report.check_out)}
-                    </span>
-                  </div>
+                
+                {/* Only show check-in/check-out times for visitors who have actually checked in */}
+                {(invite.status === 'checked_in' || invite.status === 'checked_out') && (
+                  <>
+                    {invite.report?.check_in && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Checked In:</span>
+                        <span className="text-green-600 font-medium text-right">
+                          {inviteeHelpers.formatDateTime(invite.report.check_in)}
+                        </span>
+                      </div>
+                    )}
+                    {invite.report?.check_out && invite.status === "checked_out" && (
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">Checked Out:</span>
+                        <span className="text-blue-600 font-medium text-right">
+                          {inviteeHelpers.formatDateTime(invite.report.check_out)}
+                        </span>
+                      </div>
+                    )}
+                  </>
                 )}
                 {invite.created_at && (
                   <div className="flex justify-between">
@@ -213,7 +220,7 @@ const InviteMobileCards = ({
                   {/* Pass generation button for approved invites */}
                   {invite.status === "approved" && (
                     <button
-                      onClick={() => openPassPreview(invite)}
+                      onClick={() => handleStatusUpdate(invite.id, "checked_in")}
                       disabled={loading}
                       className="flex items-center space-x-1 px-3 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition-colors duration-200 text-sm disabled:opacity-50 font-medium"
                     >
