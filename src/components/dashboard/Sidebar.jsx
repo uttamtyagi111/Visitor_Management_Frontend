@@ -73,18 +73,24 @@ function Sidebar({ isMobile = false, sidebarOpen = false, setSidebarOpen = () =>
                 transition={{ duration: 0.2 }}
                 className="flex items-center space-x-3"
               >
-                <div className="w-12 h-12 border-2 border-black-500 rounded-xl flex items-center justify-center overflow-hidden bg-white">
-                  <img
-                    src="https://visitorsmanagement.s3.ap-southeast-2.amazonaws.com/assests/image+2100.png"
-                    alt="Techserve Logo"
-                    className="w-10 h-10 object-contain"
-                  />
-                </div>
+                <Link 
+                  to="/dashboard" 
+                  className="flex items-center space-x-3 hover:opacity-80 transition-opacity"
+                  onClick={handleNavClick}
+                >
+                  <div className="w-12 h-12 border-2 border-black-500 rounded-xl flex items-center justify-center overflow-hidden bg-white">
+                    <img
+                      src="https://visitorsmanagement.s3.ap-southeast-2.amazonaws.com/assests/image+2100.png"
+                      alt="Techserve Logo"
+                      className="w-10 h-10 object-contain"
+                    />
+                  </div>
 
-                <div>
-                  <h1 className="text-black font-bold text-lg">Visitor</h1>
-                  <p className="text-black-400 text-xs">Management System</p>
-                </div>
+                  <div>
+                    <h1 className="text-black font-bold text-lg">Visitor</h1>
+                    <p className="text-black-400 text-xs">Management System</p>
+                  </div>
+                </Link>
               </motion.div>
             )}
           </AnimatePresence>

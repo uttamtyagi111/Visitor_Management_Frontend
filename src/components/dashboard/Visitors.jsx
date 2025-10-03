@@ -177,10 +177,10 @@ function Visitors() {
               />
               <span>{state.loading || isRefreshing ? 'Refreshing...' : 'Refresh'}</span>
             </button>
-            <button className="flex items-center space-x-2 px-4 py-2 bg-white/70 border border-gray-200 rounded-xl hover:bg-white hover:shadow-lg transition-all duration-200">
+            {/* <button className="flex items-center space-x-2 px-4 py-2 bg-white/70 border border-gray-200 rounded-xl hover:bg-white hover:shadow-lg transition-all duration-200">
               <Download className="w-4 h-4" />
               <span>Export</span>
-            </button>
+            </button> */}
           </div>
         </div>
 
