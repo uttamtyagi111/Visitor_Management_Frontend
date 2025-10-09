@@ -263,8 +263,8 @@ export const useVisitorPassGenerator = ({
         }
 
         // Call API to update visitor with pass file
-        await visitorAPI.updateVisitorStatus(visitorId, "checked_in", passFile);
         await visitorAPI.updateVisitor(visitorId, updateData, null, passFile);
+        await visitorAPI.updateVisitorStatus(visitorId, "checked_in", passFile);
       } catch (err) {
         console.error("Error generating pass:", err);
         setError(err.message);

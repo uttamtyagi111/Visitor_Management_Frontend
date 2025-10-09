@@ -106,31 +106,57 @@ const VisitorRegistration = () => {
         console.log('🖼️ No captured image - will use existing image or skip');
       }
       
-      // Prepare update data based on visitor type
+      // Prepare update data - Smart status update logic to avoid duplicates
       let updateData;
       let successMessage;
       
       if (existingVisitor.status === 'revisit') {
-        // For returning visitors: keep revisit status, just update image/data
-        updateData = {
-          ...formData,
-          status: 'revisit' // Keep revisit status for returning visitors
-        };
-        successMessage = "Welcome back! Your visit has been registered successfully.";
+        // For returning visitors
+        if (capturedImage) {
+          // Scenario: Returning + new image
+          // Backend already set status to 'pending' when image was uploaded, don't override
+          updateData = {
+            ...formData
+            // Don't set status - backend already updated it to 'pending' when image was uploaded
+          };
+          successMessage = "Welcome back! Your visit has been registered and is pending approval.";
+        } else {
+          // Scenario: Returning + existing image  
+          // Backend made no status change, frontend needs to set status to 'pending'
+          updateData = {
+            ...formData,
+            status: 'pending' // Frontend sets status to 'pending' for approval workflow
+          };
+          successMessage = "Welcome back! Your visit has been registered and is pending approval.";
+        }
       } else {
-        // For new visitors: change status from 'created' to 'pending' (creates new timeline entry)
+        // Scenario: New visitor
+        // Frontend always sets status from 'created' to 'pending'
         updateData = {
           ...formData,
           status: 'pending' // Change from 'created' to 'pending' for new visitors
         };
-        successMessage = "Registration completed successfully! Welcome to our facility.";
+        successMessage = "Registration completed successfully! Your visit is pending approval.";
       }
+
+      // Debug status update logic
+      console.log('🔄 Smart Status Update Logic:', {
+        currentStatus: existingVisitor.status,
+        hasNewImage: !!capturedImage,
+        willUpdateStatus: !!updateData.status,
+        scenario: existingVisitor.status === 'revisit' 
+          ? (capturedImage ? 'Returning + new image (Backend handled status)' : 'Returning + existing image (Frontend handles status)')
+          : 'New visitor (Frontend handles status)',
+        statusInPayload: updateData.status || 'NOT_SET (Backend already updated)',
+        expectedResult: 'Single timeline entry'
+      });
 
       // Debug what we're sending to API
       console.log('🚀 About to call updateVisitor API with:', {
         visitorId: visitorId,
         updateData: updateData,
         capturedImageExists: !!capturedImage,
+        statusInPayload: updateData.status || 'NOT_SET',
         capturedImageDetails: capturedImage ? {
           size: capturedImage.size,
           type: capturedImage.type,
