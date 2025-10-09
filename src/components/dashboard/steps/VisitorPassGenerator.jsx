@@ -238,9 +238,8 @@ export const useVisitorPassGenerator = ({
           { type: "image/png" }
         );
 
-        // Prepare update data with check-in information
+        // Prepare update data with check-in information (without status)
         const updateData = {
-          status: "checked_in",
           pass_generated: true,
           checkInTime,
           hostName: user?.name || "System",
@@ -250,21 +249,22 @@ export const useVisitorPassGenerator = ({
           issued_by: user?.id || "System",
         };
 
-        // Optimistic UI update
+        // Optimistic UI update (include status for UI)
+        const uiUpdateData = { ...updateData, status: "checked_in" };
         setVisitors((prevVisitors) =>
           prevVisitors.map((v) =>
-            v.id === visitorId ? { ...v, ...updateData } : v
+            v.id === visitorId ? { ...v, ...uiUpdateData } : v
           )
         );
 
         // Update selected visitor if it's the same one
         if (selectedVisitor && selectedVisitor.id === visitorId) {
-          setSelectedVisitor((prev) => ({ ...prev, ...updateData }));
+          setSelectedVisitor((prev) => ({ ...prev, ...uiUpdateData }));
         }
 
-        // Call API to update visitor with pass file
+        // Call APIs separately: data update + status update
         await visitorAPI.updateVisitor(visitorId, updateData, null, passFile);
-        await visitorAPI.updateVisitorStatus(visitorId, "checked_in", passFile);
+        await visitorAPI.updateVisitorStatus(visitorId, "checked_in");
       } catch (err) {
         console.error("Error generating pass:", err);
         setError(err.message);

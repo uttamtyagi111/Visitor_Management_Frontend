@@ -106,57 +106,83 @@ const VisitorRegistration = () => {
         console.log('🖼️ No captured image - will use existing image or skip');
       }
       
-      // Prepare update data - Smart status update logic to avoid duplicates
+      // Prepare update data - Clean API separation (no status in updateData)
       let updateData;
       let successMessage;
+      let shouldUpdateStatus = false;
+      let newStatus = null;
       
       if (existingVisitor.status === 'revisit') {
-        // For returning visitors
+        // For returning visitors - clear previous visit session times
+        updateData = {
+          ...formData,
+          // Clear previous check-in/out times for fresh visit session
+          checkInTime: null,
+          checkOutTime: null,
+          checkedInAt: null,
+          checkedOutAt: null,
+          checkedInBy: null,
+          checkedOutBy: null,
+          check_in: null,
+          check_out: null
+          // Never include status - use dedicated updateVisitorStatus API
+        };
+        
         if (capturedImage) {
           // Scenario: Returning + new image
-          // Backend already set status to 'pending' when image was uploaded, don't override
-          updateData = {
-            ...formData
-            // Don't set status - backend already updated it to 'pending' when image was uploaded
-          };
+          // Backend already set status to 'pending' when image was uploaded
+          shouldUpdateStatus = false; // Backend already handled status
           successMessage = "Welcome back! Your visit has been registered and is pending approval.";
         } else {
           // Scenario: Returning + existing image  
-          // Backend made no status change, frontend needs to set status to 'pending'
-          updateData = {
-            ...formData,
-            status: 'pending' // Frontend sets status to 'pending' for approval workflow
-          };
+          // Need to update status to 'pending' using status API
+          shouldUpdateStatus = true;
+          newStatus = 'pending';
           successMessage = "Welcome back! Your visit has been registered and is pending approval.";
         }
       } else {
         // Scenario: New visitor
-        // Frontend always sets status from 'created' to 'pending'
+        // Always need to update status from 'created' to 'pending'
         updateData = {
           ...formData,
-          status: 'pending' // Change from 'created' to 'pending' for new visitors
+          // Ensure new visitors start with clean visit session
+          checkInTime: null,
+          checkOutTime: null,
+          checkedInAt: null,
+          checkedOutAt: null,
+          checkedInBy: null,
+          checkedOutBy: null,
+          check_in: null,
+          check_out: null
+          // Never include status - use dedicated updateVisitorStatus API
         };
+        shouldUpdateStatus = true;
+        newStatus = 'pending';
         successMessage = "Registration completed successfully! Your visit is pending approval.";
       }
 
-      // Debug status update logic
-      console.log('🔄 Smart Status Update Logic:', {
+      // Debug clean API separation logic
+      console.log('🔄 Clean API Separation + Visit Session Reset:', {
         currentStatus: existingVisitor.status,
         hasNewImage: !!capturedImage,
-        willUpdateStatus: !!updateData.status,
+        shouldUpdateStatus: shouldUpdateStatus,
+        newStatus: newStatus,
         scenario: existingVisitor.status === 'revisit' 
-          ? (capturedImage ? 'Returning + new image (Backend handled status)' : 'Returning + existing image (Frontend handles status)')
-          : 'New visitor (Frontend handles status)',
-        statusInPayload: updateData.status || 'NOT_SET (Backend already updated)',
-        expectedResult: 'Single timeline entry'
+          ? (capturedImage ? 'Returning + new image (Backend handled status)' : 'Returning + existing image (Use status API)')
+          : 'New visitor (Use status API)',
+        apiCalls: shouldUpdateStatus ? 'updateVisitor() + updateVisitorStatus()' : 'updateVisitor() only',
+        visitSessionReset: 'Clearing previous check-in/out times for fresh session',
+        expectedResult: 'Single timeline entry + Clean visit session'
       });
 
-      // Debug what we're sending to API
-      console.log('🚀 About to call updateVisitor API with:', {
+      // Debug what we're sending to APIs
+      console.log('🚀 About to call APIs:', {
         visitorId: visitorId,
         updateData: updateData,
         capturedImageExists: !!capturedImage,
-        statusInPayload: updateData.status || 'NOT_SET',
+        statusInUpdateData: 'NEVER (clean separation)',
+        willCallStatusAPI: shouldUpdateStatus,
+        statusForStatusAPI: newStatus || 'N/A',
         capturedImageDetails: capturedImage ? {
           size: capturedImage.size,
           type: capturedImage.type,
@@ -184,22 +210,39 @@ const VisitorRegistration = () => {
         } : 'null (will keep existing image)'
       });
       
-      // Call updateVisitor API with image (or null)
+      // 1️⃣ Call updateVisitor API with image and data (no status)
       const response = await visitorAPI.updateVisitor(visitorId, updateData, imageToSend);
       
       console.log('✅ UpdateVisitor API response:', response);
-      console.log('✅ Final visitor status:', response.status);
       console.log('✅ Image URL in response:', response.image);
-      console.log('✅ Image URL type:', typeof response.image);
-      console.log('✅ Has image URL:', !!response.image);
-      console.log('✅ Full response object:', JSON.stringify(response, null, 2));
+      
+      // 2️⃣ Call updateVisitorStatus API if needed (clean separation)
+      let finalResponse = response;
+      if (shouldUpdateStatus) {
+        console.log('🔄 Calling updateVisitorStatus API:', { visitorId, newStatus });
+        finalResponse = await visitorAPI.updateVisitorStatus(visitorId, newStatus);
+        console.log('✅ UpdateVisitorStatus API response:', finalResponse);
+      }
+      
+      console.log('✅ Final visitor status:', finalResponse.status);
+      console.log('✅ Full response object:', JSON.stringify(finalResponse, null, 2));
       
       // Update stored visitor data with response
       setExistingVisitor(response);
       
-      // Set flag to refresh visitor list when user navigates back
+      // Trigger visitor list refresh using custom event and localStorage
       localStorage.setItem('visitor_registered', Date.now().toString());
-      console.log('✅ Set visitor_registered flag for list refresh');
+      
+      // Dispatch custom event for immediate refresh (same tab)
+      window.dispatchEvent(new CustomEvent('visitorRegistered', { 
+        detail: { 
+          visitorId: visitorId, 
+          clearedCheckInOut: true,
+          finalResponse: finalResponse 
+        } 
+      }));
+      
+      console.log('✅ Set visitor_registered flag and dispatched custom event for list refresh');
       
       // Show success message
       toast.success(successMessage);

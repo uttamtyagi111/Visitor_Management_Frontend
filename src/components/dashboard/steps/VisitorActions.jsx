@@ -56,10 +56,9 @@ export const useVisitorActions = ({
         const existingVisitor = visitors.find((v) => v.id === visitorId);
         const now = new Date().toISOString();
 
-        // 2️⃣ Prepare updated visitor data for updateVisitor API
+        // 2️⃣ Prepare updated visitor data for updateVisitor API (without status)
         const updateData = {
           ...existingVisitor, // preserve existing fields
-          status: newStatus,
           host:
             existingVisitor?.host ||
             existingVisitor?.hostName ||
@@ -91,26 +90,28 @@ export const useVisitorActions = ({
           }
         }
 
-        // 3️⃣ Optimistic update in frontend state
+        // 3️⃣ Optimistic update in frontend state (include status for UI)
+        const uiUpdateData = { ...updateData, status: newStatus };
         setVisitors((prev) =>
           prev.map((v) =>
-            v.id === visitorId ? { ...v, ...updateData, updated_at: now } : v
+            v.id === visitorId ? { ...v, ...uiUpdateData, updated_at: now } : v
           )
         );
         if (selectedVisitor?.id === visitorId) {
           setSelectedVisitor((prev) => ({
             ...prev,
-            ...updateData,
+            ...uiUpdateData,
             updated_at: now,
           }));
         }
 
-        // 4️⃣ Call updateVisitor API to save host/check-in/out info
+        // 4️⃣ Call updateVisitor API to save host/check-in/out info (no status included)
         const visitorPayload = {
           ...updateData,
           issued_by: user?.id || "System",
         };
         await visitorAPI.updateVisitor(visitorId, visitorPayload);
+        
         // 5️⃣ Call updateVisitorStatus API to update status and trigger email
         await visitorAPI.updateVisitorStatus(visitorId, newStatus);
         

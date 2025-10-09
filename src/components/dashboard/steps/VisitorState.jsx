@@ -102,19 +102,28 @@ export const useVisitorState = () => {
   useEffect(() => {
     const handleStorageChange = (e) => {
       if (e.key === 'visitor_registered' && e.newValue) {
-        console.log('New visitor registered - refreshing visitor data');
+        console.log('New visitor registered via storage - refreshing visitor data');
         refreshData();
         // Clear the flag
         localStorage.removeItem('visitor_registered');
       }
     };
 
+    // Listen for custom event (same tab)
+    const handleVisitorRegistered = (e) => {
+      console.log('New visitor registered via custom event - refreshing visitor data', e.detail);
+      refreshData();
+      // Clear the flag
+      localStorage.removeItem('visitor_registered');
+    };
+
     window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('visitorRegistered', handleVisitorRegistered);
     
     // Also check for the flag on component mount/focus
     const checkRegistrationFlag = () => {
       if (localStorage.getItem('visitor_registered')) {
-        console.log('Found visitor registration flag - refreshing data');
+        console.log('Found visitor registration flag on mount - refreshing data');
         refreshData();
         localStorage.removeItem('visitor_registered');
       }
@@ -124,6 +133,7 @@ export const useVisitorState = () => {
 
     return () => {
       window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('visitorRegistered', handleVisitorRegistered);
     };
   }, []); // Remove refreshData dependency to prevent infinite loop
 
